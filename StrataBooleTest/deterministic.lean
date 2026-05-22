@@ -4,7 +4,7 @@
   SPDX-License-Identifier: Apache-2.0 OR MIT
 -/
 
-import Strata.MetaVerifier
+import StrataBoole.MetaVerifier
 
 open Strata
 
@@ -44,17 +44,19 @@ procedure Check(x1:int, x2:int) returns ()
 
 #end
 
-/-- info:
-Obligation: Foo_ensures_0_251
+/--
+info:
+Obligation: Foo_ensures_0_256
 Property: assert
 Result: ✅ pass
 
-Obligation: assert_1_557
+Obligation: assert_1_562
 Property: assert
-Result: ✅ pass-/
+Result: ✅ pass
+-/
 #guard_msgs in
 #eval Strata.Boole.verify "cvc5" deterministic (options := .quiet)
 
-example : Strata.smtVCsCorrect deterministic := by
-  gen_smt_vcs
+example : Strata.smtVCsCorrectBoole deterministic := by
+  gen_smt_vcs_boole
   all_goals (try grind)

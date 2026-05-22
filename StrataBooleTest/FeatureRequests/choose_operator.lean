@@ -4,7 +4,7 @@
   SPDX-License-Identifier: Apache-2.0 OR MIT
 -/
 
-import Strata.MetaVerifier
+import StrataBoole.MetaVerifier
 
 open Strata
 
@@ -48,13 +48,15 @@ spec {
 };
 #end
 
-/-- info:
-Obligation: choose_seed_ensures_1_1077
+/--
+info:
+Obligation: choose_seed_ensures_1_1082
 Property: assert
-Result: ✅ pass-/
+Result: ✅ pass
+-/
 #guard_msgs in
 #eval Strata.Boole.verify "cvc5" chooseOperatorSeed (options :=.quiet)
 
-example : Strata.smtVCsCorrect chooseOperatorSeed := by
-  gen_smt_vcs
+example : Strata.smtVCsCorrectBoole chooseOperatorSeed := by
+  gen_smt_vcs_boole
   all_goals (try grind)

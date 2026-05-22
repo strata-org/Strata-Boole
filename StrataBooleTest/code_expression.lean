@@ -4,7 +4,7 @@
   SPDX-License-Identifier: Apache-2.0 OR MIT
 -/
 
-import Strata.MetaVerifier
+import StrataBoole.MetaVerifier
 
 open Strata
 
@@ -70,6 +70,6 @@ procedure D(a : (Map int T), n : int) returns ()
 #guard_msgs (drop info) in
 #eval Strata.Boole.verify "cvc5" code_expression
 
-example : Strata.smtVCsCorrect code_expression := by
-  gen_smt_vcs
+example : Strata.smtVCsCorrectBoole code_expression := by
+  gen_smt_vcs_boole
   all_goals (try grind)

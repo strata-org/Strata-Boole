@@ -4,7 +4,7 @@
   SPDX-License-Identifier: Apache-2.0 OR MIT
 -/
 
-import Strata.MetaVerifier
+import StrataBoole.MetaVerifier
 
 open Strata
 
@@ -48,16 +48,17 @@ spec {
 };
 #end
 
-/-- info:
-Obligation: assert_1_1159
+/--
+info:
+Obligation: assert_1_1164
 Property: assert
 Result: ✅ pass
 
-Obligation: assert_assert_2_1190_calls_OptionInt..val_0
+Obligation: assert_assert_2_1195_calls_OptionInt..val_0
 Property: assert
 Result: ✅ pass
 
-Obligation: assert_2_1190
+Obligation: assert_2_1195
 Property: assert
 Result: ✅ pass
 
@@ -65,12 +66,13 @@ Obligation: set_ok_calls_OptionInt..val_0
 Property: assert
 Result: ✅ pass
 
-Obligation: datatype_selector_seed_ensures_0_1103
+Obligation: datatype_selector_seed_ensures_0_1108
 Property: assert
-Result: ✅ pass-/
+Result: ✅ pass
+-/
 #guard_msgs in
 #eval Strata.Boole.verify "cvc5" datatypeSelectorsSeed (options := .quiet)
 
-example : Strata.smtVCsCorrect datatypeSelectorsSeed := by
-  gen_smt_vcs
+example : Strata.smtVCsCorrectBoole datatypeSelectorsSeed := by
+  gen_smt_vcs_boole
   all_goals (try grind)

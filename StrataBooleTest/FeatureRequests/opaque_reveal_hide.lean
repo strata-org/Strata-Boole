@@ -4,7 +4,7 @@
   SPDX-License-Identifier: Apache-2.0 OR MIT
 -/
 
-import Strata.MetaVerifier
+import StrataBoole.MetaVerifier
 
 open Strata
 
@@ -60,6 +60,6 @@ procedure opaque_reveal_hide_seed(x: int) returns ()
 #guard_msgs (drop info) in
 #eval Strata.Boole.verify "cvc5" opaqueRevealHideSeed
 
-example : Strata.smtVCsCorrect opaqueRevealHideSeed := by
-  gen_smt_vcs
+example : Strata.smtVCsCorrectBoole opaqueRevealHideSeed := by
+  gen_smt_vcs_boole
   all_goals (try grind)

@@ -4,7 +4,7 @@
   SPDX-License-Identifier: Apache-2.0 OR MIT
 -/
 
-import Strata.MetaVerifier
+import StrataBoole.MetaVerifier
 
 ------------------------------------------------------------
 namespace Strata
@@ -57,6 +57,6 @@ spec
 #guard_msgs in
 #eval Strata.Boole.verify "cvc5" hornerPgm (options := .quiet)
 
-example : Strata.smtVCsCorrect hornerPgm := by
-  gen_smt_vcs
+example : Strata.smtVCsCorrectBoole hornerPgm := by
+  gen_smt_vcs_boole
   all_goals (try grind)

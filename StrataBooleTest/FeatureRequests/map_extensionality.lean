@@ -4,8 +4,8 @@
   SPDX-License-Identifier: Apache-2.0 OR MIT
 -/
 
-import Strata.MetaVerifier
-import Strata.Languages.Boole.Verify
+import StrataBoole.MetaVerifier
+import StrataBoole.Verify
 
 open Strata
 open Lambda
@@ -53,8 +53,8 @@ spec {
 #guard_msgs (drop info) in
 #eval Strata.Boole.verify "cvc5" mapExtensionalitySeed
 
-example : Strata.smtVCsCorrect mapExtensionalitySeed := by
-  gen_smt_vcs
+example : Strata.smtVCsCorrectBoole mapExtensionalitySeed := by
+  gen_smt_vcs_boole
   all_goals
     intro Map inst select a b hPointwise i
     exact hPointwise i

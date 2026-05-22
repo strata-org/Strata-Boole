@@ -4,7 +4,7 @@
   SPDX-License-Identifier: Apache-2.0 OR MIT
 -/
 
-import Strata.MetaVerifier
+import StrataBoole.MetaVerifier
 
 open Strata
 
@@ -57,7 +57,8 @@ spec {
 };
 #end
 
-/-- info:
+/--
+info:
 Obligation: entry_invariant_0_0
 Property: assert
 Result: ✅ pass
@@ -74,12 +75,13 @@ Obligation: arbitrary_iter_maintain_invariant_0_1
 Property: assert
 Result: ✅ pass
 
-Obligation: loop_measure_seed_ensures_1_1174
+Obligation: loop_measure_seed_ensures_1_1179
 Property: assert
-Result: ✅ pass-/
+Result: ✅ pass
+-/
 #guard_msgs in
 #eval Strata.Boole.verify "cvc5" decreasesMetadataSeed (options:=.quiet)
 
-example : Strata.smtVCsCorrect decreasesMetadataSeed := by
-  gen_smt_vcs
+example : Strata.smtVCsCorrectBoole decreasesMetadataSeed := by
+  gen_smt_vcs_boole
   all_goals (try grind)

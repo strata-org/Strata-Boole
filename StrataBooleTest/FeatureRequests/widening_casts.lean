@@ -4,7 +4,7 @@
   SPDX-License-Identifier: Apache-2.0 OR MIT
 -/
 
-import Strata.MetaVerifier
+import StrataBoole.MetaVerifier
 
 open Strata
 
@@ -48,8 +48,8 @@ spec {
 #guard_msgs (drop info) in
 #eval Strata.Boole.verify "cvc5" wideningCastsSeed
 
-example : Strata.smtVCsCorrect wideningCastsSeed := by
-  gen_smt_vcs
+example : Strata.smtVCsCorrectBoole wideningCastsSeed := by
+  gen_smt_vcs_boole
   all_goals
     intro Map inst n bv32_to_int_u select v hNonneg hn i hi
     exact hNonneg (select v i)

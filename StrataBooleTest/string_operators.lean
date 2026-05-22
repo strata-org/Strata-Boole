@@ -4,7 +4,7 @@
   SPDX-License-Identifier: Apache-2.0 OR MIT
 -/
 
-import Strata.MetaVerifier
+import StrataBoole.MetaVerifier
 
 namespace Strata
 
@@ -118,49 +118,51 @@ procedure main() returns () {
 
 #end
 
- /-- info:
-Obligation: assert_19_3035
+ /--
+info:
+Obligation: assert_19_3040
 Property: assert
 Result: ✅ pass
 
-Obligation: assert_20_3077
+Obligation: assert_20_3082
 Property: assert
 Result: ✅ pass
 
-Obligation: assert_21_3125
+Obligation: assert_21_3130
 Property: assert
 Result: ✅ pass
 
-Obligation: assert_22_3159
+Obligation: assert_22_3164
 Property: assert
 Result: ✅ pass
 
-Obligation: assert_23_3206
+Obligation: assert_23_3211
 Property: assert
 Result: ✅ pass
 
-Obligation: assert_24_3242
+Obligation: assert_24_3247
 Property: assert
 Result: ✅ pass
 
-Obligation: assert_25_3272
+Obligation: assert_25_3277
 Property: assert
 Result: ✅ pass
 
-Obligation: assert_26_3302
+Obligation: assert_26_3307
 Property: assert
 Result: ✅ pass
 
-Obligation: assert_27_3332
+Obligation: assert_27_3337
 Property: assert
 Result: ✅ pass
 
-Obligation: assert_28_3386
+Obligation: assert_28_3391
 Property: assert
-Result: ✅ pass-/
+Result: ✅ pass
+-/
 #guard_msgs in
 #eval Strata.Boole.verify "cvc5" basicOp (options := .quiet)
 
-theorem basicOp_smt_vcs_correct : Strata.smtVCsCorrect basicOp := by
-  gen_smt_vcs
+theorem basicOp_smt_vcs_correct : Strata.smtVCsCorrectBoole basicOp := by
+  gen_smt_vcs_boole
   all_goals (try grind)
