@@ -4,7 +4,7 @@
   SPDX-License-Identifier: Apache-2.0 OR MIT
 -/
 
-import Strata.MetaVerifier
+import StrataBoole.MetaVerifier
 
 open Strata
 
@@ -93,8 +93,9 @@ spec {
 };
 #end
 
-/-- info:
-Obligation: witnessOccurs_ensures_2_1229
+/--
+info:
+Obligation: witnessOccurs_ensures_2_1234
 Property: assert
 Result: ✅ pass
 
@@ -122,28 +123,29 @@ Obligation: arbitrary_iter_maintain_invariant_0_2
 Property: assert
 Result: ✅ pass
 
-Obligation: assert_7_1950
+Obligation: assert_7_1955
 Property: assert
 Result: ✅ pass
 
-Obligation: callElimAssert_witnessOccurs_requires_0_1166_4
+Obligation: callElimAssert_witnessOccurs_requires_0_1171_4
 Property: assert
 Result: ✅ pass
 
-Obligation: callElimAssert_witnessOccurs_requires_1_1198_5
+Obligation: callElimAssert_witnessOccurs_requires_1_1203_5
 Property: assert
 Result: ✅ pass
 
-Obligation: findMax_ensures_5_1448
+Obligation: findMax_ensures_5_1453
 Property: assert
 Result: ✅ pass
 
-Obligation: findMax_ensures_6_1508
+Obligation: findMax_ensures_6_1513
 Property: assert
-Result: ✅ pass-/
+Result: ✅ pass
+-/
 #guard_msgs in
 #eval Strata.Boole.verify "cvc5" findMax (options := .quiet)
 
-example : Strata.smtVCsCorrect findMax := by
-  gen_smt_vcs
+example : Strata.smtVCsCorrectBoole findMax := by
+  gen_smt_vcs_boole
   all_goals (try grind)

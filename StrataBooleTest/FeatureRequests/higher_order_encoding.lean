@@ -4,7 +4,7 @@
   SPDX-License-Identifier: Apache-2.0 OR MIT
 -/
 
-import Strata.MetaVerifier
+import StrataBoole.MetaVerifier
 
 open Strata
 
@@ -42,13 +42,15 @@ spec {
 };
 #end
 
-/-- info:
-Obligation: higher_order_seed_ensures_0_983
+/--
+info:
+Obligation: higher_order_seed_ensures_0_988
 Property: assert
-Result: ✅ pass-/
+Result: ✅ pass
+-/
 #guard_msgs in
 #eval Strata.Boole.verify "cvc5" higherOrderSeed (options:=.quiet)
 
-example : Strata.smtVCsCorrect higherOrderSeed := by
-  gen_smt_vcs
+example : Strata.smtVCsCorrectBoole higherOrderSeed := by
+  gen_smt_vcs_boole
   all_goals (try grind)

@@ -4,7 +4,7 @@
   SPDX-License-Identifier: Apache-2.0 OR MIT
 -/
 
-import Strata.MetaVerifier
+import StrataBoole.MetaVerifier
 
 /-!
 Test that read-only globals are correctly threaded through procedure headers
@@ -141,41 +141,41 @@ spec {
 
 
 VCs:
-Label: inc_ensures_1_2418
+Label: inc_ensures_1_2423
 Property: assert
 Assumptions:
-inc_requires_0_2400: z@1 > 0
+inc_requires_0_2405: z@1 > 0
 Obligation:
 true
 
-Label: callElimAssert_inc_requires_0_2400_6
+Label: callElimAssert_inc_requires_0_2405_6
 Property: assert
 Assumptions:
-main_caller_requires_2_2534: z@3 == 10
-main_caller_requires_3_2554: g@3 == 0
+main_caller_requires_2_2539: z@3 == 10
+main_caller_requires_3_2559: g@3 == 0
 Obligation:
 z@3 > 0
 
-Label: main_caller_ensures_4_2573
+Label: main_caller_ensures_4_2578
 Property: assert
 Assumptions:
-main_caller_requires_2_2534: z@3 == 10
-main_caller_requires_3_2554: g@3 == 0
-callElimAssume_inc_ensures_1_2418_7: g@5 == g@3 + 5 + z@5
+main_caller_requires_2_2539: z@3 == 10
+main_caller_requires_3_2559: g@3 == 0
+callElimAssume_inc_ensures_1_2423_7: g@5 == g@3 + 5 + z@5
 Obligation:
 g@5 == 15
 
 ---
 info:
-Obligation: inc_ensures_1_2418
+Obligation: inc_ensures_1_2423
 Property: assert
 Result: ✅ pass
 
-Obligation: callElimAssert_inc_requires_0_2400_6
+Obligation: callElimAssert_inc_requires_0_2405_6
 Property: assert
 Result: ✅ pass
 
-Obligation: main_caller_ensures_4_2573
+Obligation: main_caller_ensures_4_2578
 Property: assert
 Result: ❓ unknown
 Model:

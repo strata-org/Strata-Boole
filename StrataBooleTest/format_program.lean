@@ -4,7 +4,7 @@
   SPDX-License-Identifier: Apache-2.0 OR MIT
 -/
 
-import Strata.Languages.Boole.Verify
+import StrataBoole.Verify
 import Strata.DDM.Elab
 
 /-!

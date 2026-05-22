@@ -4,7 +4,7 @@
   SPDX-License-Identifier: Apache-2.0 OR MIT
 -/
 
-import Strata.MetaVerifier
+import StrataBoole.MetaVerifier
 
 ------------------------------------------------------------
 namespace Strata
@@ -169,21 +169,21 @@ spec {
 
 
 VCs:
-Label: StackInit_ensures_1_1066
+Label: StackInit_ensures_1_1071
 Property: assert
 Assumptions:
-StackInit_requires_0_1015: cap@1 >= 0
+StackInit_requires_0_1020: cap@1 >= 0
 Obligation:
 true
 
-Label: StackInit_ensures_2_1086
+Label: StackInit_ensures_2_1091
 Property: assert
 Assumptions:
-StackInit_requires_0_1015: cap@1 >= 0
+StackInit_requires_0_1020: cap@1 >= 0
 Obligation:
 true
 
-Label: StackEmpty_ensures_3_1205
+Label: StackEmpty_ensures_3_1210
 Property: assert
 Assumptions:
 <label_ite_cond_true: top == 0>: if top@3 == 0 then top@3 == 0 else true
@@ -191,7 +191,7 @@ Assumptions:
 Obligation:
 if top@3 == 0 then true else false ==> top@3 == 0
 
-Label: StackEmpty_ensures_4_1233
+Label: StackEmpty_ensures_4_1238
 Property: assert
 Assumptions:
 <label_ite_cond_true: top == 0>: if top@3 == 0 then top@3 == 0 else true
@@ -199,82 +199,82 @@ Assumptions:
 Obligation:
 top@3 == 0 ==> if top@3 == 0 then true else false
 
-Label: Push_ensures_6_1494
+Label: Push_ensures_6_1499
 Property: assert
 Assumptions:
-Push_requires_5_1443: top@4 < n@4
+Push_requires_5_1448: top@4 < n@4
 Obligation:
 true
 
-Label: Push_ensures_7_1525
+Label: Push_ensures_7_1530
 Property: assert
 Assumptions:
-Push_requires_5_1443: top@4 < n@4
+Push_requires_5_1448: top@4 < n@4
 Obligation:
 (S@3[top@4 + 1:=x@1])[top@4 + 1] == x@1
 
-Label: Push_ensures_8_1583
+Label: Push_ensures_8_1588
 Property: assert
 Assumptions:
-Push_requires_5_1443: top@4 < n@4
+Push_requires_5_1448: top@4 < n@4
 Obligation:
 forall __q0 : int :: 1 <= __q0 && __q0 <= top@4 ==> (S@3[top@4 + 1:=x@1])[__q0] == S@3[__q0]
 
-Label: Pop_ensures_10_1840
+Label: Pop_ensures_10_1845
 Property: assert
 Assumptions:
-Pop_requires_9_1803: top@6 > 0
+Pop_requires_9_1808: top@6 > 0
 Obligation:
 true
 
-Label: Pop_ensures_11_1871
+Label: Pop_ensures_11_1876
 Property: assert
 Assumptions:
-Pop_requires_9_1803: top@6 > 0
+Pop_requires_9_1808: top@6 > 0
 Obligation:
 true
 
 ---
 info:
-Obligation: StackInit_ensures_1_1066
+Obligation: StackInit_ensures_1_1071
 Property: assert
 Result: ✅ pass
 
-Obligation: StackInit_ensures_2_1086
+Obligation: StackInit_ensures_2_1091
 Property: assert
 Result: ✅ pass
 
-Obligation: StackEmpty_ensures_3_1205
+Obligation: StackEmpty_ensures_3_1210
 Property: assert
 Result: ✅ pass
 
-Obligation: StackEmpty_ensures_4_1233
+Obligation: StackEmpty_ensures_4_1238
 Property: assert
 Result: ✅ pass
 
-Obligation: Push_ensures_6_1494
+Obligation: Push_ensures_6_1499
 Property: assert
 Result: ✅ pass
 
-Obligation: Push_ensures_7_1525
+Obligation: Push_ensures_7_1530
 Property: assert
 Result: ✅ pass
 
-Obligation: Push_ensures_8_1583
+Obligation: Push_ensures_8_1588
 Property: assert
 Result: ✅ pass
 
-Obligation: Pop_ensures_10_1840
+Obligation: Pop_ensures_10_1845
 Property: assert
 Result: ✅ pass
 
-Obligation: Pop_ensures_11_1871
+Obligation: Pop_ensures_11_1876
 Property: assert
 Result: ✅ pass
 -/
 #guard_msgs in
 #eval Strata.Boole.verify "cvc5" stackArrayPgm
 
-example : Strata.smtVCsCorrect stackArrayPgm := by
-  gen_smt_vcs
+example : Strata.smtVCsCorrectBoole stackArrayPgm := by
+  gen_smt_vcs_boole
   all_goals (try grind)

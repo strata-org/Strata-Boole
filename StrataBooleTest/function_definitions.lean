@@ -4,7 +4,7 @@
   SPDX-License-Identifier: Apache-2.0 OR MIT
 -/
 
-import Strata.MetaVerifier
+import StrataBoole.MetaVerifier
 
 open Strata
 
@@ -31,12 +31,15 @@ spec {
 
 #end
 
-/-- info: Obligation: test_ensures_0_318
+/--
+info:
+Obligation: test_ensures_0_323
 Property: assert
-Result: ✅ pass-/
+Result: ✅ pass
+-/
 #guard_msgs in
 #eval Strata.Boole.verify "cvc5" function_definitions (options := .quiet)
 
-example : Strata.smtVCsCorrect function_definitions := by
-  gen_smt_vcs
+example : Strata.smtVCsCorrectBoole function_definitions := by
+  gen_smt_vcs_boole
   all_goals (try grind)

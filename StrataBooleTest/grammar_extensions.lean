@@ -4,7 +4,7 @@
   SPDX-License-Identifier: Apache-2.0 OR MIT
 -/
 
-import Strata.MetaVerifier
+import StrataBoole.MetaVerifier
 
 open Strata
 
@@ -90,6 +90,6 @@ procedure test_arrays () returns ()
 #guard_msgs (drop info) in
 #eval Strata.Boole.verify "cvc5" grammarExtensions
 
-example : Strata.smtVCsCorrect grammarExtensions := by
-  gen_smt_vcs
+example : Strata.smtVCsCorrectBoole grammarExtensions := by
+  gen_smt_vcs_boole
   all_goals (try grind)

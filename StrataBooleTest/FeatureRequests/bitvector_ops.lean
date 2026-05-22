@@ -4,7 +4,7 @@
   SPDX-License-Identifier: Apache-2.0 OR MIT
 -/
 
-import Strata.MetaVerifier
+import StrataBoole.MetaVerifier
 
 open Strata
 
@@ -46,8 +46,8 @@ spec {
 #guard_msgs (drop info) in
 #eval Strata.Boole.verify "cvc5" bitvectorOpsSeed (options := .quiet)
 
-example : Strata.smtVCsCorrect bitvectorOpsSeed := by
-  gen_smt_vcs
+example : Strata.smtVCsCorrectBoole bitvectorOpsSeed := by
+  gen_smt_vcs_boole
   all_goals (first | grind | decide)
 
 -- Exercises ~, ^, >>, << (bit extraction, conditional swap, nibble ops).
@@ -81,8 +81,8 @@ spec {
 #guard_msgs (drop info) in
 #eval Strata.Boole.verify "cvc5" bitvectorShiftXorSeed (options := .quiet)
 
-example : Strata.smtVCsCorrect bitvectorShiftXorSeed := by
-  gen_smt_vcs
+example : Strata.smtVCsCorrectBoole bitvectorShiftXorSeed := by
+  gen_smt_vcs_boole
   all_goals (first | grind | decide)
 
 -- Exercises >>s (arithmetic/signed right shift): vacated bits are filled with
@@ -107,6 +107,6 @@ spec {
 #guard_msgs (drop info) in
 #eval Strata.Boole.verify "cvc5" bitvectorSShrSeed (options := .quiet)
 
-example : Strata.smtVCsCorrect bitvectorSShrSeed := by
-  gen_smt_vcs
+example : Strata.smtVCsCorrectBoole bitvectorSShrSeed := by
+  gen_smt_vcs_boole
   all_goals (first | grind | decide)
