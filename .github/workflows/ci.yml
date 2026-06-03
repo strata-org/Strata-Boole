@@ -32,6 +32,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+      - name: Install cvc5
+        uses: strata-org/Strata/.github/actions/install-cvc5@main
       - name: Build and test
         uses: leanprover/lean-action@v1
         with:
