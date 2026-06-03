@@ -4,7 +4,7 @@
   SPDX-License-Identifier: Apache-2.0 OR MIT
 -/
 
-import Strata.MetaVerifier
+import StrataBoole.MetaVerifier
 
 open Strata
 
@@ -24,7 +24,7 @@ op-vs-type from `GlobalContext.vars[i]`, which is correct for all symbols.
 
 -- Failing case from the bug report: `color` is declared first among 4
 -- datatypes; `get_val` references `color..iscolor_Red` and `color..color_Red_0`.
-private def datatypeTesterFirstSeed : Strata.Program :=
+private def datatypeTesterFirstSeed : StrataDDM.Program :=
 #strata
 program Boole;
 
@@ -57,13 +57,13 @@ Result: ✅ pass-/
 #guard_msgs in
 #eval Strata.Boole.verify "cvc5" datatypeTesterFirstSeed (options := .quiet)
 
-example : Strata.smtVCsCorrect datatypeTesterFirstSeed := by
-  gen_smt_vcs
+example : Strata.smtVCsCorrectBoole datatypeTesterFirstSeed := by
+  gen_smt_vcs_boole
   all_goals (try grind)
 
 -- Variant (a): `color` is declared second, not first. Pins position-independence
 -- of the fix — the pre-fix bug was position-dependent.
-private def datatypeTesterSecondSeed : Strata.Program :=
+private def datatypeTesterSecondSeed : StrataDDM.Program :=
 #strata
 program Boole;
 
@@ -96,14 +96,14 @@ Result: ✅ pass-/
 #guard_msgs in
 #eval Strata.Boole.verify "cvc5" datatypeTesterSecondSeed (options := .quiet)
 
-example : Strata.smtVCsCorrect datatypeTesterSecondSeed := by
-  gen_smt_vcs
+example : Strata.smtVCsCorrectBoole datatypeTesterSecondSeed := by
+  gen_smt_vcs_boole
   all_goals (try grind)
 
 -- Variant (b): a `command_var` global coexists with the datatype. Exercises
 -- the `globalVarTypes.contains` carve-out in `getFVarIsOp` directly: `g`'s
 -- gctx entry is `.expr` but must be classified as a term, not an op.
-private def datatypeTesterWithGlobalSeed : Strata.Program :=
+private def datatypeTesterWithGlobalSeed : StrataDDM.Program :=
 #strata
 program Boole;
 
@@ -128,15 +128,15 @@ Result: ✅ pass-/
 #guard_msgs in
 #eval Strata.Boole.verify "cvc5" datatypeTesterWithGlobalSeed (options := .quiet)
 
-example : Strata.smtVCsCorrect datatypeTesterWithGlobalSeed := by
-  gen_smt_vcs
+example : Strata.smtVCsCorrectBoole datatypeTesterWithGlobalSeed := by
+  gen_smt_vcs_boole
   all_goals (try grind)
 
 -- Variant (c): `command_recfndefs` block with two mutually recursive functions
 -- (`even`/`odd`) whose names are referenced from an outer procedure. This covers
 -- the other "one command → many gctx.vars entries" case: each function in the
 -- block gets its own entry, and all must be classified as ops by `getFVarIsOp`.
-private def recfndefsMultiSeed : Strata.Program :=
+private def recfndefsMultiSeed : StrataDDM.Program :=
 #strata
 program Boole;
 
@@ -167,6 +167,6 @@ spec {
 #guard_msgs (drop info) in
 #eval Strata.Boole.verify "cvc5" recfndefsMultiSeed
 
-example : Strata.smtVCsCorrect recfndefsMultiSeed := by
-  gen_smt_vcs
+example : Strata.smtVCsCorrectBoole recfndefsMultiSeed := by
+  gen_smt_vcs_boole
   all_goals (try grind)

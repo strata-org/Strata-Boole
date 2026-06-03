@@ -4,7 +4,7 @@
   SPDX-License-Identifier: Apache-2.0 OR MIT
 -/
 
-import Strata.MetaVerifier
+import StrataBoole.MetaVerifier
 
 open Strata
 
@@ -22,7 +22,7 @@ Early return is implemented via `exit functionName;`:
      return style.
 -/
 
-private def earlyReturnSeed : Strata.Program :=
+private def earlyReturnSeed : StrataDDM.Program :=
 #strata
 program Boole;
 
@@ -39,14 +39,15 @@ spec {
 };
 #end
 
-/-- info:
-Obligation: abs_seed_ensures_0_797
+/--
+info:
+Obligation: abs_seed_ensures_0_805
 Property: assert
 Result: ✅ pass
 -/
 #guard_msgs in
 #eval Strata.Boole.verify "cvc5" earlyReturnSeed (options := .quiet)
 
-example : Strata.smtVCsCorrect earlyReturnSeed := by
-  gen_smt_vcs
+example : Strata.smtVCsCorrectBoole earlyReturnSeed := by
+  gen_smt_vcs_boole
   all_goals (try grind)

@@ -4,7 +4,7 @@
   SPDX-License-Identifier: Apache-2.0 OR MIT
 -/
 
-import Strata.MetaVerifier
+import StrataBoole.MetaVerifier
 
 /-!
 Regression test for the empty `Sequence.of_<ty>[]` literal lowering.
@@ -67,7 +67,7 @@ private def collectFromStmt (s : Core.Statement) : List (Option LMonoTy) :=
 
 /-- Lower a Boole program to Core and return one string per `Sequence.empty`
     op found in the body of every procedure. -/
-private def seqEmptyTysIn (p : Strata.Program) : Except String (List String) := do
+private def seqEmptyTysIn (p : StrataDDM.Program) : Except String (List String) := do
   let prog ← (Boole.getProgram p).mapError toString
   let cp ← (Boole.toCoreProgram prog p.globalContext).mapError
     fun e => toString (e.format none)
@@ -82,7 +82,7 @@ private def seqEmptyTysIn (p : Strata.Program) : Except String (List String) := 
 
 /-! ## Empty literal: `Sequence.of_bv32[]` must lower to a typed `Sequence.empty`. -/
 
-private def emptyBv32LiteralPgm : Strata.Program :=
+private def emptyBv32LiteralPgm : StrataDDM.Program :=
 #strata
 program Boole;
 
@@ -98,7 +98,7 @@ spec { }
 
 /-! ## Empty literal: `Sequence.of_int[]` must lower to a typed `Sequence.empty`. -/
 
-private def emptyIntLiteralPgm : Strata.Program :=
+private def emptyIntLiteralPgm : StrataDDM.Program :=
 #strata
 program Boole;
 
@@ -114,7 +114,7 @@ spec { }
 
 /-! ## Non-empty literal: typing must still come through (sanity check). -/
 
-private def nonEmptyBv32LiteralPgm : Strata.Program :=
+private def nonEmptyBv32LiteralPgm : StrataDDM.Program :=
 #strata
 program Boole;
 

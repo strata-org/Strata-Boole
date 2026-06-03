@@ -4,7 +4,7 @@
   SPDX-License-Identifier: Apache-2.0 OR MIT
 -/
 
-import Strata.MetaVerifier
+import StrataBoole.MetaVerifier
 
 open Strata
 
@@ -20,7 +20,7 @@ Near-upstream anchors from `differential_status.md`:
 - Remaining gap: model-type coverage such as `Thread`, `Cell`, `Rwlock`
 -/
 
-private def abstractTypesAndStubsSeed : Strata.Program :=
+private def abstractTypesAndStubsSeed : StrataDDM.Program :=
 #strata
 program Boole;
 
@@ -43,12 +43,12 @@ spec {
 #end
 
 /-- info:
-Obligation: assert_2_1035
+Obligation: assert_2_1043
 Property: assert
 Result: ✅ pass-/
 #guard_msgs in
 #eval Strata.Boole.verify "cvc5" abstractTypesAndStubsSeed (options := .quiet)
 
-example : Strata.smtVCsCorrect abstractTypesAndStubsSeed := by
-  gen_smt_vcs
+example : Strata.smtVCsCorrectBoole abstractTypesAndStubsSeed := by
+  gen_smt_vcs_boole
   all_goals (try grind)

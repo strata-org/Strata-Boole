@@ -4,7 +4,7 @@
   SPDX-License-Identifier: Apache-2.0 OR MIT
 -/
 
-import Strata.MetaVerifier
+import StrataBoole.MetaVerifier
 
 open Strata
 
@@ -21,7 +21,7 @@ Near-upstream anchors from `differential_status.md`:
   modeled directly
 -/
 
-private def overflowGuardSeed : Strata.Program :=
+private def overflowGuardSeed : StrataDDM.Program :=
 #strata
 program Boole;
 
@@ -46,21 +46,23 @@ spec {
 };
 #end
 
-/-- info:
-Obligation: assert_6_1175
+/--
+info:
+Obligation: assert_6_1183
 Property: assert
 Result: ✅ pass
 
-Obligation: overflow_guard_seed_ensures_4_1112
+Obligation: overflow_guard_seed_ensures_4_1120
 Property: assert
 Result: ✅ pass
 
-Obligation: overflow_guard_seed_ensures_5_1134
+Obligation: overflow_guard_seed_ensures_5_1142
 Property: assert
-Result: ✅ pass-/
+Result: ✅ pass
+-/
 #guard_msgs in
 #eval Strata.Boole.verify "cvc5" overflowGuardSeed (options := .quiet)
 
-example : Strata.smtVCsCorrect overflowGuardSeed := by
-  gen_smt_vcs
+example : Strata.smtVCsCorrectBoole overflowGuardSeed := by
+  gen_smt_vcs_boole
   all_goals (try grind)

@@ -4,7 +4,7 @@
   SPDX-License-Identifier: Apache-2.0 OR MIT
 -/
 
-import Strata.MetaVerifier
+import StrataBoole.MetaVerifier
 
 open Strata
 
@@ -30,7 +30,7 @@ Remaining gap:
   (assignment, procedure parameters of function type) needs more work.
 -/
 
-private def lambdaClosureSeed : Strata.Program :=
+private def lambdaClosureSeed : StrataDDM.Program :=
 #strata
 program Boole;
 
@@ -61,20 +61,20 @@ spec {
 #end
 
 /-- info:
-Obligation: assert_1_1330
+Obligation: assert_1_1338
 Property: assert
 Result: ✅ pass
 
-Obligation: use_lambda_ensures_0_1284
+Obligation: use_lambda_ensures_0_1292
 Property: assert
 Result: ✅ pass
 
-Obligation: higher_order_seed_ensures_3_1718
+Obligation: higher_order_seed_ensures_3_1726
 Property: assert
 Result: ✅ pass-/
 #guard_msgs in
 #eval Strata.Boole.verify "cvc5" lambdaClosureSeed (options := .quiet)
 
-example : Strata.smtVCsCorrect lambdaClosureSeed := by
-  gen_smt_vcs
+example : Strata.smtVCsCorrectBoole lambdaClosureSeed := by
+  gen_smt_vcs_boole
   all_goals (try grind)

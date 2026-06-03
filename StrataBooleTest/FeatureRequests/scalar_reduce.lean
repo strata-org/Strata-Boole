@@ -4,7 +4,7 @@
   SPDX-License-Identifier: Apache-2.0 OR MIT
 -/
 
-import Strata.MetaVerifier
+import StrataBoole.MetaVerifier
 
 open Strata
 
@@ -31,7 +31,7 @@ Remaining gap:
 - `Scalar { bytes }` struct construction requires Gap #13.
 -/
 
-private def scalarReduceSeed : Strata.Program :=
+private def scalarReduceSeed : StrataDDM.Program :=
 #strata
 program Boole;
 
@@ -92,6 +92,6 @@ Result: ✅ pass-/
 #guard_msgs in
 #eval Strata.Boole.verify "cvc5" scalarReduceSeed (options := .quiet)
 
-example : Strata.smtVCsCorrect scalarReduceSeed := by
-  gen_smt_vcs
+example : Strata.smtVCsCorrectBoole scalarReduceSeed := by
+  gen_smt_vcs_boole
   all_goals (try grind)

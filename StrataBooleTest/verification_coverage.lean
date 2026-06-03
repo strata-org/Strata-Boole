@@ -4,7 +4,7 @@
   SPDX-License-Identifier: Apache-2.0 OR MIT
 -/
 
-import Strata.MetaVerifier
+import StrataBoole.MetaVerifier
 
 open Strata
 
@@ -161,12 +161,13 @@ spec
 
 #end
 
-/-- info:
-Obligation: assert_2_406
+/--
+info:
+Obligation: assert_2_411
 Property: assert
 Result: ✅ pass
 
-Obligation: assert_3_509
+Obligation: assert_3_514
 Property: assert
 Result: ✅ pass
 
@@ -194,68 +195,69 @@ Obligation: arbitrary_iter_maintain_invariant_0_2
 Property: assert
 Result: ✅ pass
 
-Obligation: sum_ensures_5_652
+Obligation: sum_ensures_5_657
 Property: assert
 Result: ✅ pass
 
-Obligation: assert_10_1185
+Obligation: assert_10_1190
 Property: assert
 Result: ✅ pass
 
-Obligation: assert_12_1419
+Obligation: assert_12_1424
 Property: assert
 Result: ✅ pass
 
-Obligation: assert_16_1684
+Obligation: assert_16_1689
 Property: assert
 Result: ✅ pass
 
-Obligation: assert_18_1820
+Obligation: assert_18_1825
 Property: assert
 Result: ✅ pass
 
-Obligation: testEnsuresCallee_ensures_20_1983
+Obligation: testEnsuresCallee_ensures_20_1988
 Property: assert
 Result: ✅ pass
 
-Obligation: testEnsuresCallee_ensures_21_2025
+Obligation: testEnsuresCallee_ensures_21_2030
 Property: assert
 Result: ✅ pass
 
-Obligation: callElimAssert_testEnsuresCallee_requires_19_1941_7
+Obligation: callElimAssert_testEnsuresCallee_requires_19_1946_7
 Property: assert
 Result: ✅ pass
 
-Obligation: callElimAssert_testEnsuresCallee_requires_19_1941_2
+Obligation: callElimAssert_testEnsuresCallee_requires_19_1946_2
 Property: assert
 Result: ✅ pass
 
-Obligation: assert_24_2458
+Obligation: assert_24_2463
 Property: assert
 Result: ✅ pass
 
-Obligation: testEnsuresCaller_ensures_23_2219
+Obligation: testEnsuresCaller_ensures_23_2224
 Property: assert
 Result: ✅ pass
 
-Obligation: obviouslyUnconstrainedCode_ensures_27_2723
+Obligation: obviouslyUnconstrainedCode_ensures_27_2728
 Property: assert
 Result: ✅ pass
 
-Obligation: contradictoryEnsuresClause_ensures_29_3049
+Obligation: contradictoryEnsuresClause_ensures_29_3054
 Property: assert
 Result: ✅ pass
 
-Obligation: callElimAssert_contradictoryEnsuresClause_requires_28_2979_12
+Obligation: callElimAssert_contradictoryEnsuresClause_requires_28_2984_12
 Property: assert
 Result: ✅ pass
 
-Obligation: usesSomeInteger_ensures_32_3711
+Obligation: usesSomeInteger_ensures_32_3716
 Property: assert
-Result: ✅ pass-/
+Result: ✅ pass
+-/
 #guard_msgs in
 #eval Strata.Boole.verify "cvc5" verification_coverage (options := .quiet)
 
-example : Strata.smtVCsCorrect verification_coverage := by
-  gen_smt_vcs
+example : Strata.smtVCsCorrectBoole verification_coverage := by
+  gen_smt_vcs_boole
   all_goals grind

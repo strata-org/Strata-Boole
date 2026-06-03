@@ -4,7 +4,7 @@
   SPDX-License-Identifier: Apache-2.0 OR MIT
 -/
 
-import Strata.MetaVerifier
+import StrataBoole.MetaVerifier
 
 open Strata
 
@@ -21,7 +21,7 @@ Near-upstream anchors from `differential_status.md`:
   `pred` is unsatisfiable.
 -/
 
-private def chooseOperatorSeed : Strata.Program :=
+private def chooseOperatorSeed : StrataDDM.Program :=
 #strata
 program Boole;
 
@@ -38,24 +38,24 @@ spec {
 #end
 
 /-- info:
-Obligation: choose_2_876_exists
+Obligation: choose_2_884_exists
 Property: assert
 Result: ✅ pass
 
-Obligation: choose_seed_ensures_1_850
+Obligation: choose_seed_ensures_1_858
 Property: assert
 Result: ✅ pass-/
 #guard_msgs in
 #eval Strata.Boole.verify "cvc5" chooseOperatorSeed (options := .quiet)
 
-example : Strata.smtVCsCorrect chooseOperatorSeed := by
-  gen_smt_vcs
+example : Strata.smtVCsCorrectBoole chooseOperatorSeed := by
+  gen_smt_vcs_boole
   all_goals (try grind)
 
 -- Regression: an unsatisfiable predicate must be caught by the existence
 -- assertion, not silently turned into `assume false` (which would make every
 -- subsequent obligation a false positive).
-private def chooseUnsatSeed : Strata.Program :=
+private def chooseUnsatSeed : StrataDDM.Program :=
 #strata
 program Boole;
 
@@ -69,11 +69,11 @@ spec {
 #end
 
 /-- info:
-Obligation: choose_1_1591_exists
+Obligation: choose_1_1613_exists
 Property: assert
 Result: ❌ fail
 
-Obligation: choose_unsat_ensures_0_1571
+Obligation: choose_unsat_ensures_0_1593
 Property: assert
 Result: ✅ pass-/
 #guard_msgs in

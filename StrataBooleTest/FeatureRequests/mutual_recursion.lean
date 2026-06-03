@@ -4,7 +4,7 @@
   SPDX-License-Identifier: Apache-2.0 OR MIT
 -/
 
-import Strata.MetaVerifier
+import StrataBoole.MetaVerifier
 
 open Strata
 
@@ -29,7 +29,10 @@ Remaining gap:
   infrastructure for that is not yet in place.
 -/
 
-private def mutualRecursionSeed : Strata.Program :=
+-- Working: mutual recursion over a Peano-style datatype.
+-- `even` calls `odd` and vice versa; both terminate by structural recursion
+-- on the `@[cases]` MyNat parameter.
+private def mutualRecursionSeed : StrataDDM.Program :=
 #strata
 program Boole;
 
@@ -61,58 +64,23 @@ spec {
 };
 #end
 
-/-- info:
-Obligation: even_body_calls_MyNat..pred_0
-Property: assert
-Result: ✅ pass
+#guard_msgs (drop info) in
+#eval Strata.Boole.verify "cvc5" mutualRecursionSeed
 
-Obligation: odd_body_calls_MyNat..pred_0
-Property: assert
-Result: ✅ pass
-
-Obligation: even_terminates_0
-Property: assert
-Result: ✅ pass
-
-Obligation: odd_terminates_0
-Property: assert
-Result: ✅ pass
-
-Obligation: assert_4_1499
-Property: assert
-Result: ✅ pass
-
-Obligation: assert_5_1530
-Property: assert
-Result: ✅ pass
-
-Obligation: assert_6_1561
-Property: assert
-Result: ✅ pass
-
-Obligation: assert_7_1599
-Property: assert
-Result: ✅ pass
-
-Obligation: test_parity_ensures_0_1355
-Property: assert
-Result: ✅ pass
-
-Obligation: test_parity_ensures_1_1387
-Property: assert
-Result: ✅ pass
-
-Obligation: test_parity_ensures_2_1419
-Property: assert
-Result: ✅ pass
-
-Obligation: test_parity_ensures_3_1458
-Property: assert
-Result: ✅ pass-/
-#guard_msgs in
-#eval Strata.Boole.verify "cvc5" mutualRecursionSeed (options := .quiet)
-
-example : Strata.smtVCsCorrect mutualRecursionSeed := by
-  gen_smt_vcs
+example : Strata.smtVCsCorrectBoole mutualRecursionSeed := by
+  gen_smt_vcs_boole
   all_goals (try grind)
 
+-- Still open: mutual recursion over int requires a decreases clause.
+-- Target shape once function-level decreases is supported:
+--
+-- rec
+-- function even_int(n: int) : bool
+-- {
+--   if n == 0 then true else odd_int(n - 1)
+-- }
+-- function odd_int(n: int) : bool
+-- {
+--   if n == 0 then false else even_int(n - 1)
+-- }
+-- ;

@@ -4,7 +4,7 @@
   SPDX-License-Identifier: Apache-2.0 OR MIT
 -/
 
-import Strata.MetaVerifier
+import StrataBoole.MetaVerifier
 
 open Strata
 
@@ -24,7 +24,7 @@ Near-upstream anchor:
 -/
 
 -- Baseline: single-variable for-loop invariant — works in Boole.
-private def simpleInvariantSeed : Strata.Program :=
+private def simpleInvariantSeed : StrataDDM.Program :=
 #strata
 program Boole;
 
@@ -68,8 +68,8 @@ Result: ✅ pass-/
 #guard_msgs in
 #eval Strata.Boole.verify "cvc5" simpleInvariantSeed (options := .quiet)
 
-example : Strata.smtVCsCorrect simpleInvariantSeed := by
-  gen_smt_vcs
+example : Strata.smtVCsCorrectBoole simpleInvariantSeed := by
+  gen_smt_vcs_boole
   all_goals (try grind)
 
 -- Relational while-loop invariant.
@@ -77,7 +77,7 @@ example : Strata.smtVCsCorrect simpleInvariantSeed := by
 -- x0 tracks i * step, x1 tracks (i + 1) * step.
 -- The relational invariant `x1 == x0 + step` mirrors the elliptic-curve identity
 -- [q+1]P = [q]P + P (i.e. x1 - x0 = P = base in the scalar-multiplication loop).
-private def relationalInvariantSeed : Strata.Program :=
+private def relationalInvariantSeed : StrataDDM.Program :=
 #strata
 program Boole;
 
@@ -134,8 +134,8 @@ Result: ✅ pass-/
 #guard_msgs in
 #eval Strata.Boole.verify "cvc5" relationalInvariantSeed (options := .quiet)
 
-example : Strata.smtVCsCorrect relationalInvariantSeed := by
-  gen_smt_vcs
+example : Strata.smtVCsCorrectBoole relationalInvariantSeed := by
+  gen_smt_vcs_boole
   all_goals (try grind)
 
 -- Target shape — verbatim dalek-lite structure.

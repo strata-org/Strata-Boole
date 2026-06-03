@@ -4,7 +4,7 @@
   SPDX-License-Identifier: Apache-2.0 OR MIT
 -/
 
-import Strata.MetaVerifier
+import StrataBoole.MetaVerifier
 
 open Strata
 
@@ -26,7 +26,7 @@ Near-upstream anchors:
   a bitvector decision procedure without explicit axioms.
 -/
 
-private def bitvectorProofModeSeed : Strata.Program :=
+private def bitvectorProofModeSeed : StrataDDM.Program :=
 #strata
 program Boole;
 

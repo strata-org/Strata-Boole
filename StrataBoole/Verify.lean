@@ -5,18 +5,20 @@
 -/
 module
 
-public import Strata.Languages.Boole.Boole
+public import StrataBoole.Boole
 public import Strata.Languages.Core.Program
 public import Strata.Languages.Core.Statement
 public import Strata.Languages.Core.Verifier
 public import Strata.DL.Lambda.LExpr
 import Strata.DL.Lambda.LExprWF
 public import Strata.DL.Imperative.Stmt
+import Strata.Util.Tactics
 
 public section
 
 namespace Strata.Boole
 
+open StrataDDM
 open Lambda
 
 /-- Translation state for lowering a Boole program to Core.
@@ -729,7 +731,7 @@ def toCoreStmt (s : BooleDDM.Statement SourceRange) : TranslateM Core.Statement 
         let bodyExpr ← toCoreExpr body
         return (precondsRev.reverse, bodyExpr) : TranslateM (List (DL.Util.FuncPrecondition Core.Expression.Expr Unit) × Core.Expression.Expr))
       let (preconds, bodyExpr) := pair
-      let funcTy := Lambda.LMonoTy.mkArrow outputMono ((inputsMono.map (·.2)).reverse)
+      let funcTy := Lambda.LMonoTy.mkArrow' outputMono (inputsMono.map (·.2))
       let decl : Imperative.PureFunc Core.Expression := {
         name := mkIdent n
         typeArgs := tys
@@ -1078,7 +1080,7 @@ def toCoreProgram (p : Boole.Program) (gctx : GlobalContext := {}) (fileName : S
 open Lean.Parser in
 
 /-- Parse Boole syntax using generated `BooleDDM.Program.ofAst`. -/
-def getProgram (p : Strata.Program) : Except DiagnosticModel Boole.Program := do
+def getProgram (p : StrataDDM.Program) : Except DiagnosticModel Boole.Program := do
   let cmds : Array Arg := p.commands.map ArgF.op
   let progOp : Operation :=
     { ann := default
@@ -1088,14 +1090,14 @@ def getProgram (p : Strata.Program) : Except DiagnosticModel Boole.Program := do
   | .ok prog => return prog
   | .error e => throw (.fromMessage e)
 
-def typeCheck (p : Strata.Program) (options : Core.VerifyOptions := .default) : Except DiagnosticModel Core.Program := do
+def typeCheck (p : StrataDDM.Program) (options : Core.VerifyOptions := .default) : Except DiagnosticModel Core.Program := do
   let prog ← getProgram p
   let coreProg ← toCoreProgram prog p.globalContext
   Core.typeCheck options coreProg
 
 open Lean.Parser in
 def verify
-    (smtsolver : String) (env : Strata.Program)
+    (smtsolver : String) (env : StrataDDM.Program)
     (ictx : InputContext := Inhabited.default)
     (proceduresToVerify : Option (List String) := none)
     (options : Core.VerifyOptions := .default)

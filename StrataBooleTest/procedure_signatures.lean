@@ -4,7 +4,7 @@
   SPDX-License-Identifier: Apache-2.0 OR MIT
 -/
 
-import Strata.MetaVerifier
+import StrataBoole.MetaVerifier
 
 /-!
 Test accepted and rejected procedure signature forms in Boole.
@@ -19,7 +19,7 @@ when they appear in Boole programs (which parse as `command_procedure`).
 
 open Strata
 
-private def helper (p : Strata.Program) : Except String (List String) := do
+private def helper (p : StrataDDM.Program) : Except String (List String) := do
   let prog ← (Boole.getProgram p).mapError toString
   let cp ← (Boole.toCoreProgram prog p.globalContext).mapError
     fun e => toString (e.format none)

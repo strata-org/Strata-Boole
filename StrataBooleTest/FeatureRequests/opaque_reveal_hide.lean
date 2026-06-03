@@ -4,7 +4,7 @@
   SPDX-License-Identifier: Apache-2.0 OR MIT
 -/
 
-import Strata.MetaVerifier
+import StrataBoole.MetaVerifier
 
 open Strata
 
@@ -25,7 +25,7 @@ Near-upstream anchors from `differential_status.md`:
 - Remaining gap: direct proof-visibility controls in Boole
 -/
 
-private def opaqueRevealHideSeed : Strata.Program :=
+private def opaqueRevealHideSeed : StrataDDM.Program :=
 #strata
 program Boole;
 
@@ -51,12 +51,12 @@ procedure opaque_reveal_hide_seed(x: int) returns ()
 #end
 
 /-- info:
-Obligation: assert_1_1334
+Obligation: assert_1_1342
 Property: assert
 Result: ✅ pass-/
 #guard_msgs in
 #eval Strata.Boole.verify "cvc5" opaqueRevealHideSeed (options := .quiet)
 
-example : Strata.smtVCsCorrect opaqueRevealHideSeed := by
-  gen_smt_vcs
+example : Strata.smtVCsCorrectBoole opaqueRevealHideSeed := by
+  gen_smt_vcs_boole
   all_goals (try grind)

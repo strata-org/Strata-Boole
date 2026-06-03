@@ -4,8 +4,8 @@
   SPDX-License-Identifier: Apache-2.0 OR MIT
 -/
 
-import Strata.MetaVerifier
-import Strata.Languages.Boole.Verify
+import StrataBoole.MetaVerifier
+import StrataBoole.Verify
 
 open Strata
 open Lambda
@@ -21,7 +21,7 @@ Near-upstream anchors from `differential_status.md`:
 - Remaining gap: named map synonyms and non-map extensional equality
 -/
 
-private def mapExtensionalitySeed : Strata.Program :=
+private def mapExtensionalitySeed : StrataDDM.Program :=
 #strata
 program Boole;
 
@@ -39,18 +39,18 @@ spec {
 #end
 
 /-- info:
-Obligation: assert_2_986
+Obligation: assert_2_983
 Property: assert
 Result: ✅ pass
 
-Obligation: map_extensionality_seed_ensures_1_963
+Obligation: map_extensionality_seed_ensures_1_960
 Property: assert
 Result: ✅ pass-/
 #guard_msgs in
 #eval Strata.Boole.verify "cvc5" mapExtensionalitySeed (options := .quiet)
 
-example : Strata.smtVCsCorrect mapExtensionalitySeed := by
-  gen_smt_vcs
+example : Strata.smtVCsCorrectBoole mapExtensionalitySeed := by
+  gen_smt_vcs_boole
   all_goals
     intro Map inst select a b hPointwise i
     exact hPointwise i
@@ -64,7 +64,7 @@ lift their de Bruijn indices so they keep referring to the outer map binders
 instead of the new index binder.
 -/
 
-private def quantifiedMapExtensionalityCaptureSeed : Strata.Program :=
+private def quantifiedMapExtensionalityCaptureSeed : StrataDDM.Program :=
 #strata
 program Boole;
 

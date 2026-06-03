@@ -4,7 +4,7 @@
   SPDX-License-Identifier: Apache-2.0 OR MIT
 -/
 
-import Strata.MetaVerifier
+import StrataBoole.MetaVerifier
 
 open Strata
 
@@ -30,7 +30,7 @@ Near-upstream anchor:
   `toCoreExpr`).
 -/
 
-private def embeddedPostconditionSeed : Strata.Program :=
+private def embeddedPostconditionSeed : StrataDDM.Program :=
 #strata
 program Boole;
 
@@ -56,6 +56,6 @@ Result: ✅ pass-/
 #guard_msgs in
 #eval Strata.Boole.verify "cvc5" embeddedPostconditionSeed (options := .quiet)
 
-example : Strata.smtVCsCorrect embeddedPostconditionSeed := by
-  gen_smt_vcs
+example : Strata.smtVCsCorrectBoole embeddedPostconditionSeed := by
+  gen_smt_vcs_boole
   all_goals (try grind)

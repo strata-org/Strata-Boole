@@ -4,11 +4,11 @@
   SPDX-License-Identifier: Apache-2.0 OR MIT
 -/
 
-import Strata.MetaVerifier
+import StrataBoole.MetaVerifier
 
 open Strata
 
-private def one_time_pad_map_program : Strata.Program :=
+private def one_time_pad_map_program : StrataDDM.Program :=
 #strata
 program Boole;
 
@@ -56,13 +56,13 @@ spec
 
 #end
 
-theorem one_time_pad_map_program_smt_vcs_correct : Strata.smtVCsCorrect one_time_pad_map_program := by
-  gen_smt_vcs
+theorem one_time_pad_map_program_smt_vcs_correct : Strata.smtVCsCorrectBoole one_time_pad_map_program := by
+  gen_smt_vcs_boole
   all_goals (first | grind | decide)
 
 
 
-private def one_time_pad_ll_program : Strata.Program :=
+private def one_time_pad_ll_program : StrataDDM.Program :=
 #strata
 program Boole;
 
@@ -234,7 +234,7 @@ Result: ✅ pass
 
 
 
-private def one_time_pad_seq_program : Strata.Program :=
+private def one_time_pad_seq_program : StrataDDM.Program :=
 #strata
 program Boole;
 

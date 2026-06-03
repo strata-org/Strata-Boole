@@ -4,7 +4,7 @@
   SPDX-License-Identifier: Apache-2.0 OR MIT
 -/
 
-import Strata.MetaVerifier
+import StrataBoole.MetaVerifier
 
 open Strata
 
@@ -22,7 +22,7 @@ Near-upstream anchors from `differential_status.md`:
 - Remaining gap: native `nat` support and less burdensome coercion handling
 -/
 
-private def natIntBoundarySeed : Strata.Program :=
+private def natIntBoundarySeed : StrataDDM.Program :=
 #strata
 program Boole;
 
@@ -49,16 +49,16 @@ spec {
 #end
 
 /-- info:
-Obligation: assert_4_1350
+Obligation: assert_4_1358
 Property: assert
 Result: ✅ pass
 
-Obligation: nat_int_boundary_seed_ensures_2_1275
+Obligation: nat_int_boundary_seed_ensures_2_1283
 Property: assert
 Result: ✅ pass-/
 #guard_msgs in
 #eval Strata.Boole.verify "cvc5" natIntBoundarySeed (options := .quiet)
 
-example : Strata.smtVCsCorrect natIntBoundarySeed := by
-  gen_smt_vcs
+example : Strata.smtVCsCorrectBoole natIntBoundarySeed := by
+  gen_smt_vcs_boole
   all_goals (try grind)

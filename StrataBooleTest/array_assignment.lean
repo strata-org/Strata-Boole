@@ -4,11 +4,11 @@
   SPDX-License-Identifier: Apache-2.0 OR MIT
 -/
 
-import Strata.MetaVerifier
+import StrataBoole.MetaVerifier
 
 open Strata
 
-def matrix_transpose_example : Strata.Program :=
+def matrix_transpose_example : StrataDDM.Program :=
 #strata
 program Boole;
 
@@ -37,6 +37,6 @@ procedure matrix_transpose (A: Matrix, m: int, n: int) returns (B: Matrix)
 #guard_msgs in
 #eval Strata.Boole.verify "cvc5" matrix_transpose_example (options := .quiet)
 
-theorem matrix_transpose_smt_vcs_correct : Strata.smtVCsCorrect matrix_transpose_example := by
-  gen_smt_vcs
+theorem matrix_transpose_smt_vcs_correct : Strata.smtVCsCorrectBoole matrix_transpose_example := by
+  gen_smt_vcs_boole
   all_goals (try grind)

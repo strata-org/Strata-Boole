@@ -4,7 +4,7 @@
   SPDX-License-Identifier: Apache-2.0 OR MIT
 -/
 
-import Strata.MetaVerifier
+import StrataBoole.MetaVerifier
 
 open Strata
 
@@ -22,7 +22,7 @@ Near-upstream anchors from `differential_status.md`:
 - Remaining gap: centralized insertion/preservation of widening casts
 -/
 
-private def wideningCastsSeed : Strata.Program :=
+private def wideningCastsSeed : StrataDDM.Program :=
 #strata
 program Boole;
 
@@ -46,18 +46,18 @@ spec {
 #end
 
 /-- info:
-Obligation: assert_3_1226
+Obligation: assert_3_1234
 Property: assert
 Result: ✅ pass
 
-Obligation: widening_cast_seed_ensures_2_1152
+Obligation: widening_cast_seed_ensures_2_1160
 Property: assert
 Result: ✅ pass-/
 #guard_msgs in
 #eval Strata.Boole.verify "cvc5" wideningCastsSeed (options := .quiet)
 
-example : Strata.smtVCsCorrect wideningCastsSeed := by
-  gen_smt_vcs
+example : Strata.smtVCsCorrectBoole wideningCastsSeed := by
+  gen_smt_vcs_boole
   all_goals
     intro Map inst n bv32_to_int_u select v hNonneg hn i hi
     exact hNonneg (select v i)

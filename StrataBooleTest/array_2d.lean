@@ -4,7 +4,7 @@
   SPDX-License-Identifier: Apache-2.0 OR MIT
 -/
 
-import Strata.MetaVerifier
+import StrataBoole.MetaVerifier
 
 open Strata
 
@@ -22,12 +22,12 @@ procedure array_2d_write_read(i: int, j: int, v: int) returns ()
 #end
 
 /-- info:
-Obligation: assert_0_298
+Obligation: assert_0_303
 Property: assert
 Result: ✅ pass-/
 #guard_msgs in
 #eval Strata.Boole.verify "cvc5" array_2d (options := .quiet)
 
-example : Strata.smtVCsCorrect array_2d := by
-  gen_smt_vcs
+example : Strata.smtVCsCorrectBoole array_2d := by
+  gen_smt_vcs_boole
   all_goals grind

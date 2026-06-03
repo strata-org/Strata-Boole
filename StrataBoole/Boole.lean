@@ -5,8 +5,8 @@
 -/
 module
 
-public import Strata.Languages.Boole.Grammar
-meta import Strata.DDM.Integration.Lean
+public import StrataBoole.Grammar -- shake: keep
+import StrataDDM.Integration.Lean.Gen -- shake: keep
 
 public section
 
@@ -19,6 +19,8 @@ set_option maxHeartbeats 400000 in
 end Strata.BooleDDM
 
 namespace Strata
+
+open StrataDDM (SourceRange)
 
 abbrev Boole.Type := BooleDDM.BooleType SourceRange
 abbrev Boole.Expr := BooleDDM.Expr SourceRange

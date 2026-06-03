@@ -4,7 +4,7 @@
   SPDX-License-Identifier: Apache-2.0 OR MIT
 -/
 
-import Strata.MetaVerifier
+import StrataBoole.MetaVerifier
 
 private def bit_vectors :=
 #strata
@@ -35,12 +35,12 @@ spec {
 #end
 
 /-- info:
-Obligation: assert_1_418
+Obligation: assert_1_423
 Property: assert
 Result: ✅ pass-/
 #guard_msgs in
 #eval Strata.Boole.verify "cvc5" bit_vectors (options := .quiet)
 
-example : Strata.smtVCsCorrect bit_vectors := by
-  gen_smt_vcs
+example : Strata.smtVCsCorrectBoole bit_vectors := by
+  gen_smt_vcs_boole
   all_goals grind

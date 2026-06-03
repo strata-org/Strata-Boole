@@ -4,7 +4,7 @@
   SPDX-License-Identifier: Apache-2.0 OR MIT
 -/
 
-import Strata.MetaVerifier
+import StrataBoole.MetaVerifier
 
 open Strata
 
@@ -20,7 +20,7 @@ unknown VCs for loop invariants that mix the counter with `Sequence.length`.
 `int` with range bounds is the faithful encoding and eliminates the cast.
 -/
 
-private def sha256_compact_indexed_program : Strata.Program :=
+private def sha256_compact_indexed_program : StrataDDM.Program :=
 #strata
 program Boole;
 

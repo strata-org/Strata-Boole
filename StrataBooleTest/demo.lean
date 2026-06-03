@@ -4,11 +4,11 @@
   SPDX-License-Identifier: Apache-2.0 OR MIT
 -/
 
-import Strata.MetaVerifier
+import StrataBoole.MetaVerifier
 
 open Strata
 
-def loopSimple : Strata.Program :=
+def loopSimple : StrataDDM.Program :=
 #strata
 program Boole;
 
@@ -36,11 +36,11 @@ spec {
 
 open Strata.SMT
 
-theorem loopSimple_smtVCsCorrect : smtVCsCorrect loopSimple := by
-  gen_smt_vcs
+theorem loopSimple_smtVCsCorrectBoole : smtVCsCorrectBoole loopSimple := by
+  gen_smt_vcs_boole
   all_goals (try grind)
 
-/-- info: 'loopSimple_smtVCsCorrect' depends on axioms: [propext,
+/-- info: 'loopSimple_smtVCsCorrectBoole' depends on axioms: [propext,
  Classical.choice,
  Lean.ofReduceBool,
  Lean.trustCompiler,
@@ -97,4 +97,4 @@ theorem loopSimple_smtVCsCorrect : smtVCsCorrect loopSimple := by
  Core.bv8SafeUNegFunc._native.native_decide.ax_1✝,
  Core.bv8SafeUSubFunc._native.native_decide.ax_1✝]-/
 #guard_msgs in
-#print axioms loopSimple_smtVCsCorrect
+#print axioms loopSimple_smtVCsCorrectBoole

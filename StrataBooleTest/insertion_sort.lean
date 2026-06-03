@@ -4,7 +4,7 @@
   SPDX-License-Identifier: Apache-2.0 OR MIT
 -/
 
-import Strata.MetaVerifier
+import StrataBoole.MetaVerifier
 
 open Strata
 
@@ -83,12 +83,12 @@ Obligation: arbitrary_iter_maintain_invariant_0_1
 Property: assert
 Result: ✅ pass
 
-Obligation: InsertionSort_ensures_2_337
+Obligation: InsertionSort_ensures_2_342
 Property: assert
 Result: ✅ pass-/
 #guard_msgs in
 #eval Strata.Boole.verify "cvc5" insertionSortPgm (options := .quiet)
 
-example : Strata.smtVCsCorrect insertionSortPgm := by
-  gen_smt_vcs
+example : Strata.smtVCsCorrectBoole insertionSortPgm := by
+  gen_smt_vcs_boole
   all_goals (try grind)

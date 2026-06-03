@@ -4,11 +4,11 @@
   SPDX-License-Identifier: Apache-2.0 OR MIT
 -/
 
-import Strata.MetaVerifier
+import StrataBoole.MetaVerifier
 
 open Strata
 
-def loop_simple_program : Strata.Program :=
+def loop_simple_program : StrataDDM.Program :=
 #strata
 program Boole;
 
@@ -53,6 +53,6 @@ Result: ✅ pass-/
 
 open Strata.SMT
 
-theorem loop_simple_smt_vcs_correct : smtVCsCorrect loop_simple_program := by
-  gen_smt_vcs
+theorem loop_simple_smt_vcs_correct : smtVCsCorrectBoole loop_simple_program := by
+  gen_smt_vcs_boole
   all_goals (try grind)

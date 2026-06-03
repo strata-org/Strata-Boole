@@ -4,11 +4,11 @@
   SPDX-License-Identifier: Apache-2.0 OR MIT
 -/
 
-import Strata.MetaVerifier
+import StrataBoole.MetaVerifier
 
 open Strata
 
-def topLevelBlockSelection : Strata.Program :=
+def topLevelBlockSelection : StrataDDM.Program :=
 #strata
 program Boole;
 
@@ -36,6 +36,6 @@ Result: ✅ pass
         (proceduresToVerify := (some [Strata.Boole.topLevelBlockProcedureName]))
         (options := .quiet)
 
-example : Strata.smtVCsCorrect topLevelBlockSelection := by
-  gen_smt_vcs
+example : Strata.smtVCsCorrectBoole topLevelBlockSelection := by
+  gen_smt_vcs_boole
   all_goals (try grind)

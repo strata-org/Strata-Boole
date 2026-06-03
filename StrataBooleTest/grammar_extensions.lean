@@ -4,7 +4,7 @@
   SPDX-License-Identifier: Apache-2.0 OR MIT
 -/
 
-import Strata.MetaVerifier
+import StrataBoole.MetaVerifier
 
 open Strata
 
@@ -20,7 +20,7 @@ This covers:
 - quantifiers inside invariants
 -/
 
-private def grammarExtensions : Strata.Program :=
+private def grammarExtensions : StrataDDM.Program :=
 #strata
 program Boole;
 
@@ -92,7 +92,7 @@ Obligation: entry_invariant_0_0
 Property: assert
 Result: ✅ pass
 
-Obligation: assert_0_518
+Obligation: assert_0_526
 Property: assert
 Result: ✅ pass
 
@@ -104,7 +104,7 @@ Obligation: entry_invariant_0_0
 Property: assert
 Result: ✅ pass
 
-Obligation: assert_2_640
+Obligation: assert_2_648
 Property: assert
 Result: ✅ pass
 
@@ -120,11 +120,11 @@ Obligation: entry_invariant_0_1
 Property: assert
 Result: ✅ pass
 
-Obligation: assert_4_799
+Obligation: assert_4_807
 Property: assert
 Result: ✅ pass
 
-Obligation: assert_5_826
+Obligation: assert_5_834
 Property: assert
 Result: ✅ pass
 
@@ -148,7 +148,7 @@ Obligation: entry_invariant_0_2
 Property: assert
 Result: ✅ pass
 
-Obligation: assert_7_982
+Obligation: assert_7_990
 Property: assert
 Result: ✅ pass
 
@@ -182,6 +182,6 @@ Result: ✅ pass-/
 #guard_msgs in
 #eval Strata.Boole.verify "cvc5" grammarExtensions (options := .quiet)
 
-example : Strata.smtVCsCorrect grammarExtensions := by
-  gen_smt_vcs
+example : Strata.smtVCsCorrectBoole grammarExtensions := by
+  gen_smt_vcs_boole
   all_goals (try grind)
