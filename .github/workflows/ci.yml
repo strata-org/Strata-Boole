@@ -7,6 +7,25 @@ on:
     branches: [main]
 
 jobs:
+  lint_checks:
+    name: Run lint checks
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Check copyright headers
+        run: python3 .github/scripts/check_copyright_headers.py .
+      - name: Check for trailing whitespace
+        run: .github/scripts/lintWhitespace.sh
+      - name: Check for import Lean
+        run: .github/scripts/checkLeanImport.sh
+      - name: Check for new panic! usage
+        run: .github/scripts/checkNoPanic.sh "origin/${{ github.base_ref || 'main' }}"
+
   build_and_test_lean:
     name: Build and test Lean
     runs-on: ubuntu-latest
