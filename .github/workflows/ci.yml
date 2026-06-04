@@ -18,13 +18,17 @@ jobs:
         with:
           fetch-depth: 0
       - name: Check copyright headers
-        run: python3 .github/scripts/check_copyright_headers.py .
+        uses: strata-org/Strata/.github/actions/check-copyright-headers@main
       - name: Check for trailing whitespace
-        run: .github/scripts/lintWhitespace.sh
+        uses: strata-org/Strata/.github/actions/lint-whitespace@main
+        with:
+          directory: "."
       - name: Check for import Lean
-        run: .github/scripts/checkLeanImport.sh
+        uses: strata-org/Strata/.github/actions/check-lean-import@main
       - name: Check for new panic! usage
-        run: .github/scripts/checkNoPanic.sh "origin/${{ github.base_ref || 'main' }}"
+        uses: strata-org/Strata/.github/actions/check-no-panic@main
+        with:
+          base-ref: "origin/${{ github.base_ref || 'main' }}"
 
   build_and_test_lean:
     name: Build and test Lean
