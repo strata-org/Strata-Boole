@@ -24,7 +24,7 @@ Boole verification pipeline:
 -> `toCoreProgram` -> `Core.Program` -> `Core.verify`
 -/
 
-structure TranslateState where
+private structure TranslateState where
   fileName : String := ""
   gctx : GlobalContext := {}
   fvarIsOp : Array Bool := #[]
@@ -42,7 +42,7 @@ structure TranslateState where
       Used to add globals as input parameters to procedures. -/
   globalVarTypes : Std.HashMap String Lambda.LMonoTy := {}
 
-abbrev TranslateM := StateT TranslateState (Except DiagnosticModel)
+private abbrev TranslateM := StateT TranslateState (Except DiagnosticModel)
 
 private def mkIdent (name : String) : Core.Expression.Ident :=
   ⟨name, ()⟩
@@ -182,7 +182,7 @@ private def typeRange : Boole.Type → SourceRange
   | .Map m _ _ => m
   | .Sequence m _ => m
 
-def toCoreMonoType (t : Boole.Type) : TranslateM Lambda.LMonoTy := do
+private def toCoreMonoType (t : Boole.Type) : TranslateM Lambda.LMonoTy := do
   match t with
   | .bvar m n => return .ftvar (← getTypeBVarName m n)
   | .tvar _ n => return .ftvar n
@@ -199,7 +199,7 @@ def toCoreMonoType (t : Boole.Type) : TranslateM Lambda.LMonoTy := do
   | .Map _ v k => return .tcons "Map" [← toCoreMonoType k, ← toCoreMonoType v]
   | _ => throwAt (typeRange t) s!"Unsupported Boole type: {repr t}"
 
-def toCoreType (t : Boole.Type) : TranslateM Core.Expression.Ty := do
+private def toCoreType (t : Boole.Type) : TranslateM Core.Expression.Ty := do
   return .forAll [] (← toCoreMonoType t)
 
 private def toCoreBinding (b : BooleDDM.Binding SourceRange) : TranslateM (Core.Expression.Ident × Lambda.LMonoTy) := do
@@ -229,13 +229,13 @@ private def toCoreMonoBind (b : BooleDDM.MonoBind SourceRange) : TranslateM (Cor
   match b with
   | .mono_bind_mk _ ⟨_, n⟩ ty => return (mkIdent n, ← toCoreMonoType ty)
 
-def toCoreTypedUn (m : SourceRange) (ty : Boole.Type) (op : String) (a : Core.Expression.Expr) : TranslateM Core.Expression.Expr := do
+private def toCoreTypedUn (m : SourceRange) (ty : Boole.Type) (op : String) (a : Core.Expression.Expr) : TranslateM Core.Expression.Expr := do
   let .int _ := ty
     | throwAt m s!"Unsupported typed operator type: {repr ty}"
   let iop : Core.Expression.Expr := .op () ⟨s!"Int.{op}", ()⟩ none
   return .app () iop a
 
-def toCoreTypedBin (m : SourceRange) (ty : Boole.Type) (op : String) (a b : Core.Expression.Expr) : TranslateM Core.Expression.Expr := do
+private def toCoreTypedBin (m : SourceRange) (ty : Boole.Type) (op : String) (a b : Core.Expression.Expr) : TranslateM Core.Expression.Expr := do
   let .int _ := ty
     | throwAt m s!"Unsupported typed operator type: {repr ty}"
   let iop : Core.Expression.Expr := .op () ⟨s!"Int.{op}", ()⟩ none
@@ -289,7 +289,7 @@ private def oldifyExpr (inoutNames : List String) : Core.Expression.Expr → Cor
 
 mutual
 
-def toCoreQuant
+private def toCoreQuant
     (isForall : Bool)
     (ds : BooleDDM.DeclList SourceRange)
     (body : Boole.Expr) : TranslateM Core.Expression.Expr := do
@@ -324,7 +324,7 @@ private def toCoreQuantExpr? (e : Boole.Expr) : Option (TranslateM Core.Expressi
       some (toCoreQuant false ds body)
   | _ => none
 
-def toCoreExpr (e : Boole.Expr) : TranslateM Core.Expression.Expr := do
+private def toCoreExpr (e : Boole.Expr) : TranslateM Core.Expression.Expr := do
   if let some q := toCoreQuantExpr? e then
     return ← q
   match e with
@@ -378,7 +378,7 @@ def toCoreExpr (e : Boole.Expr) : TranslateM Core.Expression.Expr := do
 
 end
 
-def nestMapSet (base : Core.Expression.Expr) (idxs : List Core.Expression.Expr) (rhs : Core.Expression.Expr) : Core.Expression.Expr :=
+private def nestMapSet (base : Core.Expression.Expr) (idxs : List Core.Expression.Expr) (rhs : Core.Expression.Expr) : Core.Expression.Expr :=
   match idxs with
   | [] => rhs
   | [i] => mkCoreApp Core.mapUpdateOp [base, i, rhs]
@@ -387,7 +387,7 @@ def nestMapSet (base : Core.Expression.Expr) (idxs : List Core.Expression.Expr) 
     let updatedInner := nestMapSet innerMap rest rhs
     mkCoreApp Core.mapUpdateOp [base, i, updatedInner]
 
-def toCoreInvariants (is : BooleDDM.Invariants SourceRange) :
+private def toCoreInvariants (is : BooleDDM.Invariants SourceRange) :
     TranslateM (List (String × Core.Expression.Expr)) := do
   match is with
   | .nilInvariants _ => return []
@@ -398,7 +398,7 @@ def toCoreInvariants (is : BooleDDM.Invariants SourceRange) :
     let e' ← toCoreExpr e
     return (lbl, e') :: (← toCoreInvariants rest)
 
-def lowerFor
+private def lowerFor
     (m : SourceRange)
     (id : Core.Expression.Ident)
     (ty : Lambda.LMonoTy)
@@ -426,7 +426,7 @@ private def lowerVarStatement (m : SourceRange) (ds : BooleDDM.DeclList SourceRa
 
 mutual
 
-def toCoreBlock (b : BooleDDM.Block SourceRange) : TranslateM (List Core.Statement) := do
+private def toCoreBlock (b : BooleDDM.Block SourceRange) : TranslateM (List Core.Statement) := do
   match b with
   | .block _ ⟨_, ss⟩ =>
     let parts ← ss.toList.mapM fun s =>
@@ -461,7 +461,7 @@ private def constructProcArgsPrefix (n : String)
     fun (id, _) => Core.CallArg.inArg (Lambda.LExpr.fvar () id none : Core.Expression.Expr)
   return modifiesArgs ++ readOnlyArgs
 
-def toCoreStmt (s : BooleDDM.Statement SourceRange) : TranslateM Core.Statement := do
+private def toCoreStmt (s : BooleDDM.Statement SourceRange) : TranslateM Core.Statement := do
   match s with
   | .varStatement m ds =>
     let out ← lowerVarStatement m ds
@@ -807,7 +807,7 @@ private def translateProcedureDecl
     body := body
   } .empty]
 
-def toCoreDecls (cmd : BooleDDM.Command SourceRange) : TranslateM (List Core.Decl) := do
+private def toCoreDecls (cmd : BooleDDM.Command SourceRange) : TranslateM (List Core.Decl) := do
   match cmd with
   | .boole_procedure m nameAnn targsAnn ins outsAnn specAnn bodyAnn =>
     let n := nameAnn.val
