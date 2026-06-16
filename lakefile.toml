@@ -6,7 +6,7 @@ testDriver = "StrataBooleTest"
 [[require]]
 name = "Strata"
 git = "https://github.com/strata-org/Strata"
-rev = "port/main2-core-to-main"
+rev = "main"
 
 [[lean_lib]]
 name = "StrataBoole"
