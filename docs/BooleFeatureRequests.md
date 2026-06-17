@@ -57,6 +57,11 @@ seeds with at least one open gap remain in
   - `fun x : T => body` lowers to nested Core `.abs` nodes; `(f)(x)` lowers to `.app () f x`.
   - Remaining gap: first-class function values as procedure parameters / local variables still need abstract-type encoding for the SMT path.
   - Benchmark: [`lambda_closure.lean`](../StrataBoole/StrataBooleTest/FeatureRequests/lambda_closure.lean).
+- **SMT-LIB 2.7 cast operators** (`e as_int`, `e as_sint`, `e as_bv{n}`) (Gap #6)
+  - `e as_int` → `Bv{n}.ToUInt` → SMT-LIB 2.7 `ubv_to_int` (unsigned); widths 1/8/16/32/64/128.
+  - `e as_sint` → `Bv{n}.ToInt` → SMT-LIB 2.7 `sbv_to_int` (signed); widths 1/8/16/32/64/128.
+  - `e as_bv{n}` → `Int.ToBv{n}` → SMT-LIB 2.7 `(_ int_to_bv n)` (truncating mod 2^n); widths 1/8/16/32/64/128.
+  - Benchmarks: [`cast_expr.lean`](../StrataBoole/StrataBooleTest/cast_expr.lean), [`widening_casts.lean`](../StrataBoole/StrataBooleTest/widening_casts.lean), [`cast_all_directions.lean`](../StrataBoole/StrataBooleTest/cast_all_directions.lean), [`cast_nested.lean`](../StrataBoole/StrataBooleTest/cast_nested.lean).
 
 ## Semantic preservation requests
 
@@ -65,7 +70,7 @@ seeds with at least one open gap remain in
 3. **`reveal_with_fuel`**: Lower priority. Preserve the requested fuel amount instead of lowering it to an unrestricted reveal.
 4. **`closed` visibility**: Lower priority. Keep closed spec-function bodies hidden across module boundaries.
 5. **Overflow guards**: Lower priority. Preserve `HasType`-style arithmetic overflow checks if Verus-specific guards are worth modeling directly.
-6. **Widening casts outside call sites**: Insert or preserve cast/coercion structure in comparisons, quantifiers, and other expressions with a centralized type-directed coercion pass.
+6. **SMT-LIB 2.7 cast operators** (`as_int`, `as_sint`, `as_bv{n}`): Implemented.
 7. **`decreases` metadata**: Implemented.
 
 ## Type/model requests
@@ -120,7 +125,10 @@ Seeds with all gaps closed have been moved to `StrataBooleTest/`; the table belo
 | [`opaque_reveal_hide.lean`](../StrataBoole/StrataBooleTest/FeatureRequests/opaque_reveal_hide.lean) | `opaque`/`reveal` (#1), `hide` (#2), `closed` (#4) | Verus `generics`, `test_expand_errors`, `debug_expand`, `modules` | Lower priority |
 | [`reveal_with_fuel.lean`](../StrataBoole/StrataBooleTest/FeatureRequests/reveal_with_fuel.lean) | `reveal_with_fuel` (#3) | Verus `test_expand_errors`, `recursion` | Lower priority |
 | [`early_return.lean`](../StrataBoole/StrataBooleTest/FeatureRequests/early_return.lean) | Early return | Verus SST `return` translation gap from `differential_status.md` | Implemented (#871) |
-| [`widening_casts.lean`](../StrataBoole/StrataBooleTest/FeatureRequests/widening_casts.lean) | Widening casts (#6) | Verus `guide/integers`, `quantifiers`, `statements` | Active |
+| [`widening_casts.lean`](../StrataBoole/StrataBooleTest/widening_casts.lean) | SMT-LIB 2.7 cast operators (#6) | Verus `guide/integers`, `quantifiers`, `statements` | Implemented |
+| [`cast_expr.lean`](../StrataBoole/StrataBooleTest/cast_expr.lean) | SMT-LIB 2.7 cast operators (#6) | dalek-lite `scalar.rs` B2/B5 | Implemented |
+| [`cast_all_directions.lean`](../StrataBoole/StrataBooleTest/cast_all_directions.lean) | SMT-LIB 2.7 cast operators (#6) | All three cast directions | Implemented |
+| [`cast_nested.lean`](../StrataBoole/StrataBooleTest/cast_nested.lean) | SMT-LIB 2.7 cast operators (#6), `decreases` preservation (#7) | dalek-lite `bytes_seq_as_nat` / `seq_as_nat_52` (B2) | Implemented |
 | [`choose_operator.lean`](../StrataBoole/StrataBooleTest/FeatureRequests/choose_operator.lean) | `choose` (#18) | Verus `trigger_loops` (`choose_example`, `quantifier_example`) | Implemented (#1075) |
 | [`higher_order_encoding.lean`](../StrataBoole/StrataBooleTest/FeatureRequests/higher_order_encoding.lean) | Higher-order values (#17) | Verus `fun_ext`, `trait_for_fn` | Active |
 | [`lambda_closure.lean`](../StrataBoole/StrataBooleTest/FeatureRequests/lambda_closure.lean) | Lambda / closure (#17) | Local reduced Rust/Verus-style lambda example | Implemented (#1075); remaining gap: first-class function values as procedure parameters/variables |

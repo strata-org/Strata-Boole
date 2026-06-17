@@ -240,7 +240,11 @@ private def toCoreMonoType (t : Boole.Type) : TranslateM Lambda.LMonoTy := do
   match t with
   | .bvar m n => return .ftvar (← getTypeBVarName m n)
   | .tvar _ n => return .ftvar n
-  | .fvar m i args => return .tcons (← getFVarName m i) (← args.mapM toCoreMonoType).toList
+  | .fvar m i args =>
+    -- DDM stores a type application's arguments in reverse order — `Tuple A B`
+    -- arrives as `#[B, A]` — so restore the declared parameter order here, as
+    -- Core's `translateLMonoTy` (DDMTransform/Translate.lean) does.
+    return .tcons (← getFVarName m i) (← args.mapM toCoreMonoType).toList.reverse
   | .arrow _ a b => return .arrow (← toCoreMonoType a) (← toCoreMonoType b)
   | .bool _ => return .bool
   | .int _ => return .int
@@ -285,15 +289,19 @@ private def toCoreMonoBind (b : BooleDDM.MonoBind SourceRange) : TranslateM (Cor
   match b with
   | .mono_bind_mk _ ⟨_, n⟩ ty => return (mkIdent n, ← toCoreMonoType ty)
 
+private def bvWidth? : Boole.Type → Option Nat
+  | .bv1 _   => some 1
+  | .bv8 _   => some 8
+  | .bv16 _  => some 16
+  | .bv32 _  => some 32
+  | .bv64 _  => some 64
+  | .bv128 _ => some 128
+  | _        => none
+
 private def bvWidth (m : SourceRange) (ty : Boole.Type) : TranslateM Nat :=
-  match ty with
-  | .bv1 _  => return 1
-  | .bv8 _  => return 8
-  | .bv16 _ => return 16
-  | .bv32 _ => return 32
-  | .bv64 _  => return 64
-  | .bv128 _ => return 128
-  | _ => throwAt m s!"Expected bitvector type, got: {repr ty}"
+  match bvWidth? ty with
+  | some n => return n
+  | none   => throwAt m s!"Expected bitvector type, got: {repr ty}"
 
 private def toCoreBvUn (m : SourceRange) (ty : Boole.Type) (op : String) (a : Core.Expression.Expr) : TranslateM Core.Expression.Expr := do
   let n ← bvWidth m ty
@@ -508,6 +516,25 @@ private partial def toCoreExpr (e : Boole.Expr) : TranslateM Core.Expression.Exp
       return tys.foldr (fun ty acc => .abs () "" (some ty) acc) body'
   -- Function application: `(f)(x)`  →  Core .app
   | .apply_expr _ _ _ f x => return .app () (← toCoreExpr f) (← toCoreExpr x)
+  -- Core built-in function syntax: as_uint(e), as_sint(e), as_bv{n}(e)
+  | .as_uint m ty e =>
+    if let some n := bvWidth? ty then
+      return mkCoreApp (.op () (mkIdent s!"Bv{n}.ToUInt") none) [← toCoreExpr e]
+    else match ty with
+    | .int _ => toCoreExpr e
+    | _ => throwAt m s!"'as_uint' requires a bitvector source type, got: {repr ty}"
+  | .as_sint m ty e =>
+    if let some n := bvWidth? ty then
+      return mkCoreApp (.op () (mkIdent s!"Bv{n}.ToInt") none) [← toCoreExpr e]
+    else match ty with
+    | .int _ => toCoreExpr e
+    | _ => throwAt m s!"'as_sint' requires a bitvector source type, got: {repr ty}"
+  | .as_bv1   _ e => return mkCoreApp (.op () (mkIdent "Int.ToBv1")   none) [← toCoreExpr e]
+  | .as_bv8   _ e => return mkCoreApp (.op () (mkIdent "Int.ToBv8")   none) [← toCoreExpr e]
+  | .as_bv16  _ e => return mkCoreApp (.op () (mkIdent "Int.ToBv16")  none) [← toCoreExpr e]
+  | .as_bv32  _ e => return mkCoreApp (.op () (mkIdent "Int.ToBv32")  none) [← toCoreExpr e]
+  | .as_bv64  _ e => return mkCoreApp (.op () (mkIdent "Int.ToBv64")  none) [← toCoreExpr e]
+  | .as_bv128 _ e => return mkCoreApp (.op () (mkIdent "Int.ToBv128") none) [← toCoreExpr e]
   | _ => throw (.fromMessage s!"Unsupported expression: {repr e}")
 
 end
@@ -1030,7 +1057,8 @@ private def toCoreDecls (cmd : BooleDDM.Command SourceRange) : TranslateM (List 
       body := .structured (← toCoreBlock b)
     } .empty]
   | .command_datatypes _ ⟨_, decls⟩ =>
-    return [.type (.data (← decls.toList.mapM toCoreDatatypeDecl)) .empty]
+    let datatypes ← decls.toList.mapM toCoreDatatypeDecl
+    return [.type (.data datatypes) .empty]
 
 /-- Render a `Boole.Program` to a format object using the provided `GlobalContext` and
 `DialectMap`. These should come from the originating `Strata.Program` (i.e. `env.globalContext`
@@ -1050,7 +1078,7 @@ def formatProgram (prog : Boole.Program) (gctx : GlobalContext) (dialects : Dial
 def toCoreProgram (p : Boole.Program) (gctx : GlobalContext := {}) (fileName : String := "") : Except DiagnosticModel Core.Program := do
   match p with
   | .prog _ ⟨_, cmds⟩ =>
-    -- Pre-pass: collect global variable types and modifies info per procedure.
+    -- Pre-pass: collect global variable types and modifies info.
     let mut varTypes : Std.HashMap String Lambda.LMonoTy := {}
     let mut modMap : Std.HashMap String (List (Core.Expression.Ident × Lambda.LMonoTy)) := {}
     for cmd in cmds do
