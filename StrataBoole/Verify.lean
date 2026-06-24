@@ -432,6 +432,7 @@ private partial def toCoreExpr (e : Boole.Expr) : TranslateM Core.Expression.Exp
   | .bv16Lit _ ⟨_, n⟩ => return .bitvecConst () 16 n
   | .bv32Lit _ ⟨_, n⟩ => return .bitvecConst () 32 n
   | .bv64Lit _ ⟨_, n⟩ => return .bitvecConst () 64 n
+  | .bv128Lit _ ⟨_, n⟩ => return .bitvecConst () 128 n
   | .natToInt _ ⟨_, n⟩ => return .intConst () (Int.ofNat n)
   | .if _ _ c t f => return .ite () (← toCoreExpr c) (← toCoreExpr t) (← toCoreExpr f)
   | .map_get _ _ _ a i => return mkCoreApp Core.mapSelectOp [← toCoreExpr a, ← toCoreExpr i]
