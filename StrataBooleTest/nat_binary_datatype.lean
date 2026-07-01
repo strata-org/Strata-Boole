@@ -68,10 +68,6 @@ function nat.le  (a : nat, b : nat) : bool { nat.toInt(a) <= nat.toInt(b) }
 function nat.gt  (a : nat, b : nat) : bool { nat.toInt(a) >  nat.toInt(b) }
 function nat.ge  (a : nat, b : nat) : bool { nat.toInt(a) >= nat.toInt(b) }
 
-// -----------------------------------------------------------------------
-// § Unsat-direction verification tests
-// -----------------------------------------------------------------------
-
 procedure test_nonneg (n : nat) returns ()
 spec { ensures 0 <= nat.toInt(n); }
 { assert 0 <= nat.toInt(n); };
@@ -172,10 +168,6 @@ function nat.lt  (a : nat, b : nat) : bool { nat.toInt(a) <  nat.toInt(b) }
 function nat.le  (a : nat, b : nat) : bool { nat.toInt(a) <= nat.toInt(b) }
 function nat.gt  (a : nat, b : nat) : bool { nat.toInt(a) >  nat.toInt(b) }
 function nat.ge  (a : nat, b : nat) : bool { nat.toInt(a) >= nat.toInt(b) }
-
-// -----------------------------------------------------------------------
-// § Unsat-direction verification tests (identical shape to Option A)
-// -----------------------------------------------------------------------
 
 procedure test_nonneg (n : nat) returns ()
 spec { ensures 0 <= nat.toInt(n); }
