@@ -156,7 +156,7 @@ seeds live in
 
 | B | Gap | Status | Notes |
 |---|-----|--------|-------|
-| 1 | `u128` intermediate products | ○ open | 25 u64×u64 cross-limb products are u128 in Rust; in Boole, model as `int` — no separate feature needed, resolves with #13 |
+| 1 | `u128` intermediate products | ✓ done | 25 u64×u64 cross-limb products are u128 in Rust; now model as `bv128` — native u128 support added (Bv↔Int casts, PR #3); resolves with #13 |
 | 1 | #13 `FieldElement51.limbs: [u64; 5]` | ○ open | Sub-case of #13: `limbs` is a struct field whose type is itself a fixed-size array. Planned encoding: flatten into five named `int` fields (`limb0`…`limb4`) rather than `Map int bv64` — same gap, not a separate one |
 | 2 | #15 `[u8; 64]` byte arrays | ○ open | `input: &[u8; 64]` as `Map int bv8`; SMT backend resolved by PR #795; remaining gap is Boole syntax (initializer, write-back) |
 | 5 | #15 `[u8; 32]` byte arrays | ○ open | Same as B2; SMT backend resolved by PR #795 |
