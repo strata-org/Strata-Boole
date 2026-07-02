@@ -235,6 +235,18 @@ procedure test_large_literal () returns ()
 spec { ensures nat.toInt(nat.fromInt(1024)) == 1024; }
 { assert nat.toInt(nat.fromInt(1024)) == 1024; };
 
+// SAT direction: these are satisfiable but not universally true.
+// cvc5 returns unknown — expected, because the three bridge axioms are
+// universally quantified and block concrete model search. This is the
+// known ceiling with quantified axioms over an infinite domain.
+procedure test_sat_exists_sum (a : nat, b : nat) returns ()
+spec { ensures nat.toInt(a) + nat.toInt(b) == 7; }
+{ assert nat.toInt(a) + nat.toInt(b) == 7; };
+
+procedure test_sat_lt (a : nat, b : nat) returns ()
+spec { ensures nat.toInt(a) < nat.toInt(b); }
+{ assert nat.toInt(a) < nat.toInt(b); };
+
 #end
 
 /-- info:
@@ -312,7 +324,23 @@ Result: ✅ pass
 
 Obligation: test_large_literal_ensures_9_7617
 Property: assert
-Result: ✅ pass-/
+Result: ✅ pass
+
+Obligation: assert_12_8105
+Property: assert
+Result: ❓ unknown
+
+Obligation: test_sat_exists_sum_ensures_11_8059
+Property: assert
+Result: ❓ unknown
+
+Obligation: assert_14_8250
+Property: assert
+Result: ❓ unknown
+
+Obligation: test_sat_lt_ensures_13_8209
+Property: assert
+Result: ❓ unknown-/
 #guard_msgs in
 #eval Strata.Boole.verify "cvc5" nat_binary_program (options := .quiet)
 
