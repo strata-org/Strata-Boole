@@ -87,19 +87,12 @@ function nat.toInt (n : nat) : int {
 }
 
 // ── pos.fromInt ──────────────────────────────────────────────────────────────
-// Int-recursive: x div 2 < x for x > 1 is the termination witness (decreases x).
-// The SMT encoder emits this as define-fun-rec — no axioms needed; cvc5 can
-// compute concrete pos terms directly from integer arguments.
-// Only meaningful for x >= 1 (nat.fromInt guards the x <= 0 case).
-rec
-function pos.fromInt (x : int) : pos
-decreases x
-{
-  if x <= 1 then xH()
-  else if x mod 2 == 0 then xO(pos.fromInt(x div 2))
-  else xI(pos.fromInt(x div 2))
-}
-;
+// Opaque UF: only meaningful for x >= 1 (nat.fromInt guards the x <= 0 case).
+// Axioms give cvc5 the case equations for E-matching in the unsat direction.
+function pos.fromInt (x : int) : pos;
+axiom [pos_fromInt_base]: forall x : int :: x <= 1 ==> pos.fromInt(x) == xH();
+axiom [pos_fromInt_even]: forall x : int :: x > 1 && x mod 2 == 0 ==> pos.fromInt(x) == xO(pos.fromInt(x div 2));
+axiom [pos_fromInt_odd]:  forall x : int :: x > 1 && x mod 2 != 0 ==> pos.fromInt(x) == xI(pos.fromInt(x div 2));
 
 // ── nat.fromInt ──────────────────────────────────────────────────────────────
 function nat.fromInt (x : int) : nat {

@@ -176,18 +176,11 @@ function nat.toInt (n : nat) : int {
   if nat..isN0(n) then 0 else pos.toInt(nat..val(n))
 }
 
-// pos.fromInt: int-recursive (x div 2 < x for x > 1).
-// Emitted as define-fun-rec — cvc5 can compute concrete pos terms from integers.
-// Only meaningful for x >= 1 (nat.fromInt guards the x <= 0 case).
-rec
-function pos.fromInt (x : int) : pos
-decreases x
-{
-  if x <= 1 then xH()
-  else if x mod 2 == 0 then xO(pos.fromInt(x div 2))
-  else xI(pos.fromInt(x div 2))
-}
-;
+// pos.fromInt: opaque UF + axioms; only meaningful for x >= 1.
+function pos.fromInt (x : int) : pos;
+axiom [pos_fromInt_base]: forall x : int :: x <= 1 ==> pos.fromInt(x) == xH();
+axiom [pos_fromInt_even]: forall x : int :: x > 1 && x mod 2 == 0 ==> pos.fromInt(x) == xO(pos.fromInt(x div 2));
+axiom [pos_fromInt_odd]:  forall x : int :: x > 1 && x mod 2 != 0 ==> pos.fromInt(x) == xI(pos.fromInt(x div 2));
 
 // nat.fromInt: non-recursive wrapper
 function nat.fromInt (x : int) : nat {
@@ -270,75 +263,59 @@ Obligation: nat.toInt_body_calls_nat..val_0
 Property: assert
 Result: ✅ pass
 
-Obligation: pos.fromInt_terminates_0
+Obligation: assert_1_6949
 Property: assert
 Result: ✅ pass
 
-Obligation: pos.fromInt_terminates_1
+Obligation: test_nonneg_ensures_0_6918
 Property: assert
 Result: ✅ pass
 
-Obligation: pos.fromInt_terminates_2
+Obligation: assert_3_7106
 Property: assert
 Result: ✅ pass
 
-Obligation: pos.fromInt_terminates_3
+Obligation: test_add_comm_ensures_2_7040
 Property: assert
 Result: ✅ pass
 
-Obligation: assert_1_6913
+Obligation: assert_6_7297
 Property: assert
 Result: ✅ pass
 
-Obligation: test_nonneg_ensures_0_6882
+Obligation: test_fromInt_roundtrip_ensures_5_7253
 Property: assert
 Result: ✅ pass
 
-Obligation: assert_3_7070
+Obligation: assert_8_7495
 Property: assert
 Result: ✅ pass
 
-Obligation: test_add_comm_ensures_2_7004
+Obligation: test_literal_ensures_7_7451
 Property: assert
 Result: ✅ pass
 
-Obligation: assert_6_7261
+Obligation: assert_10_7703
 Property: assert
 Result: ✅ pass
 
-Obligation: test_fromInt_roundtrip_ensures_5_7217
+Obligation: test_large_literal_ensures_9_7653
 Property: assert
 Result: ✅ pass
 
-Obligation: assert_8_7459
-Property: assert
-Result: ✅ pass
-
-Obligation: test_literal_ensures_7_7415
-Property: assert
-Result: ✅ pass
-
-Obligation: assert_10_7667
-Property: assert
-Result: ✅ pass
-
-Obligation: test_large_literal_ensures_9_7617
-Property: assert
-Result: ✅ pass
-
-Obligation: assert_12_8105
+Obligation: assert_12_8141
 Property: assert
 Result: ❓ unknown
 
-Obligation: test_sat_exists_sum_ensures_11_8059
+Obligation: test_sat_exists_sum_ensures_11_8095
 Property: assert
 Result: ❓ unknown
 
-Obligation: assert_14_8250
+Obligation: assert_14_8286
 Property: assert
 Result: ❓ unknown
 
-Obligation: test_sat_lt_ensures_13_8209
+Obligation: test_sat_lt_ensures_13_8245
 Property: assert
 Result: ❓ unknown-/
 #guard_msgs in
@@ -379,22 +356,6 @@ Property: assert
 Result: ✅ pass
 
 Obligation: nat.toInt_body_calls_nat..val_0
-Property: assert
-Result: ✅ pass
-
-Obligation: pos.fromInt_terminates_0
-Property: assert
-Result: ✅ pass
-
-Obligation: pos.fromInt_terminates_1
-Property: assert
-Result: ✅ pass
-
-Obligation: pos.fromInt_terminates_2
-Property: assert
-Result: ✅ pass
-
-Obligation: pos.fromInt_terminates_3
 Property: assert
 Result: ✅ pass-/
 #guard_msgs in
