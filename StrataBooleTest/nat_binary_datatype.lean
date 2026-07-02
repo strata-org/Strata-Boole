@@ -90,6 +90,47 @@ spec { ensures nat.toInt(nat.fromInt(5)) == 5; }
 
 #end
 
+/-- info:
+Obligation: nat.toInt_body_calls_nat..pred_0
+Property: assert
+Result: ✅ pass
+
+Obligation: nat.toInt_terminates_0
+Property: assert
+Result: ✅ pass
+
+Obligation: assert_1_2768
+Property: assert
+Result: ✅ pass
+
+Obligation: test_nonneg_ensures_0_2737
+Property: assert
+Result: ✅ pass
+
+Obligation: assert_3_2925
+Property: assert
+Result: ✅ pass
+
+Obligation: test_add_comm_ensures_2_2859
+Property: assert
+Result: ✅ pass
+
+Obligation: assert_6_3116
+Property: assert
+Result: ✅ pass
+
+Obligation: test_fromInt_roundtrip_ensures_5_3072
+Property: assert
+Result: ✅ pass
+
+Obligation: assert_8_3313
+Property: assert
+Result: ✅ pass
+
+Obligation: test_literal_ensures_7_3269
+Property: assert
+Result: ✅ pass-/
+#guard_msgs in
 #eval Strata.Boole.verify "cvc5" nat_unary_program (options := .quiet)
 
 /-!
@@ -196,6 +237,83 @@ spec { ensures nat.toInt(nat.fromInt(1024)) == 1024; }
 
 #end
 
+/-- info:
+Obligation: pos.toInt_body_calls_pos..xO_h_0
+Property: assert
+Result: ✅ pass
+
+Obligation: pos.toInt_body_calls_pos..xI_h_1
+Property: assert
+Result: ✅ pass
+
+Obligation: pos.toInt_terminates_0
+Property: assert
+Result: ✅ pass
+
+Obligation: pos.toInt_terminates_1
+Property: assert
+Result: ✅ pass
+
+Obligation: nat.toInt_body_calls_nat..val_0
+Property: assert
+Result: ✅ pass
+
+Obligation: pos.fromInt_terminates_0
+Property: assert
+Result: ✅ pass
+
+Obligation: pos.fromInt_terminates_1
+Property: assert
+Result: ✅ pass
+
+Obligation: pos.fromInt_terminates_2
+Property: assert
+Result: ✅ pass
+
+Obligation: pos.fromInt_terminates_3
+Property: assert
+Result: ✅ pass
+
+Obligation: assert_1_6913
+Property: assert
+Result: ✅ pass
+
+Obligation: test_nonneg_ensures_0_6882
+Property: assert
+Result: ✅ pass
+
+Obligation: assert_3_7070
+Property: assert
+Result: ✅ pass
+
+Obligation: test_add_comm_ensures_2_7004
+Property: assert
+Result: ✅ pass
+
+Obligation: assert_6_7261
+Property: assert
+Result: ✅ pass
+
+Obligation: test_fromInt_roundtrip_ensures_5_7217
+Property: assert
+Result: ✅ pass
+
+Obligation: assert_8_7459
+Property: assert
+Result: ✅ pass
+
+Obligation: test_literal_ensures_7_7415
+Property: assert
+Result: ✅ pass
+
+Obligation: assert_10_7667
+Property: assert
+Result: ✅ pass
+
+Obligation: test_large_literal_ensures_9_7617
+Property: assert
+Result: ✅ pass-/
+#guard_msgs in
 #eval Strata.Boole.verify "cvc5" nat_binary_program (options := .quiet)
 
 /-!
@@ -215,5 +333,42 @@ A and B above), using this library as the canonical source and reference.
 -/
 
 -- Verify the library program itself directly
+/-- info:
+Obligation: pos.toInt_body_calls_pos..xO_h_0
+Property: assert
+Result: ✅ pass
+
+Obligation: pos.toInt_body_calls_pos..xI_h_1
+Property: assert
+Result: ✅ pass
+
+Obligation: pos.toInt_terminates_0
+Property: assert
+Result: ✅ pass
+
+Obligation: pos.toInt_terminates_1
+Property: assert
+Result: ✅ pass
+
+Obligation: nat.toInt_body_calls_nat..val_0
+Property: assert
+Result: ✅ pass
+
+Obligation: pos.fromInt_terminates_0
+Property: assert
+Result: ✅ pass
+
+Obligation: pos.fromInt_terminates_1
+Property: assert
+Result: ✅ pass
+
+Obligation: pos.fromInt_terminates_2
+Property: assert
+Result: ✅ pass
+
+Obligation: pos.fromInt_terminates_3
+Property: assert
+Result: ✅ pass-/
+#guard_msgs in
 open Strata.BooleNat in
 #eval Strata.Boole.verify "cvc5" natLibrary (options := .quiet)
