@@ -178,7 +178,7 @@ function nat.toInt (n : nat) : int {
 
 // pos.fromInt: opaque UF + axioms; only meaningful for x >= 1.
 function pos.fromInt (x : int) : pos;
-axiom [pos_fromInt_base]: forall x : int :: x <= 1 ==> pos.fromInt(x) == xH();
+axiom [pos_fromInt_base]: forall x : int :: x == 1 ==> pos.fromInt(x) == xH();
 axiom [pos_fromInt_even]: forall x : int :: x > 1 && x mod 2 == 0 ==> pos.fromInt(x) == xO(pos.fromInt(x div 2));
 axiom [pos_fromInt_odd]:  forall x : int :: x > 1 && x mod 2 != 0 ==> pos.fromInt(x) == xI(pos.fromInt(x div 2));
 
@@ -361,3 +361,32 @@ Result: ✅ pass-/
 #guard_msgs in
 open Strata.BooleNat in
 #eval Strata.Boole.verify "cvc5" natLibrary (options := .quiet)
+
+-- Exercise prepend: a bare Boole program stitched onto the nat library.
+-- Because #strata type-checks at Lean elaboration time, a #strata block
+-- that references nat in its type signatures must inline the nat declarations
+-- (as in Options A and B). prepend is for programmatically-constructed programs.
+private def empty_boole_program : StrataDDM.Program := (#strata program Boole; #end)
+
+/-- info:
+Obligation: pos.toInt_body_calls_pos..xO_h_0
+Property: assert
+Result: ✅ pass
+
+Obligation: pos.toInt_body_calls_pos..xI_h_1
+Property: assert
+Result: ✅ pass
+
+Obligation: pos.toInt_terminates_0
+Property: assert
+Result: ✅ pass
+
+Obligation: pos.toInt_terminates_1
+Property: assert
+Result: ✅ pass
+
+Obligation: nat.toInt_body_calls_nat..val_0
+Property: assert
+Result: ✅ pass-/
+#guard_msgs in
+#eval Strata.Boole.verify "cvc5" (Strata.BooleNat.prepend empty_boole_program) (options := .quiet)

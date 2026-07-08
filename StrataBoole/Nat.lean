@@ -9,7 +9,7 @@ import StrataBoole.Boole
 /-!
 # Binary Nat Library for Boole
 
-Provides `Strata.Boole.Nat.prepend` — injects a binary-nat datatype and
+Provides `Strata.BooleNat.prepend` — injects a binary-nat datatype and
 arithmetic library into any Boole program.
 
 ## Problem with opaque nat
@@ -26,10 +26,11 @@ Here `nat` is a *binary algebraic datatype* whose term algebra IS ℕ:
 - `pos`: positive binary numbers (`xH = 1`, `xO(xO_h) = 2 * xO_h`, `xI(xI_h) = 2 * xI_h + 1`)
 - `nat`: zero or a positive binary number (`N0 = 0`, `Npos(val) = val`)
 
-`pos.toInt` and `pos.fromInt` are defined with Boole `rec` blocks and emitted as
-`define-fun-rec` in SMT-LIB, giving cvc5 complete definitions for both proof
-(UNSAT) and counterexample (SAT) directions. Three bridge axioms are kept as hints
-for E-matching (they are valid theorems of the definitions).
+`pos.toInt` is defined with a Boole `rec` block and emitted as `define-fun-rec`
+in SMT-LIB, giving cvc5 a complete definition for both proof (UNSAT) and
+counterexample (SAT) directions. `pos.fromInt` is an opaque uninterpreted function
+with three case axioms for E-matching in the UNSAT direction. Three bridge axioms
+are kept as hints for E-matching (they are valid theorems of the definitions).
 
 ## Usage
 
@@ -37,7 +38,7 @@ for E-matching (they are valid theorems of the definitions).
 import StrataBoole.Nat
 
 private def myProg : StrataDDM.Program :=
-  Strata.Boole.Nat.prepend (#strata
+  Strata.BooleNat.prepend (#strata
   program Boole;
   -- nat, pos, nat.toInt, nat.fromInt, nat.add, … all available
   procedure uses_nat (n : nat) returns ()
@@ -90,7 +91,7 @@ function nat.toInt (n : nat) : int {
 // Opaque UF: only meaningful for x >= 1 (nat.fromInt guards the x <= 0 case).
 // Axioms give cvc5 the case equations for E-matching in the unsat direction.
 function pos.fromInt (x : int) : pos;
-axiom [pos_fromInt_base]: forall x : int :: x <= 1 ==> pos.fromInt(x) == xH();
+axiom [pos_fromInt_base]: forall x : int :: x == 1 ==> pos.fromInt(x) == xH();
 axiom [pos_fromInt_even]: forall x : int :: x > 1 && x mod 2 == 0 ==> pos.fromInt(x) == xO(pos.fromInt(x div 2));
 axiom [pos_fromInt_odd]:  forall x : int :: x > 1 && x mod 2 != 0 ==> pos.fromInt(x) == xI(pos.fromInt(x div 2));
 
@@ -106,8 +107,11 @@ axiom [nat_toInt_fromInt]: forall n : nat :: nat.fromInt(nat.toInt(n)) == n;
 
 // ── Arithmetic operators ─────────────────────────────────────────────────────
 function nat.add (a : nat, b : nat) : nat { nat.fromInt(nat.toInt(a) + nat.toInt(b)) }
+// Saturates to N0() when b > a, matching Lean's Nat.sub semantics.
 function nat.sub (a : nat, b : nat) : nat { nat.fromInt(nat.toInt(a) - nat.toInt(b)) }
 function nat.mul (a : nat, b : nat) : nat { nat.fromInt(nat.toInt(a) * nat.toInt(b)) }
+// Precondition: b != N0(). SMT-LIB integer div/mod by zero is underspecified;
+// callers must ensure the divisor is positive.
 function nat.div (a : nat, b : nat) : nat { nat.fromInt(nat.toInt(a) div nat.toInt(b)) }
 function nat.mod (a : nat, b : nat) : nat { nat.fromInt(nat.toInt(a) mod nat.toInt(b)) }
 function nat.lt  (a : nat, b : nat) : bool { nat.toInt(a) <  nat.toInt(b) }
@@ -124,9 +128,12 @@ function nat.ge  (a : nat, b : nat) : bool { nat.toInt(a) >= nat.toInt(b) }
     datatypes, `toInt`/`fromInt`, bridge axioms, and arithmetic operators
     become available in `userProg`'s procedures and functions. -/
 def prepend (userProg : StrataDDM.Program) : StrataDDM.Program :=
+  -- Strip the program header using the full qualified name to avoid accidentally
+  -- dropping user-dialect ops that share the local name "programCommand".
   let userCmds := userProg.commands.filter
-    (fun op => op.name.name != "programCommand")
-  let combined := natLibrary.commands ++ userCmds
-  StrataDDM.Program.create userProg.dialects userProg.dialect combined
+    (fun op => op.name.dialect != "StrataHeader" || op.name.name != "programCommand")
+  -- Fold via addCommand so natLibrary's already-computed globalContext and
+  -- dialect map are used as the base, avoiding a full re-traversal.
+  userCmds.foldl (·.addCommand ·) natLibrary
 
 end Strata.BooleNat
