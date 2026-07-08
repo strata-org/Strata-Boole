@@ -142,6 +142,12 @@ unary times out past 200.
 
 Field names must be unique per datatype in Boole, so `xO` and `xI`
 use distinct names `xO_h` and `xI_h` for their `pos` children.
+
+Note: the definitions below mirror `Strata.BooleNat.natLibrary` exactly.
+The duplication is unavoidable until `program Boole extends Nat;` is
+implemented: `#strata` type-checks at Lean elaboration time, so a `#strata`
+block that references `nat` in procedure signatures must inline the type
+declarations rather than using `prepend` at runtime.
 -/
 
 private def nat_binary_program : StrataDDM.Program :=
@@ -263,59 +269,59 @@ Obligation: nat.toInt_body_calls_nat..val_0
 Property: assert
 Result: ✅ pass
 
-Obligation: assert_1_6949
+Obligation: assert_1_7294
 Property: assert
 Result: ✅ pass
 
-Obligation: test_nonneg_ensures_0_6918
+Obligation: test_nonneg_ensures_0_7263
 Property: assert
 Result: ✅ pass
 
-Obligation: assert_3_7106
+Obligation: assert_3_7451
 Property: assert
 Result: ✅ pass
 
-Obligation: test_add_comm_ensures_2_7040
+Obligation: test_add_comm_ensures_2_7385
 Property: assert
 Result: ✅ pass
 
-Obligation: assert_6_7297
+Obligation: assert_6_7642
 Property: assert
 Result: ✅ pass
 
-Obligation: test_fromInt_roundtrip_ensures_5_7253
+Obligation: test_fromInt_roundtrip_ensures_5_7598
 Property: assert
 Result: ✅ pass
 
-Obligation: assert_8_7495
+Obligation: assert_8_7840
 Property: assert
 Result: ✅ pass
 
-Obligation: test_literal_ensures_7_7451
+Obligation: test_literal_ensures_7_7796
 Property: assert
 Result: ✅ pass
 
-Obligation: assert_10_7703
+Obligation: assert_10_8048
 Property: assert
 Result: ✅ pass
 
-Obligation: test_large_literal_ensures_9_7653
+Obligation: test_large_literal_ensures_9_7998
 Property: assert
 Result: ✅ pass
 
-Obligation: assert_12_8141
+Obligation: assert_12_8486
 Property: assert
 Result: ❓ unknown
 
-Obligation: test_sat_exists_sum_ensures_11_8095
+Obligation: test_sat_exists_sum_ensures_11_8440
 Property: assert
 Result: ❓ unknown
 
-Obligation: assert_14_8286
+Obligation: assert_14_8631
 Property: assert
 Result: ❓ unknown
 
-Obligation: test_sat_lt_ensures_13_8245
+Obligation: test_sat_lt_ensures_13_8590
 Property: assert
 Result: ❓ unknown-/
 #guard_msgs in
