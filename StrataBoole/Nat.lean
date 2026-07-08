@@ -5,6 +5,7 @@
 -/
 
 import StrataBoole.Boole
+import StrataDDM.Integration.Lean.HashCommands
 
 /-!
 # Binary Nat Library for Boole
@@ -137,3 +138,8 @@ def prepend (userProg : StrataDDM.Program) : StrataDDM.Program :=
   userCmds.foldl (·.addCommand ·) natLibrary
 
 end Strata.BooleNat
+
+-- Register the binary-nat library as the native preamble for the Boole dialect
+-- so that `#strata program Boole;` blocks automatically have pos/nat/toInt/
+-- fromInt/bridge-axioms/arithmetic in scope without any explicit declarations.
+#register_preamble Boole Strata.BooleNat.natLibrary

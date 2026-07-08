@@ -5,7 +5,6 @@
 -/
 
 import StrataBoole.MetaVerifier
-import StrataBoole.Nat
 
 open Strata
 
@@ -99,35 +98,35 @@ Obligation: nat.toInt_terminates_0
 Property: assert
 Result: ✅ pass
 
-Obligation: assert_1_2768
+Obligation: assert_1_2745
 Property: assert
 Result: ✅ pass
 
-Obligation: test_nonneg_ensures_0_2737
+Obligation: test_nonneg_ensures_0_2714
 Property: assert
 Result: ✅ pass
 
-Obligation: assert_3_2925
+Obligation: assert_3_2902
 Property: assert
 Result: ✅ pass
 
-Obligation: test_add_comm_ensures_2_2859
+Obligation: test_add_comm_ensures_2_2836
 Property: assert
 Result: ✅ pass
 
-Obligation: assert_6_3116
+Obligation: assert_6_3093
 Property: assert
 Result: ✅ pass
 
-Obligation: test_fromInt_roundtrip_ensures_5_3072
+Obligation: test_fromInt_roundtrip_ensures_5_3049
 Property: assert
 Result: ✅ pass
 
-Obligation: assert_8_3313
+Obligation: assert_8_3290
 Property: assert
 Result: ✅ pass
 
-Obligation: test_literal_ensures_7_3269
+Obligation: test_literal_ensures_7_3246
 Property: assert
 Result: ✅ pass-/
 #guard_msgs in
@@ -218,7 +217,7 @@ spec {
 }
 { assert nat.toInt(nat.fromInt(x)) == x; };
 
-// Literal: nat.fromInt(5) = Npos(xI(xO(xH()))) — depth 3, not 5
+// Literal: nat.fromInt(5) = Npos(xI(xO(xH()))) — depth 2, not 5
 procedure test_literal () returns ()
 spec { ensures nat.toInt(nat.fromInt(5)) == 5; }
 { assert nat.toInt(nat.fromInt(5)) == 5; };
@@ -263,130 +262,69 @@ Obligation: nat.toInt_body_calls_nat..val_0
 Property: assert
 Result: ✅ pass
 
-Obligation: assert_1_6949
+Obligation: assert_1_6926
 Property: assert
 Result: ✅ pass
 
-Obligation: test_nonneg_ensures_0_6918
+Obligation: test_nonneg_ensures_0_6895
 Property: assert
 Result: ✅ pass
 
-Obligation: assert_3_7106
+Obligation: assert_3_7083
 Property: assert
 Result: ✅ pass
 
-Obligation: test_add_comm_ensures_2_7040
+Obligation: test_add_comm_ensures_2_7017
 Property: assert
 Result: ✅ pass
 
-Obligation: assert_6_7297
+Obligation: assert_6_7274
 Property: assert
 Result: ✅ pass
 
-Obligation: test_fromInt_roundtrip_ensures_5_7253
+Obligation: test_fromInt_roundtrip_ensures_5_7230
 Property: assert
 Result: ✅ pass
 
-Obligation: assert_8_7495
+Obligation: assert_8_7472
 Property: assert
 Result: ✅ pass
 
-Obligation: test_literal_ensures_7_7451
+Obligation: test_literal_ensures_7_7428
 Property: assert
 Result: ✅ pass
 
-Obligation: assert_10_7703
+Obligation: assert_10_7680
 Property: assert
 Result: ✅ pass
 
-Obligation: test_large_literal_ensures_9_7653
+Obligation: test_large_literal_ensures_9_7630
 Property: assert
 Result: ✅ pass
 
-Obligation: assert_12_8141
+Obligation: assert_12_8118
 Property: assert
 Result: ❓ unknown
 
-Obligation: test_sat_exists_sum_ensures_11_8095
+Obligation: test_sat_exists_sum_ensures_11_8072
 Property: assert
 Result: ❓ unknown
 
-Obligation: assert_14_8286
+Obligation: assert_14_8263
 Property: assert
 Result: ❓ unknown
 
-Obligation: test_sat_lt_ensures_13_8245
+Obligation: test_sat_lt_ensures_13_8222
 Property: assert
 Result: ❓ unknown-/
 #guard_msgs in
 #eval Strata.Boole.verify "cvc5" nat_binary_program (options := .quiet)
 
 /-!
-## Option C — `Strata.Boole.Nat.natLibrary` as a reusable program
+## Option C — Native preamble injection
 
-`import StrataBoole.Nat` exports `Strata.Boole.Nat.natLibrary` — the binary nat
-library as a self-contained `StrataDDM.Program`.  It can be verified on its own
-(shown below) or its commands can be combined with a user program via
-`Strata.Boole.Nat.prepend` — useful when the user program also declares the same
-`nat` / `pos` types at the DDM level, so both share the same namespace context.
-
-Note: `#strata` type-checks during Lean elaboration, so a user's `#strata` block
-that references `nat` must declare (or import) `nat` before `#strata` runs.
-The intended future extension is a `program Boole extends Nat;` grammar hook.
-For now, users embed nat definitions in their own `#strata` blocks (as in Options
-A and B above), using this library as the canonical source and reference.
+With `import StrataBoole.Nat`, a `#strata program Boole;` block automatically
+has `pos`, `nat`, `nat.toInt`, `nat.fromInt`, bridge axioms, and arithmetic
+operators in scope — no explicit declarations needed.
+See `StrataBooleTest/nat_native.lean` for end-to-end verification.
 -/
-
--- Verify the library program itself directly
-/-- info:
-Obligation: pos.toInt_body_calls_pos..xO_h_0
-Property: assert
-Result: ✅ pass
-
-Obligation: pos.toInt_body_calls_pos..xI_h_1
-Property: assert
-Result: ✅ pass
-
-Obligation: pos.toInt_terminates_0
-Property: assert
-Result: ✅ pass
-
-Obligation: pos.toInt_terminates_1
-Property: assert
-Result: ✅ pass
-
-Obligation: nat.toInt_body_calls_nat..val_0
-Property: assert
-Result: ✅ pass-/
-#guard_msgs in
-open Strata.BooleNat in
-#eval Strata.Boole.verify "cvc5" natLibrary (options := .quiet)
-
--- Exercise prepend: a bare Boole program stitched onto the nat library.
--- Because #strata type-checks at Lean elaboration time, a #strata block
--- that references nat in its type signatures must inline the nat declarations
--- (as in Options A and B). prepend is for programmatically-constructed programs.
-private def empty_boole_program : StrataDDM.Program := (#strata program Boole; #end)
-
-/-- info:
-Obligation: pos.toInt_body_calls_pos..xO_h_0
-Property: assert
-Result: ✅ pass
-
-Obligation: pos.toInt_body_calls_pos..xI_h_1
-Property: assert
-Result: ✅ pass
-
-Obligation: pos.toInt_terminates_0
-Property: assert
-Result: ✅ pass
-
-Obligation: pos.toInt_terminates_1
-Property: assert
-Result: ✅ pass
-
-Obligation: nat.toInt_body_calls_nat..val_0
-Property: assert
-Result: ✅ pass-/
-#guard_msgs in
-#eval Strata.Boole.verify "cvc5" (Strata.BooleNat.prepend empty_boole_program) (options := .quiet)
