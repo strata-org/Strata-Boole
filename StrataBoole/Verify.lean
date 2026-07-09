@@ -1204,6 +1204,173 @@ private def coreProgUsesNatOrPos (cp : Core.Program) : Bool :=
                 || p.header.outputs.values.any lMonoTyHasNatOrPos
     | _ => false
 
+-- ── Validate-Candidate: pure-Lean nat arithmetic ─────────────────────────────
+-- When the incremental SMT solver returns `unknown (some m)` for a nat-using
+-- obligation, we attempt to evaluate the obligation expression against the
+-- candidate model using pure-Lean arithmetic.  If the expression evaluates to a
+-- concrete Boolean the model is self-consistent, so `unknown (some m)` is
+-- promoted to `.sat m` (a genuine counterexample or satisfying assignment).
+
+private inductive LeanPos where | xH | xO (p : LeanPos) | xI (p : LeanPos)
+  deriving Inhabited
+private inductive LeanNat where | N0 | Npos (p : LeanPos)
+  deriving Inhabited
+
+private def posToInt : LeanPos → Int
+  | .xH   => 1
+  | .xO p => 2 * posToInt p
+  | .xI p => 2 * posToInt p + 1
+
+private def natToInt : LeanNat → Int
+  | .N0     => 0
+  | .Npos p => posToInt p
+
+private partial def posFromInt (x : Int) : LeanPos :=
+  if x <= 1 then .xH
+  else if x % 2 == 0 then .xO (posFromInt (x / 2))
+  else .xI (posFromInt (x / 2))
+
+private def natFromInt (x : Int) : LeanNat :=
+  if x <= 0 then .N0 else .Npos (posFromInt x)
+
+-- Parse SMT constructor terms → LeanPos/LeanNat.
+-- cvc5 may emit datatype constructors as `datatype_op .constructor` or as
+-- `Op.Core.uf` depending on how the SMT-response DDM serialises the model.
+private partial def termToLeanPos : Strata.SMT.Term → Option LeanPos
+  | .app (.datatype_op .constructor "xH") [] _  => some .xH
+  | .app (.datatype_op .constructor "xO") [a] _ => (termToLeanPos a).map .xO
+  | .app (.datatype_op .constructor "xI") [a] _ => (termToLeanPos a).map .xI
+  | .app (.core (.uf uf)) [] _ =>
+      if uf.id == "xH" then some .xH else none
+  | .app (.core (.uf uf)) [a] _ =>
+      if uf.id == "xO" then (termToLeanPos a).map .xO
+      else if uf.id == "xI" then (termToLeanPos a).map .xI
+      else none
+  | _ => none
+
+private def termToLeanNat : Strata.SMT.Term → Option LeanNat
+  | .app (.datatype_op .constructor "N0") [] _    => some .N0
+  | .app (.datatype_op .constructor "Npos") [a] _ => (termToLeanPos a).map .Npos
+  | .app (.core (.uf uf)) [] _  => if uf.id == "N0" then some .N0 else none
+  | .app (.core (.uf uf)) [a] _ =>
+      if uf.id == "Npos" then (termToLeanPos a).map .Npos else none
+  | _ => none
+
+-- VPartial stores the operator name + first arg for curried binary application.
+-- This avoids the non-positive occurrence that would arise from VFn : (EvalVal → ...) → EvalVal.
+private inductive EvalVal where
+  | VBool    : Bool    → EvalVal
+  | VInt     : Int     → EvalVal
+  | VNat     : LeanNat → EvalVal
+  | VPos     : LeanPos → EvalVal
+  | VPartial : String  → EvalVal → EvalVal
+
+-- Build an evaluation environment from a raw SMT model.
+-- Integer and boolean primitives are kept; nat/pos constructor terms are parsed.
+private def buildEvalModel
+    (m : Imperative.SMT.Model Core.Expression.Ident) : Std.HashMap String EvalVal :=
+  m.foldl (fun acc (id, term) =>
+    let v : Option EvalVal :=
+      match term with
+      | .prim (.int n)  => some (EvalVal.VInt n)
+      | .prim (.bool b) => some (EvalVal.VBool b)
+      | _ => (termToLeanNat term).map EvalVal.VNat <|>
+             (termToLeanPos term).map EvalVal.VPos
+    match v with
+    | some v => acc.insert id.name v
+    | none   => acc)
+  {}
+
+private def evalUnaryOp (name : String) (v : EvalVal) : Option EvalVal :=
+  match name, v with
+  | "nat.toInt",   EvalVal.VNat n  => some (EvalVal.VInt (natToInt n))
+  | "pos.toInt",   EvalVal.VPos p  => some (EvalVal.VInt (posToInt p))
+  | "nat.fromInt", EvalVal.VInt x  => some (EvalVal.VNat (natFromInt x))
+  | "Int.Neg",     EvalVal.VInt n  => some (EvalVal.VInt (-n))
+  | "Bool.Not",    EvalVal.VBool b => some (EvalVal.VBool (!b))
+  | _, _                           => none
+
+private def evalBinaryOp (name : String) (v1 v2 : EvalVal) : Option EvalVal :=
+  match name, v1, v2 with
+  | "Int.Le",       EvalVal.VInt i,  EvalVal.VInt j  => some (EvalVal.VBool (i <= j))
+  | "Int.Lt",       EvalVal.VInt i,  EvalVal.VInt j  => some (EvalVal.VBool (i < j))
+  | "Int.Ge",       EvalVal.VInt i,  EvalVal.VInt j  => some (EvalVal.VBool (i >= j))
+  | "Int.Gt",       EvalVal.VInt i,  EvalVal.VInt j  => some (EvalVal.VBool (i > j))
+  | "Int.Add",      EvalVal.VInt i,  EvalVal.VInt j  => some (EvalVal.VInt (i + j))
+  | "Int.Sub",      EvalVal.VInt i,  EvalVal.VInt j  => some (EvalVal.VInt (i - j))
+  | "Int.Mul",      EvalVal.VInt i,  EvalVal.VInt j  => some (EvalVal.VInt (i * j))
+  | "Int.Div",      EvalVal.VInt i,  EvalVal.VInt j  =>
+      if j == 0 then none else some (EvalVal.VInt (i / j))
+  | "Int.Mod",      EvalVal.VInt i,  EvalVal.VInt j  =>
+      if j == 0 then none else some (EvalVal.VInt (i % j))
+  | "Bool.And",     EvalVal.VBool x, EvalVal.VBool y => some (EvalVal.VBool (x && y))
+  | "Bool.Or",      EvalVal.VBool x, EvalVal.VBool y => some (EvalVal.VBool (x || y))
+  | "Bool.Implies", EvalVal.VBool x, EvalVal.VBool y => some (EvalVal.VBool (!x || y))
+  | "Bool.Equiv",   EvalVal.VBool x, EvalVal.VBool y => some (EvalVal.VBool (x == y))
+  | "nat.lt",       EvalVal.VNat x,  EvalVal.VNat y  => some (EvalVal.VBool (natToInt x < natToInt y))
+  | "nat.le",       EvalVal.VNat x,  EvalVal.VNat y  => some (EvalVal.VBool (natToInt x <= natToInt y))
+  | "nat.gt",       EvalVal.VNat x,  EvalVal.VNat y  => some (EvalVal.VBool (natToInt x > natToInt y))
+  | "nat.ge",       EvalVal.VNat x,  EvalVal.VNat y  => some (EvalVal.VBool (natToInt x >= natToInt y))
+  | "nat.add",      EvalVal.VNat x,  EvalVal.VNat y  =>
+      some (EvalVal.VNat (natFromInt (natToInt x + natToInt y)))
+  | "nat.sub",      EvalVal.VNat x,  EvalVal.VNat y  =>
+      some (EvalVal.VNat (natFromInt (natToInt x - natToInt y)))
+  | "nat.mul",      EvalVal.VNat x,  EvalVal.VNat y  =>
+      some (EvalVal.VNat (natFromInt (natToInt x * natToInt y)))
+  | _, _, _                                           => none
+
+-- Evaluate a Core expression against a concrete model.
+-- Returns `none` when evaluation is incomplete (unsupported node types,
+-- quantifiers, abstract variables, or unknown operators).
+-- Operators are curried: `.app (.op name) arg` covers unary; for binary the
+-- first .app produces VPartial which the outer .app consumes.
+private partial def evalExpr
+    (model : Std.HashMap String EvalVal)
+    : Core.Expression.Expr → Option EvalVal
+  | .intConst _ n  => some (EvalVal.VInt n)
+  | .boolConst _ b => some (EvalVal.VBool b)
+  | .fvar _ id _   => model.get? id.name
+  | .eq _ a b      => do
+      let va ← evalExpr model a
+      let vb ← evalExpr model b
+      let r : Bool := match va, vb with
+        | EvalVal.VBool x, EvalVal.VBool y => x == y
+        | EvalVal.VInt  x, EvalVal.VInt  y => x == y
+        | EvalVal.VNat  x, EvalVal.VNat  y => natToInt x == natToInt y
+        | EvalVal.VPos  x, EvalVal.VPos  y => posToInt x == posToInt y
+        | _, _                              => false
+      some (EvalVal.VBool r)
+  | .ite _ c t f   => do
+      match ← evalExpr model c with
+      | EvalVal.VBool true  => evalExpr model t
+      | EvalVal.VBool false => evalExpr model f
+      | _                   => none
+  | .app _ (.op _ op _) arg => do
+      let varg ← evalExpr model arg
+      match evalUnaryOp op.name varg with
+      | some v => some v
+      | none   => some (EvalVal.VPartial op.name varg)
+  | .app _ inner arg => do
+      let vi   ← evalExpr model inner
+      let varg ← evalExpr model arg
+      match vi with
+      | EvalVal.VPartial name v1 => evalBinaryOp name v1 varg
+      | _                        => none
+  | _ => none
+
+-- Returns `true` when the obligation expression evaluates to any concrete Boolean
+-- against the candidate model, confirming the model is self-consistent under
+-- pure-Lean nat arithmetic.  Used to promote `unknown (some m)` to `.sat m`.
+private def validateNatModel
+    (obligation : Imperative.ProofObligation Core.Expression)
+    (m : Imperative.SMT.Model Core.Expression.Ident) : Bool :=
+  (evalExpr (buildEvalModel m) obligation.obligation).isSome
+
+-- AbstractedPhase that promotes concrete-nat unknown candidates to counterexamples.
+private def natCandidatePhase : Core.AbstractedPhase where
+  name := "natCandidateValidation"
+  getValidation := fun obligation => .modelToValidate (validateNatModel obligation)
+
 open Lean.Parser in
 def verify
     (smtsolver : String) (env : StrataDDM.Program)
@@ -1240,9 +1407,14 @@ def verify
             (fun p => toCoreProgram p Strata.BooleNat.natLibrary.globalContext ""))
             |>.mapError toIOErr
         pure { userCp with decls := natCp.decls ++ userCp.decls }
+      -- Wire the nat candidate-validation phase when grammar-level nat is in use.
+      let usesGrammarNat := !hasUserNatDecl && coreProgUsesNatOrPos userCp
+      let externalPhases : List Core.AbstractedPhase :=
+        if usesGrammarNat then [natCandidatePhase] else []
       let runner tempPath :=
         EIO.toIO (fun dm => IO.Error.userError (toString (dm.format (some ictx.fileMap))))
-          (Core.verify cp tempPath proceduresToVerify options)
+          (Core.verify cp tempPath proceduresToVerify options
+            (externalPhases := externalPhases))
       match tempDir with
       | .none =>
         IO.FS.withTempDir runner
