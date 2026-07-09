@@ -5,7 +5,7 @@
    "type": "git",
    "subDir": null,
    "scope": "",
-   "rev": "bd77e678096e16b2c8f9c93398731e7b278a5d2d",
+   "rev": "81308dc3045e73769783d9face4c80a7cb7aea7e",
    "name": "Strata",
    "manifestFile": "lake-manifest.json",
    "inputRev": "fix/batch-unknown-candidate-model",

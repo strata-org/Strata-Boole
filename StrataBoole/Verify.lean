@@ -1256,6 +1256,37 @@ private def termToLeanNat : Strata.SMT.Term → Option LeanNat
       if uf.id == "Npos" then (termToLeanPos a).map .Npos else none
   | _ => none
 
+-- Decode LExpr constructor terms for pos/nat → LeanPos/LeanNat.
+-- smtTermToLExpr represents zero-arg constructors as .op or .fvar (depending on
+-- whether the name was in the constructor set), and n-arg constructors as nested
+-- .app of .op/.fvar.  We match both forms to be robust.
+private partial def lExprToLeanPos : LExpr Core.CoreLParams.mono → Option LeanPos
+  | .op _ id _    => if id.name == "xH" then some .xH else none
+  | .fvar _ id _  => if id.name == "xH" then some .xH else none
+  | .app _ fn arg =>
+      let name : Option String := match fn with
+        | .op _ id _   => some id.name
+        | .fvar _ id _ => some id.name
+        | _            => none
+      match name with
+      | some "xO" => (lExprToLeanPos arg).map .xO
+      | some "xI" => (lExprToLeanPos arg).map .xI
+      | _         => none
+  | _ => none
+
+private def lExprToLeanNat : LExpr Core.CoreLParams.mono → Option LeanNat
+  | .op _ id _    => if id.name == "N0" then some .N0 else none
+  | .fvar _ id _  => if id.name == "N0" then some .N0 else none
+  | .app _ fn arg =>
+      let name : Option String := match fn with
+        | .op _ id _   => some id.name
+        | .fvar _ id _ => some id.name
+        | _            => none
+      match name with
+      | some "Npos" => (lExprToLeanPos arg).map .Npos
+      | _           => none
+  | _ => none
+
 -- VPartial stores the operator name + first arg for curried binary application.
 -- This avoids the non-positive occurrence that would arise from VFn : (EvalVal → ...) → EvalVal.
 private inductive EvalVal where
@@ -1319,20 +1350,39 @@ private def evalBinaryOp (name : String) (v1 v2 : EvalVal) : Option EvalVal :=
       some (EvalVal.VNat (natFromInt (natToInt x * natToInt y)))
   | _, _, _                                           => none
 
--- Evaluate a Core expression against a concrete model.
+-- Collect ANF let-bindings (varDecl entries with deterministic bodies) from the
+-- path conditions. These define ANF intermediates like $__anf.2 in terms of
+-- earlier variables, and are needed to evaluate an ANF obligation expression.
+private def buildDefMap
+    (assumptions : Imperative.PathConditions Core.Expression)
+    : Std.HashMap String Core.Expression.Expr :=
+  assumptions.foldl (fun acc path =>
+    path.foldl (fun acc entry =>
+      match entry with
+      | .varDecl name _ (.det body) => acc.insert name.name body
+      | _ => acc)
+    acc)
+  {}
+
+-- Evaluate a Core expression against a concrete model plus an ANF definition map.
 -- Returns `none` when evaluation is incomplete (unsupported node types,
--- quantifiers, abstract variables, or unknown operators).
+-- quantifiers, or unknown operators).
+-- Free variables are looked up first in `model`, then expanded from `defMap`
+-- (which contains ANF let-bindings like $__anf.2 = nat.toInt(a@1) < nat.toInt(b@1)).
 -- Operators are curried: `.app (.op name) arg` covers unary; for binary the
 -- first .app produces VPartial which the outer .app consumes.
 private partial def evalExpr
-    (model : Std.HashMap String EvalVal)
+    (model  : Std.HashMap String EvalVal)
+    (defMap : Std.HashMap String Core.Expression.Expr)
     : Core.Expression.Expr → Option EvalVal
   | .intConst _ n  => some (EvalVal.VInt n)
   | .boolConst _ b => some (EvalVal.VBool b)
-  | .fvar _ id _   => model.get? id.name
+  | .fvar _ id _   =>
+      model.get? id.name <|>
+      (defMap.get? id.name >>= evalExpr model defMap)
   | .eq _ a b      => do
-      let va ← evalExpr model a
-      let vb ← evalExpr model b
+      let va ← evalExpr model defMap a
+      let vb ← evalExpr model defMap b
       let r : Bool := match va, vb with
         | EvalVal.VBool x, EvalVal.VBool y => x == y
         | EvalVal.VInt  x, EvalVal.VInt  y => x == y
@@ -1341,18 +1391,18 @@ private partial def evalExpr
         | _, _                              => false
       some (EvalVal.VBool r)
   | .ite _ c t f   => do
-      match ← evalExpr model c with
-      | EvalVal.VBool true  => evalExpr model t
-      | EvalVal.VBool false => evalExpr model f
+      match ← evalExpr model defMap c with
+      | EvalVal.VBool true  => evalExpr model defMap t
+      | EvalVal.VBool false => evalExpr model defMap f
       | _                   => none
   | .app _ (.op _ op _) arg => do
-      let varg ← evalExpr model arg
+      let varg ← evalExpr model defMap arg
       match evalUnaryOp op.name varg with
       | some v => some v
       | none   => some (EvalVal.VPartial op.name varg)
   | .app _ inner arg => do
-      let vi   ← evalExpr model inner
-      let varg ← evalExpr model arg
+      let vi   ← evalExpr model defMap inner
+      let varg ← evalExpr model defMap arg
       match vi with
       | EvalVal.VPartial name v1 => evalBinaryOp name v1 varg
       | _                        => none
@@ -1361,10 +1411,14 @@ private partial def evalExpr
 -- Returns `true` when the obligation expression evaluates to any concrete Boolean
 -- against the candidate model, confirming the model is self-consistent under
 -- pure-Lean nat arithmetic.  Used to promote `unknown (some m)` to `.sat m`.
+-- ANF let-bindings from the path conditions are expanded so that ANF intermediates
+-- like `$__anf.2` can be resolved to their defining expressions.
 private def validateNatModel
     (obligation : Imperative.ProofObligation Core.Expression)
     (m : Imperative.SMT.Model Core.Expression.Ident) : Bool :=
-  (evalExpr (buildEvalModel m) obligation.obligation).isSome
+  let model  := buildEvalModel m
+  let defMap := buildDefMap obligation.assumptions
+  (evalExpr model defMap obligation.obligation).isSome
 
 -- AbstractedPhase that promotes concrete-nat unknown candidates to counterexamples.
 private def natCandidatePhase : Core.AbstractedPhase where
@@ -1418,11 +1472,22 @@ def verify
           (Core.verify cp tempPath proceduresToVerify options
             (externalPhases := externalPhases)
             (requeryDropAxioms := natBridgeAxioms))
+      -- Decode nat/pos constructor model values to integers for display.
+      -- Replaces e.g. Npos(xO(xH)) with 2 in the counterexample model.
+      let decodeEntry (id : Core.Expression.Ident)
+                      (e  : LExpr Core.CoreLParams.mono) :=
+        match lExprToLeanNat e with
+        | some n => (id, LExpr.intConst () (natToInt n))
+        | none   => (id, e)
+      let decodeModel (results : Core.VCResults) : Core.VCResults :=
+        results.map fun r =>
+          let model := r.lexprModel.map fun (id, e) => decodeEntry id e
+          { r with lexprModel := model }
       match tempDir with
       | .none =>
-        IO.FS.withTempDir runner
+        decodeModel <$> IO.FS.withTempDir runner
       | .some path =>
         IO.FS.createDirAll ⟨path⟩
-        runner ⟨path⟩
+        decodeModel <$> runner ⟨path⟩
 
 end Strata.Boole
