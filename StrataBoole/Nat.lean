@@ -117,8 +117,9 @@ axiom [nat_toInt_fromInt]: forall n : nat :: nat.fromInt(nat.toInt(n)) == n;
 
 // ── Arithmetic operators ─────────────────────────────────────────────────────
 function nat.add (a : nat, b : nat) : nat { nat.fromInt(nat.toInt(a) + nat.toInt(b)) }
-// Saturates to N0() when b > a, matching Lean's Nat.sub semantics.
-function nat.sub (a : nat, b : nat) : nat { nat.fromInt(nat.toInt(a) - nat.toInt(b)) }
+function nat.sub (a : nat, b : nat) : nat
+  requires nat.toInt(b) <= nat.toInt(a);
+{ nat.fromInt(nat.toInt(a) - nat.toInt(b)) }
 function nat.mul (a : nat, b : nat) : nat { nat.fromInt(nat.toInt(a) * nat.toInt(b)) }
 // Precondition: b != N0(). SMT-LIB integer div/mod by zero is underspecified;
 // callers must ensure the divisor is positive.
