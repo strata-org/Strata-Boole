@@ -5,8 +5,8 @@ testDriver = "StrataBooleTest"
 
 [[require]]
 name = "Strata"
-git = "https://github.com/strata-org/Strata"
-rev = "main"
+git = "https://github.com/kondylidou/Strata"
+rev = "fix/batch-unknown-candidate-model"
 
 [[lean_lib]]
 name = "StrataBoole"
