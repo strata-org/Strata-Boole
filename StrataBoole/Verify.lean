@@ -1411,10 +1411,13 @@ def verify
       let usesGrammarNat := !hasUserNatDecl && coreProgUsesNatOrPos userCp
       let externalPhases : List Core.AbstractedPhase :=
         if usesGrammarNat then [natCandidatePhase] else []
+      let natBridgeAxioms : List String :=
+        if usesGrammarNat then ["nat_nonneg", "nat_fromInt_toInt", "nat_toInt_fromInt"] else []
       let runner tempPath :=
         EIO.toIO (fun dm => IO.Error.userError (toString (dm.format (some ictx.fileMap))))
           (Core.verify cp tempPath proceduresToVerify options
-            (externalPhases := externalPhases))
+            (externalPhases := externalPhases)
+            (requeryDropAxioms := natBridgeAxioms))
       match tempDir with
       | .none =>
         IO.FS.withTempDir runner
