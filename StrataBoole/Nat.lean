@@ -3,8 +3,9 @@
 
   SPDX-License-Identifier: Apache-2.0 OR MIT
 -/
+module
 
-import StrataBoole.Boole
+public import StrataBoole.Boole
 import StrataDDM.Integration.Lean.HashCommands
 
 /-!
@@ -51,9 +52,9 @@ private def myProg : StrataDDM.Program :=
 
 namespace Strata.BooleNat
 
-def natLibrary : StrataDDM.Program :=
+public def natLibrary : StrataDDM.Program :=
 #strata
-program Boole;
+program Core;
 
 // ── Positive binary numbers ──────────────────────────────────────────────────
 // Canonical representation: every positive integer has exactly one pos term.
@@ -128,7 +129,7 @@ function nat.ge  (a : nat, b : nat) : bool { nat.toInt(a) >= nat.toInt(b) }
     nat library's declaration serves as the single header.  All nat/pos
     datatypes, `toInt`/`fromInt`, bridge axioms, and arithmetic operators
     become available in `userProg`'s procedures and functions. -/
-def prepend (userProg : StrataDDM.Program) : StrataDDM.Program :=
+public def prepend (userProg : StrataDDM.Program) : StrataDDM.Program :=
   -- Strip the program header using the full qualified name to avoid accidentally
   -- dropping user-dialect ops that share the local name "programCommand".
   let userCmds := userProg.commands.filter
@@ -138,8 +139,3 @@ def prepend (userProg : StrataDDM.Program) : StrataDDM.Program :=
   userCmds.foldl (·.addCommand ·) natLibrary
 
 end Strata.BooleNat
-
--- Register the binary-nat library as the native preamble for the Boole dialect
--- so that `#strata program Boole;` blocks automatically have pos/nat/toInt/
--- fromInt/bridge-axioms/arithmetic in scope without any explicit declarations.
-#register_preamble Boole Strata.BooleNat.natLibrary

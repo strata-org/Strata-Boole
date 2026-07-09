@@ -6,6 +6,7 @@
 module
 
 public import StrataBoole.Boole
+import StrataBoole.Nat
 public import Strata.Languages.Core.Program
 public import Strata.Languages.Core.Statement
 public import Strata.Languages.Core.Verifier
@@ -235,6 +236,8 @@ private def typeRange : Boole.Type → SourceRange
   | .bv128 m => m
   | .Map m _ _ => m
   | .Sequence m _ => m
+  | .nat m => m
+  | .pos m => m
 
 private def toCoreMonoType (t : Boole.Type) : TranslateM Lambda.LMonoTy := do
   match t with
@@ -257,6 +260,9 @@ private def toCoreMonoType (t : Boole.Type) : TranslateM Lambda.LMonoTy := do
   | .bv128 _ => return .bitvec 128
   | .Map _ v k => return .tcons "Map" [← toCoreMonoType k, ← toCoreMonoType v]
   | .Sequence _ elem => return .tcons "Sequence" [← toCoreMonoType elem]
+  -- Grammar-level binary nat types (injected into SMT by verify when no user decl exists)
+  | .nat _ => return .tcons "nat" []
+  | .pos _ => return .tcons "pos" []
   | _ => throwAt (typeRange t) s!"Unsupported Boole type: {repr t}"
 
 private def toCoreType (t : Boole.Type) : TranslateM Core.Expression.Ty := do
@@ -536,6 +542,22 @@ private partial def toCoreExpr (e : Boole.Expr) : TranslateM Core.Expression.Exp
   | .as_bv32  _ e => return mkCoreApp (.op () (mkIdent "Int.ToBv32")  none) [← toCoreExpr e]
   | .as_bv64  _ e => return mkCoreApp (.op () (mkIdent "Int.ToBv64")  none) [← toCoreExpr e]
   | .as_bv128 _ e => return mkCoreApp (.op () (mkIdent "Int.ToBv128") none) [← toCoreExpr e]
+  -- Grammar-level binary nat operations — lower to named Core function references.
+  -- The actual function declarations are injected by `verify` when grammar-level
+  -- nat is detected (i.e. nat is not in the program's GlobalContext).
+  | .pos_toInt   _ p     => return mkCoreApp (.op () (mkIdent "pos.toInt")   none) [← toCoreExpr p]
+  | .pos_fromInt _ x     => return mkCoreApp (.op () (mkIdent "pos.fromInt") none) [← toCoreExpr x]
+  | .nat_toInt   _ n     => return mkCoreApp (.op () (mkIdent "nat.toInt")   none) [← toCoreExpr n]
+  | .nat_fromInt _ x     => return mkCoreApp (.op () (mkIdent "nat.fromInt") none) [← toCoreExpr x]
+  | .nat_add _ a b => return mkCoreApp (.op () (mkIdent "nat.add") none) [← toCoreExpr a, ← toCoreExpr b]
+  | .nat_sub _ a b => return mkCoreApp (.op () (mkIdent "nat.sub") none) [← toCoreExpr a, ← toCoreExpr b]
+  | .nat_mul _ a b => return mkCoreApp (.op () (mkIdent "nat.mul") none) [← toCoreExpr a, ← toCoreExpr b]
+  | .nat_div _ a b => return mkCoreApp (.op () (mkIdent "nat.div") none) [← toCoreExpr a, ← toCoreExpr b]
+  | .nat_mod _ a b => return mkCoreApp (.op () (mkIdent "nat.mod") none) [← toCoreExpr a, ← toCoreExpr b]
+  | .nat_lt  _ a b => return mkCoreApp (.op () (mkIdent "nat.lt")  none) [← toCoreExpr a, ← toCoreExpr b]
+  | .nat_le  _ a b => return mkCoreApp (.op () (mkIdent "nat.le")  none) [← toCoreExpr a, ← toCoreExpr b]
+  | .nat_gt  _ a b => return mkCoreApp (.op () (mkIdent "nat.gt")  none) [← toCoreExpr a, ← toCoreExpr b]
+  | .nat_ge  _ a b => return mkCoreApp (.op () (mkIdent "nat.ge")  none) [← toCoreExpr a, ← toCoreExpr b]
   | _ => throw (.fromMessage s!"Unsupported expression: {repr e}")
 
 end
@@ -1166,6 +1188,22 @@ def typeCheck (p : StrataDDM.Program) (options : Core.VerifyOptions := .default)
   let coreProg ← toCoreProgram prog p.globalContext
   Core.typeCheck options coreProg
 
+-- Returns true if `ty` mentions the `nat` or `pos` sort anywhere (including nested).
+private partial def lMonoTyHasNatOrPos : Lambda.LMonoTy → Bool
+  | .tcons "nat" _ | .tcons "pos" _ => true
+  | .tcons _ args => args.any lMonoTyHasNatOrPos
+  | _ => false
+
+-- Returns true if any function or procedure in `cp` has a nat/pos-typed parameter or result.
+private def coreProgUsesNatOrPos (cp : Core.Program) : Bool :=
+  cp.decls.any fun decl => match decl with
+    | .func f _ => f.inputs.values.any lMonoTyHasNatOrPos || lMonoTyHasNatOrPos f.output
+    | .recFuncBlock fs _ => fs.any fun f =>
+        f.inputs.values.any lMonoTyHasNatOrPos || lMonoTyHasNatOrPos f.output
+    | .proc p _ => p.header.inputs.values.any lMonoTyHasNatOrPos
+                || p.header.outputs.values.any lMonoTyHasNatOrPos
+    | _ => false
+
 open Lean.Parser in
 def verify
     (smtsolver : String) (env : StrataDDM.Program)
@@ -1185,6 +1223,23 @@ def verify
     | .error e =>
       throw <| IO.Error.userError (toString (e.format (some ictx.fileMap)))
     | .ok cp =>
+      -- Auto-inject the binary nat library when grammar-level nat/pos types are used.
+      -- Skip if the user explicitly declared nat/pos datatypes (GlobalContext takes precedence),
+      -- or if the program doesn't reference nat/pos at all (avoid injecting quantified axioms
+      -- into unrelated programs, which hurts SMT performance).
+      let hasUserNatDecl := (env.globalContext.findIndex? "nat").isSome
+                         || (env.globalContext.findIndex? "pos").isSome
+      let userCp := cp
+      let cp ← if hasUserNatDecl || !coreProgUsesNatOrPos userCp then pure userCp else do
+        -- Translate natLibrary (a Core program) through the Boole parser
+        -- (Boole inherits all Core commands) and prepend its declarations.
+        let toIOErr (e : DiagnosticModel) :=
+          IO.Error.userError (toString (e.format (some ictx.fileMap)) ++ " (natLibrary injection)")
+        let natCp ← IO.ofExcept <|
+          ((getProgram Strata.BooleNat.natLibrary).bind
+            (fun p => toCoreProgram p Strata.BooleNat.natLibrary.globalContext ""))
+            |>.mapError toIOErr
+        pure { userCp with decls := natCp.decls ++ userCp.decls }
       let runner tempPath :=
         EIO.toIO (fun dm => IO.Error.userError (toString (dm.format (some ictx.fileMap))))
           (Core.verify cp tempPath proceduresToVerify options)
