@@ -90,12 +90,20 @@ function nat.toInt (n : nat) : int {
 }
 
 // ── pos.fromInt ──────────────────────────────────────────────────────────────
-// Opaque UF: only meaningful for x >= 1 (nat.fromInt guards the x <= 0 case).
-// Axioms give cvc5 the case equations for E-matching in the unsat direction.
-function pos.fromInt (x : int) : pos;
-axiom [pos_fromInt_base]: forall x : int :: x == 1 ==> pos.fromInt(x) == xH();
-axiom [pos_fromInt_even]: forall x : int :: x > 1 && x mod 2 == 0 ==> pos.fromInt(x) == xO(pos.fromInt(x div 2));
-axiom [pos_fromInt_odd]:  forall x : int :: x > 1 && x mod 2 != 0 ==> pos.fromInt(x) == xI(pos.fromInt(x div 2));
+// Recursive on x div 2; meaningful for x >= 1 (nat.fromInt guards x <= 0).
+// `decreases x` generates two termination obligations (one per recursive branch):
+//   x > 1 ==> x div 2 < x   — discharged by cvc5 as a trivial LIA fact.
+// Emitted as define-fun-rec, so cvc5 has a complete definition for both
+// proof (UNSAT) and counterexample (SAT) directions.
+rec
+function pos.fromInt (x : int) : pos
+decreases x
+{
+  if x <= 1 then xH()
+  else if x mod 2 == 0 then xO(pos.fromInt(x div 2))
+  else xI(pos.fromInt(x div 2))
+}
+;
 
 // ── nat.fromInt ──────────────────────────────────────────────────────────────
 function nat.fromInt (x : int) : nat {

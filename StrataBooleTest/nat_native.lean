@@ -63,6 +63,22 @@ Obligation: nat.toInt_body_calls_nat..val_0
 Property: assert
 Result: ✅ pass
 
+Obligation: pos.fromInt_terminates_0
+Property: assert
+Result: ✅ pass
+
+Obligation: pos.fromInt_terminates_1
+Property: assert
+Result: ✅ pass
+
+Obligation: pos.fromInt_terminates_2
+Property: assert
+Result: ✅ pass
+
+Obligation: pos.fromInt_terminates_3
+Property: assert
+Result: ✅ pass
+
 Obligation: assert_1_816
 Property: assert
 Result: ✅ pass
