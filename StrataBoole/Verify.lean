@@ -1194,6 +1194,23 @@ private partial def lMonoTyHasNatOrPos : Lambda.LMonoTy → Bool
   | .tcons _ args => args.any lMonoTyHasNatOrPos
   | _ => false
 
+private def lTyHasNatOrPos : Lambda.LTy → Bool
+  | .forAll _ ty => lMonoTyHasNatOrPos ty
+
+-- Recursively scan a statement list for nat/pos-typed local variable declarations.
+-- This catches `var z : nat := ...` inside procedure bodies that wouldn't appear
+-- in the procedure's header input/output types.
+private partial def stmtListHasNatOrPos : List Core.Statement → Bool
+  | [] => false
+  | s :: rest =>
+    let here := match s with
+      | .cmd (.cmd (.init _ ty _ _)) => lTyHasNatOrPos ty
+      | .block _ inner _             => stmtListHasNatOrPos inner
+      | .ite _ thenb elseb _         => stmtListHasNatOrPos thenb || stmtListHasNatOrPos elseb
+      | .loop _ _ _ body _           => stmtListHasNatOrPos body
+      | _                            => false
+    here || stmtListHasNatOrPos rest
+
 -- Returns true if any function, procedure, or datatype in `cp` references nat/pos.
 private def coreProgUsesNatOrPos (cp : Core.Program) : Bool :=
   cp.decls.any fun decl => match decl with
@@ -1202,6 +1219,9 @@ private def coreProgUsesNatOrPos (cp : Core.Program) : Bool :=
         f.inputs.values.any lMonoTyHasNatOrPos || lMonoTyHasNatOrPos f.output
     | .proc p _ => p.header.inputs.values.any lMonoTyHasNatOrPos
                 || p.header.outputs.values.any lMonoTyHasNatOrPos
+                || match p.body with
+                   | .structured ss => stmtListHasNatOrPos ss
+                   | .cfg _ => false
     | .type (.data block) _ => block.any fun dt =>
         dt.constrs.any fun c => c.args.any fun (_, ty) => lMonoTyHasNatOrPos ty
     | _ => false
