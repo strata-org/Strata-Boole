@@ -28,11 +28,12 @@ Here `nat` is a *binary algebraic datatype* whose term algebra IS ℕ:
 - `pos`: positive binary numbers (`xH = 1`, `xO(xO_h) = 2 * xO_h`, `xI(xI_h) = 2 * xI_h + 1`)
 - `nat`: zero or a positive binary number (`N0 = 0`, `Npos(val) = val`)
 
-`pos.toInt` is defined with a Boole `rec` block and emitted as `define-fun-rec`
-in SMT-LIB, giving cvc5 a complete definition for both proof (UNSAT) and
-counterexample (SAT) directions. `pos.fromInt` is an opaque uninterpreted function
-with three case axioms for E-matching in the UNSAT direction. Three bridge axioms
-are kept as hints for E-matching (they are valid theorems of the definitions).
+`pos.toInt` and `pos.fromInt` are defined with Boole `rec` blocks. The Strata SMT
+encoder currently emits recursive functions as uninterpreted functions (UF) with
+per-constructor axioms, NOT as `define-fun-rec`. This means cvc5 cannot evaluate
+them on constructor terms during model search, so constrained nat arithmetic (e.g.
+`toInt(a) = 73`) returns `unknown` instead of a concrete counterexample. Three bridge
+axioms are kept as E-matching hints (they are valid theorems of the definitions).
 
 ## Usage
 
@@ -73,8 +74,10 @@ datatype nat () {
 };
 
 // ── pos.toInt ────────────────────────────────────────────────────────────────
-// Structural recursion on pos via @[cases]. The SMT encoder emits this as
-// define-fun-rec, giving cvc5 a complete definition for proofs and counterexamples.
+// Structural recursion on pos via @[cases]. Currently emitted by the Strata SMT
+// encoder as a UF (declare-fun) with per-constructor axioms — NOT define-fun-rec.
+// To get concrete counterexamples for constrained nat arithmetic, the encoder
+// would need to emit this as define-fun-rec (pending Strata team opt-in support).
 rec
 function pos.toInt (@[cases] p : pos) : int {
   if pos..isxH(p) then 1
@@ -93,8 +96,8 @@ function nat.toInt (n : nat) : int {
 // Recursive on x div 2; meaningful for x >= 1 (nat.fromInt guards x <= 0).
 // `decreases x` generates two termination obligations (one per recursive branch):
 //   x > 1 ==> x div 2 < x   — discharged by cvc5 as a trivial LIA fact.
-// Emitted as define-fun-rec, so cvc5 has a complete definition for both
-// proof (UNSAT) and counterexample (SAT) directions.
+// Currently emitted as UF + per-constructor axioms — NOT define-fun-rec.
+// Same constraint as pos.toInt above.
 rec
 function pos.fromInt (x : int) : pos
 decreases x

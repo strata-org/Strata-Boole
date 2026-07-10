@@ -1319,6 +1319,7 @@ private def evalUnaryOp (name : String) (v : EvalVal) : Option EvalVal :=
   | "nat.toInt",   EvalVal.VNat n  => some (EvalVal.VInt (natToInt n))
   | "pos.toInt",   EvalVal.VPos p  => some (EvalVal.VInt (posToInt p))
   | "nat.fromInt", EvalVal.VInt x  => some (EvalVal.VNat (natFromInt x))
+  | "pos.fromInt", EvalVal.VInt x  => some (EvalVal.VPos (posFromInt x))
   | "Int.Neg",     EvalVal.VInt n  => some (EvalVal.VInt (-n))
   | "Bool.Not",    EvalVal.VBool b => some (EvalVal.VBool (!b))
   | _, _                           => none
@@ -1347,7 +1348,11 @@ private def evalBinaryOp (name : String) (v1 v2 : EvalVal) : Option EvalVal :=
   | "nat.add",      EvalVal.VNat x,  EvalVal.VNat y  =>
       some (EvalVal.VNat (natFromInt (natToInt x + natToInt y)))
   | "nat.sub",      EvalVal.VNat x,  EvalVal.VNat y  =>
-      some (EvalVal.VNat (natFromInt (natToInt x - natToInt y)))
+      -- Guard the precondition: nat.sub requires toInt(b) <= toInt(a).
+      -- A broken candidate violating this returns none so validation rejects it.
+      if natToInt y <= natToInt x
+      then some (EvalVal.VNat (natFromInt (natToInt x - natToInt y)))
+      else none
   | "nat.mul",      EvalVal.VNat x,  EvalVal.VNat y  =>
       some (EvalVal.VNat (natFromInt (natToInt x * natToInt y)))
   | _, _, _                                           => none
@@ -1381,17 +1386,17 @@ private partial def evalExpr
   | .boolConst _ b => some (EvalVal.VBool b)
   | .fvar _ id _   =>
       model.get? id.name <|>
-      (defMap.get? id.name >>= evalExpr model defMap)
+      -- Erase the key before recursing to break any circular definition (x ↦ fvar x).
+      (defMap.get? id.name >>= fun body => evalExpr model (defMap.erase id.name) body)
   | .eq _ a b      => do
       let va ← evalExpr model defMap a
       let vb ← evalExpr model defMap b
-      let r : Bool := match va, vb with
-        | EvalVal.VBool x, EvalVal.VBool y => x == y
-        | EvalVal.VInt  x, EvalVal.VInt  y => x == y
-        | EvalVal.VNat  x, EvalVal.VNat  y => natToInt x == natToInt y
-        | EvalVal.VPos  x, EvalVal.VPos  y => posToInt x == posToInt y
-        | _, _                              => false
-      some (EvalVal.VBool r)
+      match va, vb with
+      | EvalVal.VBool x, EvalVal.VBool y => some (EvalVal.VBool (x == y))
+      | EvalVal.VInt  x, EvalVal.VInt  y => some (EvalVal.VBool (x == y))
+      | EvalVal.VNat  x, EvalVal.VNat  y => some (EvalVal.VBool (natToInt x == natToInt y))
+      | EvalVal.VPos  x, EvalVal.VPos  y => some (EvalVal.VBool (posToInt x == posToInt y))
+      | _, _ => none  -- type mismatch (e.g. VPartial on one side): skip, don't falsify
   | .ite _ c t f   => do
       match ← evalExpr model defMap c with
       | EvalVal.VBool true  => evalExpr model defMap t
@@ -1420,7 +1425,11 @@ private def validateNatModel
     (m : Imperative.SMT.Model Core.Expression.Ident) : Bool :=
   let model  := buildEvalModel m
   let defMap := buildDefMap obligation.assumptions
-  let obligationOk := (evalExpr model defMap obligation.obligation).isSome
+  -- Require the obligation to evaluate to a concrete Bool (not just any value —
+  -- VPartial is a partially-applied operator, not a usable result).
+  let obligationOk := match evalExpr model defMap obligation.obligation with
+    | some (EvalVal.VBool _) => true
+    | _ => false
   let groundAssumptionsHold := obligation.assumptions.all fun path =>
     path.all fun entry =>
       match entry with
@@ -1464,7 +1473,8 @@ def verify
       let hasUserNatDecl := (env.globalContext.findIndex? "nat").isSome
                          || (env.globalContext.findIndex? "pos").isSome
       let userCp := cp
-      let cp ← if hasUserNatDecl || !coreProgUsesNatOrPos userCp then pure userCp else do
+      let usesNatOrPos := coreProgUsesNatOrPos userCp
+      let cp ← if hasUserNatDecl || !usesNatOrPos then pure userCp else do
         -- Translate natLibrary (a Core program) through the Boole parser
         -- (Boole inherits all Core commands) and prepend its declarations.
         let toIOErr (e : DiagnosticModel) :=
@@ -1475,7 +1485,7 @@ def verify
             |>.mapError toIOErr
         pure { userCp with decls := natCp.decls ++ userCp.decls }
       -- Wire the nat candidate-validation phase when grammar-level nat is in use.
-      let usesGrammarNat := !hasUserNatDecl && coreProgUsesNatOrPos userCp
+      let usesGrammarNat := !hasUserNatDecl && usesNatOrPos
       let externalPhases : List Core.AbstractedPhase :=
         if usesGrammarNat then [natCandidatePhase] else []
       let natBridgeAxioms : List String :=
@@ -1491,7 +1501,9 @@ def verify
                       (e  : LExpr Core.CoreLParams.mono) :=
         match lExprToLeanNat e with
         | some n => (id, LExpr.intConst () (natToInt n))
-        | none   => (id, e)
+        | none   => match lExprToLeanPos e with
+          | some p => (id, LExpr.intConst () (posToInt p))
+          | none   => (id, e)
       let decodeModel (results : Core.VCResults) : Core.VCResults :=
         results.map fun r =>
           let model := r.lexprModel.map fun (id, e) => decodeEntry id e
