@@ -1197,6 +1197,18 @@ private partial def lMonoTyHasNatOrPos : Lambda.LMonoTy → Bool
 private def lTyHasNatOrPos : Lambda.LTy → Bool
   | .forAll _ ty => lMonoTyHasNatOrPos ty
 
+-- Returns true if `expr` contains any nat/pos operator call.
+-- Used to catch nat usage in spec (requires/ensures) expressions and function bodies
+-- where the surface types may be int (e.g. `ensures nat.toInt(nat.fromInt(x)) == x`).
+private partial def lExprUsesNatOrPos : Core.Expression.Expr → Bool
+  | .op _ id _    => ["nat.toInt", "nat.fromInt", "nat.add", "nat.sub", "nat.mul",
+                       "nat.div",  "nat.mod",     "nat.lt",  "nat.le",  "nat.gt",
+                       "nat.ge",   "pos.toInt",   "pos.fromInt"].contains id.name
+  | .app _ f x    => lExprUsesNatOrPos f || lExprUsesNatOrPos x
+  | .ite _ c t e  => lExprUsesNatOrPos c || lExprUsesNatOrPos t || lExprUsesNatOrPos e
+  | .eq _ a b     => lExprUsesNatOrPos a || lExprUsesNatOrPos b
+  | _             => false
+
 -- Recursively scan a statement list for nat/pos-typed local variable declarations.
 -- This catches `var z : nat := ...` inside procedure bodies that wouldn't appear
 -- in the procedure's header input/output types.
@@ -1212,16 +1224,25 @@ private partial def stmtListHasNatOrPos : List Core.Statement → Bool
     here || stmtListHasNatOrPos rest
 
 -- Returns true if any function, procedure, or datatype in `cp` references nat/pos.
+-- Scans: input/output types, local variable types (body), spec expressions
+-- (requires/ensures), and function body expressions — so `ensures nat.toInt(n) >= 0`
+-- on an int-typed procedure correctly triggers natLibrary injection.
 private def coreProgUsesNatOrPos (cp : Core.Program) : Bool :=
   cp.decls.any fun decl => match decl with
-    | .func f _ => f.inputs.values.any lMonoTyHasNatOrPos || lMonoTyHasNatOrPos f.output
+    | .func f _ => f.inputs.values.any lMonoTyHasNatOrPos
+               || lMonoTyHasNatOrPos f.output
+               || f.body.any lExprUsesNatOrPos
     | .recFuncBlock fs _ => fs.any fun f =>
-        f.inputs.values.any lMonoTyHasNatOrPos || lMonoTyHasNatOrPos f.output
+        f.inputs.values.any lMonoTyHasNatOrPos
+        || lMonoTyHasNatOrPos f.output
+        || f.body.any lExprUsesNatOrPos
     | .proc p _ => p.header.inputs.values.any lMonoTyHasNatOrPos
                 || p.header.outputs.values.any lMonoTyHasNatOrPos
-                || match p.body with
+                || (match p.body with
                    | .structured ss => stmtListHasNatOrPos ss
-                   | .cfg _ => false
+                   | .cfg _ => false)
+                || p.spec.preconditions.values.any  (fun c => lExprUsesNatOrPos c.expr)
+                || p.spec.postconditions.values.any (fun c => lExprUsesNatOrPos c.expr)
     | .type (.data block) _ => block.any fun dt =>
         dt.constrs.any fun c => c.args.any fun (_, ty) => lMonoTyHasNatOrPos ty
     | _ => false
@@ -1375,6 +1396,12 @@ private def evalBinaryOp (name : String) (v1 v2 : EvalVal) : Option EvalVal :=
       else none
   | "nat.mul",      EvalVal.VNat x,  EvalVal.VNat y  =>
       some (EvalVal.VNat (natFromInt (natToInt x * natToInt y)))
+  | "nat.div",      EvalVal.VNat x,  EvalVal.VNat y  =>
+      if natToInt y == 0 then none
+      else some (EvalVal.VNat (natFromInt (natToInt x / natToInt y)))
+  | "nat.mod",      EvalVal.VNat x,  EvalVal.VNat y  =>
+      if natToInt y == 0 then none
+      else some (EvalVal.VNat (natFromInt (natToInt x % natToInt y)))
   | _, _, _                                           => none
 
 -- Collect ANF let-bindings (varDecl entries with deterministic bodies) from the
@@ -1445,10 +1472,12 @@ private def validateNatModel
     (m : Imperative.SMT.Model Core.Expression.Ident) : Bool :=
   let model  := buildEvalModel m
   let defMap := buildDefMap obligation.assumptions
-  -- Require the obligation to evaluate to a concrete Bool (not just any value —
-  -- VPartial is a partially-applied operator, not a usable result).
+  -- Require the obligation to evaluate to false: obligation.obligation is P (the
+  -- assertion being checked). The SMT query asserts NOT(P) looking for a model
+  -- where P fails. A valid counterexample has P = false in the candidate model.
+  -- Accepting VBool true (P holds) would promote a non-counterexample to .sat.
   let obligationOk := match evalExpr model defMap obligation.obligation with
-    | some (EvalVal.VBool _) => true
+    | some (EvalVal.VBool false) => true
     | _ => false
   let groundAssumptionsHold := obligation.assumptions.all fun path =>
     path.all fun entry =>
@@ -1504,8 +1533,12 @@ def verify
             (fun p => toCoreProgram p Strata.BooleNat.natLibrary.globalContext ""))
             |>.mapError toIOErr
         pure { userCp with decls := natCp.decls ++ userCp.decls }
-      -- Wire the nat candidate-validation phase when grammar-level nat is in use.
-      let usesGrammarNat := !hasUserNatDecl && usesNatOrPos
+      -- Wire the nat candidate-validation phase whenever nat/pos types are in use.
+      -- Intentionally NOT conditioned on !hasUserNatDecl: `prepend`-based programs put
+      -- nat/pos into globalContext (triggering hasUserNatDecl=true) but still need
+      -- candidate validation. natCandidatePhase is a no-op for opaque/non-algebraic
+      -- nat since termToLeanPos/Nat won't parse those model entries.
+      let usesGrammarNat := usesNatOrPos
       let externalPhases : List Core.AbstractedPhase :=
         if usesGrammarNat then [natCandidatePhase] else []
       let natBridgeAxioms : List String :=
@@ -1528,11 +1561,12 @@ def verify
         results.map fun r =>
           let model := r.lexprModel.map fun (id, e) => decodeEntry id e
           { r with lexprModel := model }
+      let maybeDecodeModel := if usesGrammarNat then decodeModel else id
       match tempDir with
       | .none =>
-        decodeModel <$> IO.FS.withTempDir runner
+        maybeDecodeModel <$> IO.FS.withTempDir runner
       | .some path =>
         IO.FS.createDirAll ⟨path⟩
-        decodeModel <$> runner ⟨path⟩
+        maybeDecodeModel <$> runner ⟨path⟩
 
 end Strata.Boole
