@@ -1194,7 +1194,7 @@ private partial def lMonoTyHasNatOrPos : Lambda.LMonoTy → Bool
   | .tcons _ args => args.any lMonoTyHasNatOrPos
   | _ => false
 
--- Returns true if any function or procedure in `cp` has a nat/pos-typed parameter or result.
+-- Returns true if any function, procedure, or datatype in `cp` references nat/pos.
 private def coreProgUsesNatOrPos (cp : Core.Program) : Bool :=
   cp.decls.any fun decl => match decl with
     | .func f _ => f.inputs.values.any lMonoTyHasNatOrPos || lMonoTyHasNatOrPos f.output
@@ -1202,6 +1202,8 @@ private def coreProgUsesNatOrPos (cp : Core.Program) : Bool :=
         f.inputs.values.any lMonoTyHasNatOrPos || lMonoTyHasNatOrPos f.output
     | .proc p _ => p.header.inputs.values.any lMonoTyHasNatOrPos
                 || p.header.outputs.values.any lMonoTyHasNatOrPos
+    | .type (.data block) _ => block.any fun dt =>
+        dt.constrs.any fun c => c.args.any fun (_, ty) => lMonoTyHasNatOrPos ty
     | _ => false
 
 -- ── Validate-Candidate: pure-Lean nat arithmetic ─────────────────────────────
@@ -1408,17 +1410,28 @@ private partial def evalExpr
       | _                        => none
   | _ => none
 
--- Returns `true` when the obligation expression evaluates to any concrete Boolean
--- against the candidate model, confirming the model is self-consistent under
--- pure-Lean nat arithmetic.  Used to promote `unknown (some m)` to `.sat m`.
--- ANF let-bindings from the path conditions are expanded so that ANF intermediates
--- like `$__anf.2` can be resolved to their defining expressions.
+-- Returns `true` when (1) the obligation expression evaluates to any value and
+-- (2) no ground path-condition assumption evaluates to `false`.
+-- Condition (2) rejects broken candidates: partial assignments from a timed-out
+-- solver where e.g. `toInt(a) = 73` is asserted but the candidate has `a = N0`.
+-- Quantified assumptions (bridge axioms) can't be evaluated and are skipped.
 private def validateNatModel
     (obligation : Imperative.ProofObligation Core.Expression)
     (m : Imperative.SMT.Model Core.Expression.Ident) : Bool :=
   let model  := buildEvalModel m
   let defMap := buildDefMap obligation.assumptions
-  (evalExpr model defMap obligation.obligation).isSome
+  let obligationOk := (evalExpr model defMap obligation.obligation).isSome
+  let groundAssumptionsHold := obligation.assumptions.all fun path =>
+    path.all fun entry =>
+      match entry with
+      | .assumption _ expr =>
+        -- Only reject when evaluation definitively returns false.
+        -- `none` (quantified, unsupported) is treated as unknown → accept.
+        match evalExpr model defMap expr with
+        | some (EvalVal.VBool false) => false
+        | _                          => true
+      | _ => true
+  obligationOk && groundAssumptionsHold
 
 -- AbstractedPhase that promotes concrete-nat unknown candidates to counterexamples.
 private def natCandidatePhase : Core.AbstractedPhase where
