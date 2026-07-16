@@ -5,7 +5,7 @@
    "type": "git",
    "subDir": null,
    "scope": "",
-   "rev": "dd82f7a7a4fc382b2891d069b871b889d1a19233",
+   "rev": "c4833a31a524f80a889fe91fea266945c0f3c783",
    "name": "Strata",
    "manifestFile": "lake-manifest.json",
    "inputRev": "feat/def-fun-rec",

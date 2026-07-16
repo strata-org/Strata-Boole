@@ -1201,13 +1201,15 @@ private def lTyHasNatOrPos : Lambda.LTy → Bool
 -- Used to catch nat usage in spec (requires/ensures) expressions and function bodies
 -- where the surface types may be int (e.g. `ensures nat.toInt(nat.fromInt(x)) == x`).
 private partial def lExprUsesNatOrPos : Core.Expression.Expr → Bool
-  | .op _ id _    => ["nat.toInt", "nat.fromInt", "nat.add", "nat.sub", "nat.mul",
-                       "nat.div",  "nat.mod",     "nat.lt",  "nat.le",  "nat.gt",
-                       "nat.ge",   "pos.toInt",   "pos.fromInt"].contains id.name
-  | .app _ f x    => lExprUsesNatOrPos f || lExprUsesNatOrPos x
-  | .ite _ c t e  => lExprUsesNatOrPos c || lExprUsesNatOrPos t || lExprUsesNatOrPos e
-  | .eq _ a b     => lExprUsesNatOrPos a || lExprUsesNatOrPos b
-  | _             => false
+  | .op _ id _           => ["nat.toInt", "nat.fromInt", "nat.add", "nat.sub", "nat.mul",
+                              "nat.div",  "nat.mod",     "nat.lt",  "nat.le",  "nat.gt",
+                              "nat.ge",   "pos.toInt",   "pos.fromInt"].contains id.name
+  | .app _ f x           => lExprUsesNatOrPos f || lExprUsesNatOrPos x
+  | .ite _ c t e         => lExprUsesNatOrPos c || lExprUsesNatOrPos t || lExprUsesNatOrPos e
+  | .eq _ a b            => lExprUsesNatOrPos a || lExprUsesNatOrPos b
+  | .abs _ _ _ body      => lExprUsesNatOrPos body
+  | .quant _ _ _ _ tr b  => lExprUsesNatOrPos tr || lExprUsesNatOrPos b
+  | _                    => false
 
 -- Recursively scan a statement list for nat/pos-typed local variable declarations.
 -- This catches `var z : nat := ...` inside procedure bodies that wouldn't appear
@@ -1216,11 +1218,15 @@ private partial def stmtListHasNatOrPos : List Core.Statement → Bool
   | [] => false
   | s :: rest =>
     let here := match s with
-      | .cmd (.cmd (.init _ ty _ _)) => lTyHasNatOrPos ty
-      | .block _ inner _             => stmtListHasNatOrPos inner
-      | .ite _ thenb elseb _         => stmtListHasNatOrPos thenb || stmtListHasNatOrPos elseb
-      | .loop _ _ _ body _           => stmtListHasNatOrPos body
-      | _                            => false
+      | .cmd (.cmd (.init _ ty _ _))   => lTyHasNatOrPos ty
+      | .cmd (.cmd (.assert _ b _))    => lExprUsesNatOrPos b
+      | .cmd (.cmd (.assume _ b _))    => lExprUsesNatOrPos b
+      | .cmd (.cmd (.cover _ b _))     => lExprUsesNatOrPos b
+      | .cmd (.cmd (.set _ (.det e) _))=> lExprUsesNatOrPos e
+      | .block _ inner _               => stmtListHasNatOrPos inner
+      | .ite _ thenb elseb _           => stmtListHasNatOrPos thenb || stmtListHasNatOrPos elseb
+      | .loop _ _ _ body _             => stmtListHasNatOrPos body
+      | _                              => false
     here || stmtListHasNatOrPos rest
 
 -- Returns true if any function, procedure, or datatype in `cp` references nat/pos.
