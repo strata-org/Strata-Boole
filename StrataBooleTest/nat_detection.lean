@@ -38,7 +38,7 @@ private def ite_cond_prog : StrataDDM.Program :=
 #strata
 program Boole;
 
-procedure test_ite_cond (x : int) returns (r : int)
+procedure test_ite_cond () returns (r : int)
 spec { ensures r >= 0; }
 {
   if (nat_lt(nat_fromInt(0), nat_fromInt(1))) {
@@ -87,7 +87,7 @@ Obligation: pos.fromInt_terminates_3
 Property: assert
 Result: ✅ pass
 
-Obligation: test_ite_cond_ensures_0_1568
+Obligation: test_ite_cond_ensures_0_1561
 Property: assert
 Result: ✅ pass-/
 #guard_msgs in
@@ -171,13 +171,11 @@ private def spec_quant_prog : StrataDDM.Program :=
 #strata
 program Boole;
 
-procedure test_spec_quant (dummy : int) returns ()
+procedure test_spec_quant () returns ()
 spec {
   ensures ∀ n:nat . 0 <= nat_toInt(n);
 }
-{
-  assert 0 <= dummy || 0 > dummy;
-};
+{};
 
 #end
 
@@ -218,11 +216,7 @@ Obligation: pos.fromInt_terminates_3
 Property: assert
 Result: ✅ pass
 
-Obligation: assert_1_4595
-Property: assert
-Result: ✅ pass
-
-Obligation: test_spec_quant_ensures_0_4549
+Obligation: test_spec_quant_ensures_0_4531
 Property: assert
 Result: ✅ pass-/
 #guard_msgs in

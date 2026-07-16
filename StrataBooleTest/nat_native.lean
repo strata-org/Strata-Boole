@@ -131,7 +131,7 @@ spec {
 }
 { assert nat_toInt(nat_sub(a, b)) == nat_toInt(a) - nat_toInt(b); };
 
-procedure test_literal (dummy : int) returns ()
+procedure test_literal () returns ()
 spec { ensures nat_toInt(nat_fromInt(123456)) == 123456; }
 { assert nat_toInt(nat_fromInt(123456)) == 123456; };
 
@@ -220,27 +220,27 @@ Obligation: test_sub_correct_ensures_5_3100
 Property: assert
 Result: ✅ pass
 
-Obligation: assert_8_3346
+Obligation: assert_8_3335
 Property: assert
 Result: ✅ pass
 
-Obligation: test_literal_ensures_7_3292
+Obligation: test_literal_ensures_7_3281
 Property: assert
 Result: ✅ pass
 
-Obligation: assert_11_3582
+Obligation: assert_11_3571
 Property: assert
 Result: ✅ pass
 
-Obligation: test_monotonicity_ensures_10_3516
+Obligation: test_monotonicity_ensures_10_3505
 Property: assert
 Result: ✅ pass
 
-Obligation: assert_14_3774
+Obligation: assert_14_3763
 Property: assert
 Result: ✅ pass
 
-Obligation: test_injectivity_ensures_13_3754
+Obligation: test_injectivity_ensures_13_3743
 Property: assert
 Result: ✅ pass-/
 #guard_msgs in
