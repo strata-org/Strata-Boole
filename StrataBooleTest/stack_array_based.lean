@@ -189,7 +189,7 @@ Assumptions:
 <label_ite_cond_true: top == 0>: if top@3 == 0 then top@3 == 0 else true
 <label_ite_cond_false: !(top == 0)>: if if top@3 == 0 then false else true then if top@3 == 0 then false else true else true
 Obligation:
-if top@3 == 0 then true else false ==> top@3 == 0
+(if top@3 == 0 then true else false) ==> top@3 == 0
 
 Label: StackEmpty_ensures_4_1238
 Property: assert
@@ -197,7 +197,7 @@ Assumptions:
 <label_ite_cond_true: top == 0>: if top@3 == 0 then top@3 == 0 else true
 <label_ite_cond_false: !(top == 0)>: if if top@3 == 0 then false else true then if top@3 == 0 then false else true else true
 Obligation:
-top@3 == 0 ==> if top@3 == 0 then true else false
+top@3 == 0 ==> (if top@3 == 0 then true else false)
 
 Label: Push_ensures_6_1499
 Property: assert

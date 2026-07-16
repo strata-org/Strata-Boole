@@ -6,7 +6,7 @@ testDriver = "StrataBooleTest"
 [[require]]
 name = "Strata"
 git = "https://github.com/kondylidou/Strata"
-rev = "feat/def-fun-rec"
+rev = "feat/nat-binary-datatype"
 
 [[lean_lib]]
 name = "StrataBoole"
