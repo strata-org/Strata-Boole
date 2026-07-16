@@ -1218,15 +1218,28 @@ private partial def stmtListHasNatOrPos : List Core.Statement → Bool
   | [] => false
   | s :: rest =>
     let here := match s with
-      | .cmd (.cmd (.init _ ty _ _))   => lTyHasNatOrPos ty
-      | .cmd (.cmd (.assert _ b _))    => lExprUsesNatOrPos b
-      | .cmd (.cmd (.assume _ b _))    => lExprUsesNatOrPos b
-      | .cmd (.cmd (.cover _ b _))     => lExprUsesNatOrPos b
-      | .cmd (.cmd (.set _ (.det e) _))=> lExprUsesNatOrPos e
-      | .block _ inner _               => stmtListHasNatOrPos inner
-      | .ite _ thenb elseb _           => stmtListHasNatOrPos thenb || stmtListHasNatOrPos elseb
-      | .loop _ _ _ body _             => stmtListHasNatOrPos body
-      | _                              => false
+      | .cmd (.cmd (.init _ ty _ _))    => lTyHasNatOrPos ty
+      | .cmd (.cmd (.assert _ b _))     => lExprUsesNatOrPos b
+      | .cmd (.cmd (.assume _ b _))     => lExprUsesNatOrPos b
+      | .cmd (.cmd (.cover _ b _))      => lExprUsesNatOrPos b
+      | .cmd (.cmd (.set _ (.det e) _)) => lExprUsesNatOrPos e
+      | .block _ inner _                => stmtListHasNatOrPos inner
+      | .ite (.det c) thenb elseb _     =>
+          lExprUsesNatOrPos c || stmtListHasNatOrPos thenb || stmtListHasNatOrPos elseb
+      | .ite .nondet thenb elseb _      =>
+          stmtListHasNatOrPos thenb || stmtListHasNatOrPos elseb
+      | .loop (.det g) meas invs body _ =>
+          lExprUsesNatOrPos g
+          || meas.any lExprUsesNatOrPos
+          || invs.any (fun (_, e) => lExprUsesNatOrPos e)
+          || stmtListHasNatOrPos body
+      | .loop .nondet _ invs body _     =>
+          invs.any (fun (_, e) => lExprUsesNatOrPos e) || stmtListHasNatOrPos body
+      | .funcDecl f _                   =>
+          f.body.any lExprUsesNatOrPos
+          || f.axioms.any lExprUsesNatOrPos
+          || f.measure.any lExprUsesNatOrPos
+      | _                               => false
     here || stmtListHasNatOrPos rest
 
 -- Returns true if any function, procedure, or datatype in `cp` references nat/pos.
