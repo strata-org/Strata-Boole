@@ -609,7 +609,7 @@ private def toCoreBlock (b : BooleDDM.Block SourceRange) : TranslateM (List Core
   | .block _ ⟨_, ss⟩ =>
     let parts ← ss.toList.mapM fun s =>
       match s with
-      | .varStatement m ds => lowerVarStatement m ds
+      | .varStatement m _annots ds => lowerVarStatement m ds
       | _ => return [← toCoreStmt s]
     return parts.flatten
   termination_by SizeOf.sizeOf b
@@ -639,20 +639,31 @@ private def constructProcArgsPrefix (n : String)
     fun (id, _) => Core.CallArg.inArg (Lambda.LExpr.fvar () id none : Core.Expression.Expr)
   return modifiesArgs ++ readOnlyArgs
 
+/-- Returns `true` when the annotation contains a bare `@[reachCheck]` flag,
+    indicating that this `assert`/`cover` is a reachability check. -/
+private def hasReachCheckAnn
+    (ann : Ann (Option (BooleDDM.MetadataAnn SourceRange)) SourceRange) : Bool :=
+  match ann.val with
+  | none => false
+  | some (.mdAnn _ ⟨_, entries⟩) =>
+    entries.toList.any fun entry => match entry with
+      | .mdAnnFlag _ (.mdAnnKeyBare _ ⟨_, "reachCheck"⟩) => true
+      | _ => false
+
 private def toCoreStmt (s : BooleDDM.Statement SourceRange) : TranslateM Core.Statement := do
   match s with
-  | .varStatement m ds =>
+  | .varStatement m _annots ds =>
     let out ← lowerVarStatement m ds
     let some first := out.head?
       | throwAt m "Empty var declaration list"
     match ds with
     | .declAtom _ _ => return first
     | _ => return .block "var" out (← toCoreMetaData m)
-  | .initStatement m ty ⟨_, n⟩ e =>
+  | .initStatement m _annots ty ⟨_, n⟩ e =>
     let rhs ← toCoreExpr e
     modify fun st => { st with bvars := st.bvars.push (.fvar () (mkIdent n) none) }
     return Core.Statement.init (mkIdent n) (← toCoreType ty) (.det rhs) (← toCoreMetaData m)
-  | .assign m _ lhs rhs =>
+  | .assign m _annots _ lhs rhs =>
     let rec lhsParts (lhs : BooleDDM.Lhs SourceRange) : TranslateM (String × List Core.Expression.Expr) := do
       match lhs with
       | .lhsIdent _ ⟨_, n⟩ => return (n, [])
@@ -663,17 +674,17 @@ private def toCoreStmt (s : BooleDDM.Statement SourceRange) : TranslateM Core.St
     let idxs := idxsRev.reverse
     let base := .fvar () (mkIdent n) none
     return Core.Statement.set (mkIdent n) (nestMapSet base idxs (← toCoreExpr rhs)) (← toCoreMetaData m)
-  | .assume m ⟨_, l?⟩ e =>
+  | .assume m _annots ⟨_, l?⟩ e =>
     return Core.Statement.assume (← defaultLabel m "assume" l?) (← toCoreExpr e) (← toCoreMetaData m)
   | .assert m rc? ⟨_, l?⟩ e =>
     let md ← toCoreMetaData m
-    let md := if rc? matches ⟨_, some _⟩ then md.pushElem Imperative.MetaData.reachCheck (.switch true) else md
+    let md := if hasReachCheckAnn rc? then md.pushElem Imperative.MetaData.reachCheck (.switch true) else md
     return Core.Statement.assert (← defaultLabel m "assert" l?) (← toCoreExpr e) md
   | .cover m rc? ⟨_, l?⟩ e =>
     let md ← toCoreMetaData m
-    let md := if rc? matches ⟨_, some _⟩ then md.pushElem Imperative.MetaData.reachCheck (.switch true) else md
+    let md := if hasReachCheckAnn rc? then md.pushElem Imperative.MetaData.reachCheck (.switch true) else md
     return Core.Statement.cover (← defaultLabel m "cover" l?) (← toCoreExpr e) md
-  | .if_statement m c t e =>
+  | .if_statement m _annots c t e =>
     let thenb ← withBVars [] (toCoreBlock t)
     let elseb ← withBVars [] <| match e with
       | .else0 _ => pure []
@@ -700,9 +711,9 @@ private def toCoreStmt (s : BooleDDM.Statement SourceRange) : TranslateM Core.St
     let havocStmt := Core.Statement.havoc (mkIdent lhs) md
     let assumeStmt := Core.Statement.assume label predExpr md
     return .block label [existenceAssert, havocStmt, assumeStmt] md
-  | .havoc_statement m ⟨_, n⟩ =>
+  | .havoc_statement m _annots ⟨_, n⟩ =>
     return Core.Statement.havoc (mkIdent n) (← toCoreMetaData m)
-  | .while_statement m g ⟨_, decr?⟩ invs b =>
+  | .while_statement m _annots g ⟨_, decr?⟩ invs b =>
     let guard ← match g with
       | .condDet _ expr => pure (.det (← toCoreExpr expr))
       | .condNondet _ => pure .nondet
@@ -715,7 +726,7 @@ private def toCoreStmt (s : BooleDDM.Statement SourceRange) : TranslateM Core.St
     let userIn := (← args.toList.mapM toCoreExpr).map Core.CallArg.inArg
     let userOut := (lhs.toList.map (mkIdent ·.val)).map Core.CallArg.outArg
     return Core.Statement.call n (globalsPrefix ++ userIn ++ userOut) (← toCoreMetaData m)
-  | .call_statement m ⟨_, n⟩ ⟨_, callArgs⟩ => do
+  | .call_statement m _annots ⟨_, n⟩ ⟨_, callArgs⟩ => do
     -- Reject Core-only out/inout call argument syntax in Boole.
     -- Boole uses `call lhs := f(args)` for calls with outputs.
     for ca in callArgs.toList do
@@ -731,16 +742,16 @@ private def toCoreStmt (s : BooleDDM.Statement SourceRange) : TranslateM Core.St
       | .callArgExpr _ e => return some (Core.CallArg.inArg (← toCoreExpr e))
       | _ => return none  -- unreachable: out/inout rejected above
     return Core.Statement.call n (globalsPrefix ++ userIn) (← toCoreMetaData m)
-  | .block_statement m ⟨_, l⟩ b =>
+  | .block_statement m _annots ⟨_, l⟩ b =>
     return .block l (← withBVars [] (toCoreBlock b)) (← toCoreMetaData m)
-  | .exit_statement m ⟨_, l⟩ =>
+  | .exit_statement m _annots ⟨_, l⟩ =>
     return .exit l (← toCoreMetaData m)
-  | .typeDecl_statement m ⟨_, n⟩ ⟨_, args?⟩ =>
+  | .typeDecl_statement m _annots ⟨_, n⟩ ⟨_, args?⟩ =>
     let params := match args? with
       | none => []
       | some bs => (bindingsToList bs).map bindingName
     return Core.Statement.typeDecl { name := n, params := params } (← toCoreMetaData m)
-  | .funcDecl_statement m ⟨_, n⟩ ⟨_, targs?⟩ bs ret ⟨_, pres⟩ body ⟨_, inline?⟩ =>
+  | .funcDecl_statement m _annots ⟨_, n⟩ ⟨_, targs?⟩ bs ret ⟨_, pres⟩ body ⟨_, inline?⟩ =>
     let tys := match targs? with | none => [] | some ts => typeArgsToList ts
     withTypeBVars tys do
       let bsList := bindingsToList bs
@@ -992,7 +1003,7 @@ private def toCoreDecls (cmd : BooleDDM.Command SourceRange) : TranslateM (List 
         | none => pure []
         | some os => (monoDeclListToList os).mapM toCoreMonoBind
       translateProcedureDecl m n tys inputs outputs specAnn.val bodyAnn.val
-  | .command_procedure m nameAnn targsAnn ins specAnn bodyAnn =>
+  | .command_procedure m _annots nameAnn targsAnn ins specAnn bodyAnn =>
     let n := nameAnn.val
     if let some (param, kind) := hasOutOrInoutBinding ins then
       throwAt m s!"Boole procedure '{n}': '{kind}' modifier on parameter '{param}' is not supported. Use 'returns' syntax instead, e.g. 'procedure {n}(...) returns ({param} : T)'."
@@ -1000,30 +1011,30 @@ private def toCoreDecls (cmd : BooleDDM.Command SourceRange) : TranslateM (List 
     withTypeBVars tys do
       let inputs ← (bindingsToList ins).mapM toCoreBinding
       translateProcedureDecl m n tys inputs [] specAnn.val bodyAnn.val
-  | .command_cfg_procedure m nameAnn _ _ _ _ =>
+  | .command_cfg_procedure m _annots nameAnn _ _ _ _ =>
     throwAt m s!"Boole procedure '{nameAnn.val}': CFG-form procedure bodies (`cfg ENTRY \{ ... }`) are not supported in Boole; use a structured body."
-  | .command_typedecl _ ⟨_, n⟩ ⟨_, args?⟩ =>
+  | .command_typedecl _ _ ⟨_, n⟩ ⟨_, args?⟩ =>
     let params := match args? with
       | none => []
       | some bs => (bindingsToList bs).map bindingName
     return [.type (.con { name := n, params := params }) .empty]
-  | .command_typesynonym _ ⟨_, n⟩ ⟨_, args?⟩ _ rhs =>
+  | .command_typesynonym _ _ ⟨_, n⟩ ⟨_, args?⟩ _ rhs =>
     let tys := match args? with
       | none => []
       | some bs => (bindingsToList bs).map bindingName
     withTypeBVars tys do
       return [.type (.syn { name := n, typeArgs := tys, type := ← toCoreMonoType rhs }) .empty]
-  | .command_constdecl _ ⟨_, n⟩ ⟨_, targs?⟩ ret =>
+  | .command_constdecl _ _ ⟨_, n⟩ ⟨_, targs?⟩ ret =>
     let tys := match targs? with | none => [] | some ts => typeArgsToList ts
     withTypeBVars tys do
       return [.func { name := mkIdent n, typeArgs := tys, inputs := [], output := ← toCoreMonoType ret, body := none, concreteEval := none, attr := #[], axioms := [] } .empty]
-  | .command_fndecl _ ⟨_, n⟩ ⟨_, targs?⟩ bs ret =>
+  | .command_fndecl _ _ ⟨_, n⟩ ⟨_, targs?⟩ bs ret =>
     let tys := match targs? with | none => [] | some ts => typeArgsToList ts
     withTypeBVars tys do
       return [
         .func { name := mkIdent n, typeArgs := tys, inputs := ← (bindingsToList bs).mapM toCoreBinding, output := ← toCoreMonoType ret, body := none, concreteEval := none, attr := #[], axioms := [] }
            .empty]
-  | .command_fndef m ⟨_, n⟩ ⟨_, targs?⟩ bs ret ⟨_, pres⟩ body ⟨_, inline?⟩ =>
+  | .command_fndef m _annots ⟨_, n⟩ ⟨_, targs?⟩ bs ret ⟨_, pres⟩ body ⟨_, inline?⟩ =>
     let tys := match targs? with | none => [] | some ts => typeArgsToList ts
     return [.func (← lowerPureFuncDef m n tys bs ret pres body inline?.isSome) .empty]
   | .command_choosefndef _ ⟨_, n⟩ ⟨_, targs?⟩ bs ret v pred =>
@@ -1066,7 +1077,7 @@ private def toCoreDecls (cmd : BooleDDM.Command SourceRange) : TranslateM (List 
       let axiomDecl : Core.Decl :=
         .ax { name := s!"{n}_choose_axiom", e := axiomExpr } .empty
       return [funcDecl, axiomDecl]
-  | .command_recfndefs _ ⟨_, funcs⟩ =>
+  | .command_recfndefs _ _annots ⟨_, funcs⟩ =>
     -- Mirror the DDM elaborator's @[declareFn] sibling-bvar accumulation:
     -- the i-th function's body sees the i preceding siblings as bvars.
     let funcList := funcs.toList
@@ -1085,9 +1096,9 @@ private def toCoreDecls (cmd : BooleDDM.Command SourceRange) : TranslateM (List 
     return [.recFuncBlock fsRev.reverse .empty]
   | .command_var _m _b =>
     return []
-  | .command_axiom m ⟨_, l?⟩ e =>
+  | .command_axiom m _annots ⟨_, l?⟩ e =>
     return [.ax { name := ← defaultLabel m "axiom" l?, e := ← toCoreExpr e } .empty]
-  | .command_distinct m ⟨_, l?⟩ ⟨_, es⟩ =>
+  | .command_distinct m _annots ⟨_, l?⟩ ⟨_, es⟩ =>
     return [.distinct (mkIdent (← defaultLabel m "distinct" l?)) (← es.toList.mapM toCoreExpr) .empty]
   | .command_block _ b =>
     -- Core decls do not have a standalone "top-level block" form, so a Boole
@@ -1097,7 +1108,7 @@ private def toCoreDecls (cmd : BooleDDM.Command SourceRange) : TranslateM (List 
       spec := { preconditions := [], postconditions := [] }
       body := .structured (← toCoreBlock b)
     } .empty]
-  | .command_datatypes _ ⟨_, decls⟩ =>
+  | .command_datatypes _ _annots ⟨_, decls⟩ =>
     let datatypes ← decls.toList.mapM toCoreDatatypeDecl
     return [.type (.data datatypes) .empty]
 
@@ -1133,7 +1144,7 @@ def toCoreProgram (p : Boole.Program) (gctx : GlobalContext := {}) (fileName : S
       | .boole_procedure _ nameAnn _ _ _ _ specAnn _ =>
         let mods ← collectModifiesFromSpec fileName nameAnn.val specAnn.val varTypes
         if !mods.isEmpty then modMap := modMap.insert nameAnn.val mods
-      | .command_procedure _ nameAnn _ _ specAnn _ =>
+      | .command_procedure _ _ nameAnn _ _ specAnn _ =>
         let mods ← collectModifiesFromSpec fileName nameAnn.val specAnn.val varTypes
         if !mods.isEmpty then modMap := modMap.insert nameAnn.val mods
       | _ => pure ()
