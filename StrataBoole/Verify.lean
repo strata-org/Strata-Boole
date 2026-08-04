@@ -6,6 +6,7 @@
 module
 
 public import StrataBoole.Boole
+import StrataBoole.Nat
 public import Strata.Languages.Core.Program
 public import Strata.Languages.Core.Statement
 public import Strata.Languages.Core.Verifier
@@ -235,6 +236,8 @@ private def typeRange : Boole.Type → SourceRange
   | .bv128 m => m
   | .Map m _ _ => m
   | .Sequence m _ => m
+  | .nat m => m
+  | .pos m => m
 
 private def toCoreMonoType (t : Boole.Type) : TranslateM Lambda.LMonoTy := do
   match t with
@@ -257,6 +260,9 @@ private def toCoreMonoType (t : Boole.Type) : TranslateM Lambda.LMonoTy := do
   | .bv128 _ => return .bitvec 128
   | .Map _ v k => return .tcons "Map" [← toCoreMonoType k, ← toCoreMonoType v]
   | .Sequence _ elem => return .tcons "Sequence" [← toCoreMonoType elem]
+  -- Grammar-level binary nat types (injected into SMT by verify when no user decl exists)
+  | .nat _ => return .tcons "nat" []
+  | .pos _ => return .tcons "pos" []
   | _ => throwAt (typeRange t) s!"Unsupported Boole type: {repr t}"
 
 private def toCoreType (t : Boole.Type) : TranslateM Core.Expression.Ty := do
@@ -536,6 +542,22 @@ private partial def toCoreExpr (e : Boole.Expr) : TranslateM Core.Expression.Exp
   | .as_bv32  _ e => return mkCoreApp (.op () (mkIdent "Int.ToBv32")  none) [← toCoreExpr e]
   | .as_bv64  _ e => return mkCoreApp (.op () (mkIdent "Int.ToBv64")  none) [← toCoreExpr e]
   | .as_bv128 _ e => return mkCoreApp (.op () (mkIdent "Int.ToBv128") none) [← toCoreExpr e]
+  -- Grammar-level binary nat operations — lower to named Core function references.
+  -- The actual function declarations are injected by `verify` when grammar-level
+  -- nat is detected (i.e. nat is not in the program's GlobalContext).
+  | .pos_toInt   _ p     => return mkCoreApp (.op () (mkIdent "pos.toInt")   none) [← toCoreExpr p]
+  | .pos_fromInt _ x     => return mkCoreApp (.op () (mkIdent "pos.fromInt") none) [← toCoreExpr x]
+  | .nat_toInt   _ n     => return mkCoreApp (.op () (mkIdent "nat.toInt")   none) [← toCoreExpr n]
+  | .nat_fromInt _ x     => return mkCoreApp (.op () (mkIdent "nat.fromInt") none) [← toCoreExpr x]
+  | .nat_add _ a b => return mkCoreApp (.op () (mkIdent "nat.add") none) [← toCoreExpr a, ← toCoreExpr b]
+  | .nat_sub _ a b => return mkCoreApp (.op () (mkIdent "nat.sub") none) [← toCoreExpr a, ← toCoreExpr b]
+  | .nat_mul _ a b => return mkCoreApp (.op () (mkIdent "nat.mul") none) [← toCoreExpr a, ← toCoreExpr b]
+  | .nat_div _ a b => return mkCoreApp (.op () (mkIdent "nat.div") none) [← toCoreExpr a, ← toCoreExpr b]
+  | .nat_mod _ a b => return mkCoreApp (.op () (mkIdent "nat.mod") none) [← toCoreExpr a, ← toCoreExpr b]
+  | .nat_lt  _ a b => return mkCoreApp (.op () (mkIdent "nat.lt")  none) [← toCoreExpr a, ← toCoreExpr b]
+  | .nat_le  _ a b => return mkCoreApp (.op () (mkIdent "nat.le")  none) [← toCoreExpr a, ← toCoreExpr b]
+  | .nat_gt  _ a b => return mkCoreApp (.op () (mkIdent "nat.gt")  none) [← toCoreExpr a, ← toCoreExpr b]
+  | .nat_ge  _ a b => return mkCoreApp (.op () (mkIdent "nat.ge")  none) [← toCoreExpr a, ← toCoreExpr b]
   | _ => throw (.fromMessage s!"Unsupported expression: {repr e}")
 
 end
@@ -609,7 +631,7 @@ private def toCoreBlock (b : BooleDDM.Block SourceRange) : TranslateM (List Core
   | .block _ ⟨_, ss⟩ =>
     let parts ← ss.toList.mapM fun s =>
       match s with
-      | .varStatement m ds => lowerVarStatement m ds
+      | .varStatement m _ ds => lowerVarStatement m ds
       | _ => return [← toCoreStmt s]
     return parts.flatten
   termination_by SizeOf.sizeOf b
@@ -641,18 +663,18 @@ private def constructProcArgsPrefix (n : String)
 
 private def toCoreStmt (s : BooleDDM.Statement SourceRange) : TranslateM Core.Statement := do
   match s with
-  | .varStatement m ds =>
+  | .varStatement m _ ds =>
     let out ← lowerVarStatement m ds
     let some first := out.head?
       | throwAt m "Empty var declaration list"
     match ds with
     | .declAtom _ _ => return first
     | _ => return .block "var" out (← toCoreMetaData m)
-  | .initStatement m ty ⟨_, n⟩ e =>
+  | .initStatement m _ ty ⟨_, n⟩ e =>
     let rhs ← toCoreExpr e
     modify fun st => { st with bvars := st.bvars.push (.fvar () (mkIdent n) none) }
     return Core.Statement.init (mkIdent n) (← toCoreType ty) (.det rhs) (← toCoreMetaData m)
-  | .assign m _ lhs rhs =>
+  | .assign m _ _ lhs rhs =>
     let rec lhsParts (lhs : BooleDDM.Lhs SourceRange) : TranslateM (String × List Core.Expression.Expr) := do
       match lhs with
       | .lhsIdent _ ⟨_, n⟩ => return (n, [])
@@ -663,17 +685,13 @@ private def toCoreStmt (s : BooleDDM.Statement SourceRange) : TranslateM Core.St
     let idxs := idxsRev.reverse
     let base := .fvar () (mkIdent n) none
     return Core.Statement.set (mkIdent n) (nestMapSet base idxs (← toCoreExpr rhs)) (← toCoreMetaData m)
-  | .assume m ⟨_, l?⟩ e =>
+  | .assume m _ ⟨_, l?⟩ e =>
     return Core.Statement.assume (← defaultLabel m "assume" l?) (← toCoreExpr e) (← toCoreMetaData m)
-  | .assert m rc? ⟨_, l?⟩ e =>
-    let md ← toCoreMetaData m
-    let md := if rc? matches ⟨_, some _⟩ then md.pushElem Imperative.MetaData.reachCheck (.switch true) else md
-    return Core.Statement.assert (← defaultLabel m "assert" l?) (← toCoreExpr e) md
-  | .cover m rc? ⟨_, l?⟩ e =>
-    let md ← toCoreMetaData m
-    let md := if rc? matches ⟨_, some _⟩ then md.pushElem Imperative.MetaData.reachCheck (.switch true) else md
-    return Core.Statement.cover (← defaultLabel m "cover" l?) (← toCoreExpr e) md
-  | .if_statement m c t e =>
+  | .assert m _ ⟨_, l?⟩ e =>
+    return Core.Statement.assert (← defaultLabel m "assert" l?) (← toCoreExpr e) (← toCoreMetaData m)
+  | .cover m _ ⟨_, l?⟩ e =>
+    return Core.Statement.cover (← defaultLabel m "cover" l?) (← toCoreExpr e) (← toCoreMetaData m)
+  | .if_statement m _ c t e =>
     let thenb ← withBVars [] (toCoreBlock t)
     let elseb ← withBVars [] <| match e with
       | .else0 _ => pure []
@@ -700,9 +718,9 @@ private def toCoreStmt (s : BooleDDM.Statement SourceRange) : TranslateM Core.St
     let havocStmt := Core.Statement.havoc (mkIdent lhs) md
     let assumeStmt := Core.Statement.assume label predExpr md
     return .block label [existenceAssert, havocStmt, assumeStmt] md
-  | .havoc_statement m ⟨_, n⟩ =>
+  | .havoc_statement m _ ⟨_, n⟩ =>
     return Core.Statement.havoc (mkIdent n) (← toCoreMetaData m)
-  | .while_statement m g ⟨_, decr?⟩ invs b =>
+  | .while_statement m _ g ⟨_, decr?⟩ invs b =>
     let guard ← match g with
       | .condDet _ expr => pure (.det (← toCoreExpr expr))
       | .condNondet _ => pure .nondet
@@ -715,7 +733,7 @@ private def toCoreStmt (s : BooleDDM.Statement SourceRange) : TranslateM Core.St
     let userIn := (← args.toList.mapM toCoreExpr).map Core.CallArg.inArg
     let userOut := (lhs.toList.map (mkIdent ·.val)).map Core.CallArg.outArg
     return Core.Statement.call n (globalsPrefix ++ userIn ++ userOut) (← toCoreMetaData m)
-  | .call_statement m ⟨_, n⟩ ⟨_, callArgs⟩ => do
+  | .call_statement m _ ⟨_, n⟩ ⟨_, callArgs⟩ => do
     -- Reject Core-only out/inout call argument syntax in Boole.
     -- Boole uses `call lhs := f(args)` for calls with outputs.
     for ca in callArgs.toList do
@@ -731,16 +749,16 @@ private def toCoreStmt (s : BooleDDM.Statement SourceRange) : TranslateM Core.St
       | .callArgExpr _ e => return some (Core.CallArg.inArg (← toCoreExpr e))
       | _ => return none  -- unreachable: out/inout rejected above
     return Core.Statement.call n (globalsPrefix ++ userIn) (← toCoreMetaData m)
-  | .block_statement m ⟨_, l⟩ b =>
+  | .block_statement m _ ⟨_, l⟩ b =>
     return .block l (← withBVars [] (toCoreBlock b)) (← toCoreMetaData m)
-  | .exit_statement m ⟨_, l⟩ =>
+  | .exit_statement m _ ⟨_, l⟩ =>
     return .exit l (← toCoreMetaData m)
-  | .typeDecl_statement m ⟨_, n⟩ ⟨_, args?⟩ =>
+  | .typeDecl_statement m _ ⟨_, n⟩ ⟨_, args?⟩ =>
     let params := match args? with
       | none => []
       | some bs => (bindingsToList bs).map bindingName
     return Core.Statement.typeDecl { name := n, params := params } (← toCoreMetaData m)
-  | .funcDecl_statement m ⟨_, n⟩ ⟨_, targs?⟩ bs ret ⟨_, pres⟩ body ⟨_, inline?⟩ =>
+  | .funcDecl_statement m _ ⟨_, n⟩ ⟨_, targs?⟩ bs ret ⟨_, pres⟩ body ⟨_, inline?⟩ =>
     let tys := match targs? with | none => [] | some ts => typeArgsToList ts
     withTypeBVars tys do
       let bsList := bindingsToList bs
@@ -992,7 +1010,7 @@ private def toCoreDecls (cmd : BooleDDM.Command SourceRange) : TranslateM (List 
         | none => pure []
         | some os => (monoDeclListToList os).mapM toCoreMonoBind
       translateProcedureDecl m n tys inputs outputs specAnn.val bodyAnn.val
-  | .command_procedure m nameAnn targsAnn ins specAnn bodyAnn =>
+  | .command_procedure m _ nameAnn targsAnn ins specAnn bodyAnn =>
     let n := nameAnn.val
     if let some (param, kind) := hasOutOrInoutBinding ins then
       throwAt m s!"Boole procedure '{n}': '{kind}' modifier on parameter '{param}' is not supported. Use 'returns' syntax instead, e.g. 'procedure {n}(...) returns ({param} : T)'."
@@ -1000,30 +1018,30 @@ private def toCoreDecls (cmd : BooleDDM.Command SourceRange) : TranslateM (List 
     withTypeBVars tys do
       let inputs ← (bindingsToList ins).mapM toCoreBinding
       translateProcedureDecl m n tys inputs [] specAnn.val bodyAnn.val
-  | .command_cfg_procedure m nameAnn _ _ _ _ =>
+  | .command_cfg_procedure m _ nameAnn _ _ _ _ =>
     throwAt m s!"Boole procedure '{nameAnn.val}': CFG-form procedure bodies (`cfg ENTRY \{ ... }`) are not supported in Boole; use a structured body."
-  | .command_typedecl _ ⟨_, n⟩ ⟨_, args?⟩ =>
+  | .command_typedecl _ _ ⟨_, n⟩ ⟨_, args?⟩ =>
     let params := match args? with
       | none => []
       | some bs => (bindingsToList bs).map bindingName
     return [.type (.con { name := n, params := params }) .empty]
-  | .command_typesynonym _ ⟨_, n⟩ ⟨_, args?⟩ _ rhs =>
+  | .command_typesynonym _ _ ⟨_, n⟩ ⟨_, args?⟩ _ rhs =>
     let tys := match args? with
       | none => []
       | some bs => (bindingsToList bs).map bindingName
     withTypeBVars tys do
       return [.type (.syn { name := n, typeArgs := tys, type := ← toCoreMonoType rhs }) .empty]
-  | .command_constdecl _ ⟨_, n⟩ ⟨_, targs?⟩ ret =>
+  | .command_constdecl _ _ ⟨_, n⟩ ⟨_, targs?⟩ ret =>
     let tys := match targs? with | none => [] | some ts => typeArgsToList ts
     withTypeBVars tys do
       return [.func { name := mkIdent n, typeArgs := tys, inputs := [], output := ← toCoreMonoType ret, body := none, concreteEval := none, attr := #[], axioms := [] } .empty]
-  | .command_fndecl _ ⟨_, n⟩ ⟨_, targs?⟩ bs ret =>
+  | .command_fndecl _ _ ⟨_, n⟩ ⟨_, targs?⟩ bs ret =>
     let tys := match targs? with | none => [] | some ts => typeArgsToList ts
     withTypeBVars tys do
       return [
         .func { name := mkIdent n, typeArgs := tys, inputs := ← (bindingsToList bs).mapM toCoreBinding, output := ← toCoreMonoType ret, body := none, concreteEval := none, attr := #[], axioms := [] }
            .empty]
-  | .command_fndef m ⟨_, n⟩ ⟨_, targs?⟩ bs ret ⟨_, pres⟩ body ⟨_, inline?⟩ =>
+  | .command_fndef m _ ⟨_, n⟩ ⟨_, targs?⟩ bs ret ⟨_, pres⟩ body ⟨_, inline?⟩ =>
     let tys := match targs? with | none => [] | some ts => typeArgsToList ts
     return [.func (← lowerPureFuncDef m n tys bs ret pres body inline?.isSome) .empty]
   | .command_choosefndef _ ⟨_, n⟩ ⟨_, targs?⟩ bs ret v pred =>
@@ -1066,7 +1084,7 @@ private def toCoreDecls (cmd : BooleDDM.Command SourceRange) : TranslateM (List 
       let axiomDecl : Core.Decl :=
         .ax { name := s!"{n}_choose_axiom", e := axiomExpr } .empty
       return [funcDecl, axiomDecl]
-  | .command_recfndefs _ ⟨_, funcs⟩ =>
+  | .command_recfndefs _ _ ⟨_, funcs⟩ =>
     -- Mirror the DDM elaborator's @[declareFn] sibling-bvar accumulation:
     -- the i-th function's body sees the i preceding siblings as bvars.
     let funcList := funcs.toList
@@ -1085,9 +1103,9 @@ private def toCoreDecls (cmd : BooleDDM.Command SourceRange) : TranslateM (List 
     return [.recFuncBlock fsRev.reverse .empty]
   | .command_var _m _b =>
     return []
-  | .command_axiom m ⟨_, l?⟩ e =>
+  | .command_axiom m _ ⟨_, l?⟩ e =>
     return [.ax { name := ← defaultLabel m "axiom" l?, e := ← toCoreExpr e } .empty]
-  | .command_distinct m ⟨_, l?⟩ ⟨_, es⟩ =>
+  | .command_distinct m _ ⟨_, l?⟩ ⟨_, es⟩ =>
     return [.distinct (mkIdent (← defaultLabel m "distinct" l?)) (← es.toList.mapM toCoreExpr) .empty]
   | .command_block _ b =>
     -- Core decls do not have a standalone "top-level block" form, so a Boole
@@ -1097,7 +1115,7 @@ private def toCoreDecls (cmd : BooleDDM.Command SourceRange) : TranslateM (List 
       spec := { preconditions := [], postconditions := [] }
       body := .structured (← toCoreBlock b)
     } .empty]
-  | .command_datatypes _ ⟨_, decls⟩ =>
+  | .command_datatypes _ _ ⟨_, decls⟩ =>
     let datatypes ← decls.toList.mapM toCoreDatatypeDecl
     return [.type (.data datatypes) .empty]
 
@@ -1133,7 +1151,7 @@ def toCoreProgram (p : Boole.Program) (gctx : GlobalContext := {}) (fileName : S
       | .boole_procedure _ nameAnn _ _ _ _ specAnn _ =>
         let mods ← collectModifiesFromSpec fileName nameAnn.val specAnn.val varTypes
         if !mods.isEmpty then modMap := modMap.insert nameAnn.val mods
-      | .command_procedure _ nameAnn _ _ specAnn _ =>
+      | .command_procedure _ _ nameAnn _ _ specAnn _ =>
         let mods ← collectModifiesFromSpec fileName nameAnn.val specAnn.val varTypes
         if !mods.isEmpty then modMap := modMap.insert nameAnn.val mods
       | _ => pure ()
@@ -1166,6 +1184,333 @@ def typeCheck (p : StrataDDM.Program) (options : Core.VerifyOptions := .default)
   let coreProg ← toCoreProgram prog p.globalContext
   Core.typeCheck options coreProg
 
+-- Returns true if `ty` mentions the `nat` or `pos` sort anywhere (including nested).
+private partial def lMonoTyHasNatOrPos : Lambda.LMonoTy → Bool
+  | .tcons "nat" _ | .tcons "pos" _ => true
+  | .tcons _ args => args.any lMonoTyHasNatOrPos
+  | _ => false
+
+private def lTyHasNatOrPos : Lambda.LTy → Bool
+  | .forAll _ ty => lMonoTyHasNatOrPos ty
+
+-- Returns true if `expr` contains any nat/pos operator call.
+-- Used to catch nat usage in spec (requires/ensures) expressions and function bodies
+-- where the surface types may be int (e.g. `ensures nat.toInt(nat.fromInt(x)) == x`).
+private partial def lExprUsesNatOrPos : Core.Expression.Expr → Bool
+  | .op _ id _           => ["nat.toInt", "nat.fromInt", "nat.add", "nat.sub", "nat.mul",
+                              "nat.div",  "nat.mod",     "nat.lt",  "nat.le",  "nat.gt",
+                              "nat.ge",   "pos.toInt",   "pos.fromInt"].contains id.name
+  | .app _ f x           => lExprUsesNatOrPos f || lExprUsesNatOrPos x
+  | .ite _ c t e         => lExprUsesNatOrPos c || lExprUsesNatOrPos t || lExprUsesNatOrPos e
+  | .eq _ a b            => lExprUsesNatOrPos a || lExprUsesNatOrPos b
+  | .abs _ _ _ body      => lExprUsesNatOrPos body
+  | .quant _ _ _ _ tr b  => lExprUsesNatOrPos tr || lExprUsesNatOrPos b
+  | _                    => false
+
+-- Recursively scan a statement list for nat/pos-typed local variable declarations.
+-- This catches `var z : nat := ...` inside procedure bodies that wouldn't appear
+-- in the procedure's header input/output types.
+private partial def stmtListHasNatOrPos : List Core.Statement → Bool
+  | [] => false
+  | s :: rest =>
+    let here := match s with
+      | .cmd (.cmd (.init _ ty _ _))    => lTyHasNatOrPos ty
+      | .cmd (.cmd (.assert _ b _))     => lExprUsesNatOrPos b
+      | .cmd (.cmd (.assume _ b _))     => lExprUsesNatOrPos b
+      | .cmd (.cmd (.cover _ b _))      => lExprUsesNatOrPos b
+      | .cmd (.cmd (.set _ (.det e) _)) => lExprUsesNatOrPos e
+      | .block _ inner _                => stmtListHasNatOrPos inner
+      | .ite (.det c) thenb elseb _     =>
+          lExprUsesNatOrPos c || stmtListHasNatOrPos thenb || stmtListHasNatOrPos elseb
+      | .ite .nondet thenb elseb _      =>
+          stmtListHasNatOrPos thenb || stmtListHasNatOrPos elseb
+      | .loop (.det g) meas invs body _ =>
+          lExprUsesNatOrPos g
+          || meas.any lExprUsesNatOrPos
+          || invs.any (fun (_, e) => lExprUsesNatOrPos e)
+          || stmtListHasNatOrPos body
+      | .loop .nondet _ invs body _     =>
+          invs.any (fun (_, e) => lExprUsesNatOrPos e) || stmtListHasNatOrPos body
+      | .funcDecl f _                   =>
+          f.body.any lExprUsesNatOrPos
+          || f.axioms.any lExprUsesNatOrPos
+          || f.measure.any lExprUsesNatOrPos
+      | _                               => false
+    here || stmtListHasNatOrPos rest
+
+-- Returns true if any function, procedure, or datatype in `cp` references nat/pos.
+-- Scans: input/output types, local variable types (body), spec expressions
+-- (requires/ensures), and function body expressions — so `ensures nat.toInt(n) >= 0`
+-- on an int-typed procedure correctly triggers natLibrary injection.
+private def coreProgUsesNatOrPos (cp : Core.Program) : Bool :=
+  cp.decls.any fun decl => match decl with
+    | .func f _ => f.inputs.values.any lMonoTyHasNatOrPos
+               || lMonoTyHasNatOrPos f.output
+               || f.body.any lExprUsesNatOrPos
+    | .recFuncBlock fs _ => fs.any fun f =>
+        f.inputs.values.any lMonoTyHasNatOrPos
+        || lMonoTyHasNatOrPos f.output
+        || f.body.any lExprUsesNatOrPos
+    | .proc p _ => p.header.inputs.values.any lMonoTyHasNatOrPos
+                || p.header.outputs.values.any lMonoTyHasNatOrPos
+                || (match p.body with
+                   | .structured ss => stmtListHasNatOrPos ss
+                   | .cfg _ => false)
+                || p.spec.preconditions.values.any  (fun c => lExprUsesNatOrPos c.expr)
+                || p.spec.postconditions.values.any (fun c => lExprUsesNatOrPos c.expr)
+    | .type (.data block) _ => block.any fun dt =>
+        dt.constrs.any fun c => c.args.any fun (_, ty) => lMonoTyHasNatOrPos ty
+    | _ => false
+
+-- ── Validate-Candidate: pure-Lean nat arithmetic ─────────────────────────────
+-- When the incremental SMT solver returns `unknown (some m)` for a nat-using
+-- obligation, we attempt to evaluate the obligation expression against the
+-- candidate model using pure-Lean arithmetic.  If the expression evaluates to a
+-- concrete Boolean the model is self-consistent, so `unknown (some m)` is
+-- promoted to `.sat m` (a genuine counterexample or satisfying assignment).
+
+private inductive LeanPos where | xH | xO (p : LeanPos) | xI (p : LeanPos)
+  deriving Inhabited
+private inductive LeanNat where | N0 | Npos (p : LeanPos)
+  deriving Inhabited
+
+private def posToInt : LeanPos → Int
+  | .xH   => 1
+  | .xO p => 2 * posToInt p
+  | .xI p => 2 * posToInt p + 1
+
+private def natToInt : LeanNat → Int
+  | .N0     => 0
+  | .Npos p => posToInt p
+
+private partial def posFromInt (x : Int) : LeanPos :=
+  if x <= 1 then .xH
+  else if x % 2 == 0 then .xO (posFromInt (x / 2))
+  else .xI (posFromInt (x / 2))
+
+private def natFromInt (x : Int) : LeanNat :=
+  if x <= 0 then .N0 else .Npos (posFromInt x)
+
+-- Parse SMT constructor terms → LeanPos/LeanNat.
+-- cvc5 may emit datatype constructors as `datatype_op .constructor` or as
+-- `Op.Core.uf` depending on how the SMT-response DDM serialises the model.
+private partial def termToLeanPos : Strata.SMT.Term → Option LeanPos
+  | .app (.datatype_op .constructor "xH") [] _  => some .xH
+  | .app (.datatype_op .constructor "xO") [a] _ => (termToLeanPos a).map .xO
+  | .app (.datatype_op .constructor "xI") [a] _ => (termToLeanPos a).map .xI
+  | .app (.core (.uf uf)) [] _ =>
+      if uf.id == "xH" then some .xH else none
+  | .app (.core (.uf uf)) [a] _ =>
+      if uf.id == "xO" then (termToLeanPos a).map .xO
+      else if uf.id == "xI" then (termToLeanPos a).map .xI
+      else none
+  | _ => none
+
+private def termToLeanNat : Strata.SMT.Term → Option LeanNat
+  | .app (.datatype_op .constructor "N0") [] _    => some .N0
+  | .app (.datatype_op .constructor "Npos") [a] _ => (termToLeanPos a).map .Npos
+  | .app (.core (.uf uf)) [] _  => if uf.id == "N0" then some .N0 else none
+  | .app (.core (.uf uf)) [a] _ =>
+      if uf.id == "Npos" then (termToLeanPos a).map .Npos else none
+  | _ => none
+
+-- Decode LExpr constructor terms for pos/nat → LeanPos/LeanNat.
+-- smtTermToLExpr represents zero-arg constructors as .op or .fvar (depending on
+-- whether the name was in the constructor set), and n-arg constructors as nested
+-- .app of .op/.fvar.  We match both forms to be robust.
+private partial def lExprToLeanPos : LExpr Core.CoreLParams.mono → Option LeanPos
+  | .op _ id _    => if id.name == "xH" then some .xH else none
+  | .fvar _ id _  => if id.name == "xH" then some .xH else none
+  | .app _ fn arg =>
+      let name : Option String := match fn with
+        | .op _ id _   => some id.name
+        | .fvar _ id _ => some id.name
+        | _            => none
+      match name with
+      | some "xO" => (lExprToLeanPos arg).map .xO
+      | some "xI" => (lExprToLeanPos arg).map .xI
+      | _         => none
+  | _ => none
+
+private def lExprToLeanNat : LExpr Core.CoreLParams.mono → Option LeanNat
+  | .op _ id _    => if id.name == "N0" then some .N0 else none
+  | .fvar _ id _  => if id.name == "N0" then some .N0 else none
+  | .app _ fn arg =>
+      let name : Option String := match fn with
+        | .op _ id _   => some id.name
+        | .fvar _ id _ => some id.name
+        | _            => none
+      match name with
+      | some "Npos" => (lExprToLeanPos arg).map .Npos
+      | _           => none
+  | _ => none
+
+-- VPartial stores the operator name + first arg for curried binary application.
+-- This avoids the non-positive occurrence that would arise from VFn : (EvalVal → ...) → EvalVal.
+private inductive EvalVal where
+  | VBool    : Bool    → EvalVal
+  | VInt     : Int     → EvalVal
+  | VNat     : LeanNat → EvalVal
+  | VPos     : LeanPos → EvalVal
+  | VPartial : String  → EvalVal → EvalVal
+
+-- Build an evaluation environment from a raw SMT model.
+-- Integer and boolean primitives are kept; nat/pos constructor terms are parsed.
+private def buildEvalModel
+    (m : Imperative.SMT.Model Core.Expression.Ident) : Std.HashMap String EvalVal :=
+  m.foldl (fun acc (id, term) =>
+    let v : Option EvalVal :=
+      match term with
+      | .prim (.int n)  => some (EvalVal.VInt n)
+      | .prim (.bool b) => some (EvalVal.VBool b)
+      | _ => (termToLeanNat term).map EvalVal.VNat <|>
+             (termToLeanPos term).map EvalVal.VPos
+    match v with
+    | some v => acc.insert id.name v
+    | none   => acc)
+  {}
+
+private def evalUnaryOp (name : String) (v : EvalVal) : Option EvalVal :=
+  match name, v with
+  | "nat.toInt",   EvalVal.VNat n  => some (EvalVal.VInt (natToInt n))
+  | "pos.toInt",   EvalVal.VPos p  => some (EvalVal.VInt (posToInt p))
+  | "nat.fromInt", EvalVal.VInt x  => some (EvalVal.VNat (natFromInt x))
+  | "pos.fromInt", EvalVal.VInt x  => some (EvalVal.VPos (posFromInt x))
+  | "Int.Neg",     EvalVal.VInt n  => some (EvalVal.VInt (-n))
+  | "Bool.Not",    EvalVal.VBool b => some (EvalVal.VBool (!b))
+  | _, _                           => none
+
+private def evalBinaryOp (name : String) (v1 v2 : EvalVal) : Option EvalVal :=
+  match name, v1, v2 with
+  | "Int.Le",       EvalVal.VInt i,  EvalVal.VInt j  => some (EvalVal.VBool (i <= j))
+  | "Int.Lt",       EvalVal.VInt i,  EvalVal.VInt j  => some (EvalVal.VBool (i < j))
+  | "Int.Ge",       EvalVal.VInt i,  EvalVal.VInt j  => some (EvalVal.VBool (i >= j))
+  | "Int.Gt",       EvalVal.VInt i,  EvalVal.VInt j  => some (EvalVal.VBool (i > j))
+  | "Int.Add",      EvalVal.VInt i,  EvalVal.VInt j  => some (EvalVal.VInt (i + j))
+  | "Int.Sub",      EvalVal.VInt i,  EvalVal.VInt j  => some (EvalVal.VInt (i - j))
+  | "Int.Mul",      EvalVal.VInt i,  EvalVal.VInt j  => some (EvalVal.VInt (i * j))
+  | "Int.Div",      EvalVal.VInt i,  EvalVal.VInt j  =>
+      if j == 0 then none else some (EvalVal.VInt (i / j))
+  | "Int.Mod",      EvalVal.VInt i,  EvalVal.VInt j  =>
+      if j == 0 then none else some (EvalVal.VInt (i % j))
+  | "Bool.And",     EvalVal.VBool x, EvalVal.VBool y => some (EvalVal.VBool (x && y))
+  | "Bool.Or",      EvalVal.VBool x, EvalVal.VBool y => some (EvalVal.VBool (x || y))
+  | "Bool.Implies", EvalVal.VBool x, EvalVal.VBool y => some (EvalVal.VBool (!x || y))
+  | "Bool.Equiv",   EvalVal.VBool x, EvalVal.VBool y => some (EvalVal.VBool (x == y))
+  | "nat.lt",       EvalVal.VNat x,  EvalVal.VNat y  => some (EvalVal.VBool (natToInt x < natToInt y))
+  | "nat.le",       EvalVal.VNat x,  EvalVal.VNat y  => some (EvalVal.VBool (natToInt x <= natToInt y))
+  | "nat.gt",       EvalVal.VNat x,  EvalVal.VNat y  => some (EvalVal.VBool (natToInt x > natToInt y))
+  | "nat.ge",       EvalVal.VNat x,  EvalVal.VNat y  => some (EvalVal.VBool (natToInt x >= natToInt y))
+  | "nat.add",      EvalVal.VNat x,  EvalVal.VNat y  =>
+      some (EvalVal.VNat (natFromInt (natToInt x + natToInt y)))
+  | "nat.sub",      EvalVal.VNat x,  EvalVal.VNat y  =>
+      -- Guard the precondition: nat.sub requires toInt(b) <= toInt(a).
+      -- A broken candidate violating this returns none so validation rejects it.
+      if natToInt y <= natToInt x
+      then some (EvalVal.VNat (natFromInt (natToInt x - natToInt y)))
+      else none
+  | "nat.mul",      EvalVal.VNat x,  EvalVal.VNat y  =>
+      some (EvalVal.VNat (natFromInt (natToInt x * natToInt y)))
+  | "nat.div",      EvalVal.VNat x,  EvalVal.VNat y  =>
+      if natToInt y == 0 then none
+      else some (EvalVal.VNat (natFromInt (natToInt x / natToInt y)))
+  | "nat.mod",      EvalVal.VNat x,  EvalVal.VNat y  =>
+      if natToInt y == 0 then none
+      else some (EvalVal.VNat (natFromInt (natToInt x % natToInt y)))
+  | _, _, _                                           => none
+
+-- Collect ANF let-bindings (varDecl entries with deterministic bodies) from the
+-- path conditions. These define ANF intermediates like $__anf.2 in terms of
+-- earlier variables, and are needed to evaluate an ANF obligation expression.
+private def buildDefMap
+    (assumptions : Imperative.PathConditions Core.Expression)
+    : Std.HashMap String Core.Expression.Expr :=
+  assumptions.foldl (fun acc path =>
+    path.foldl (fun acc entry =>
+      match entry with
+      | .varDecl name _ (.det body) => acc.insert name.name body
+      | _ => acc)
+    acc)
+  {}
+
+-- Evaluate a Core expression against a concrete model plus an ANF definition map.
+-- Returns `none` when evaluation is incomplete (unsupported node types,
+-- quantifiers, or unknown operators).
+-- Free variables are looked up first in `model`, then expanded from `defMap`
+-- (which contains ANF let-bindings like $__anf.2 = nat.toInt(a@1) < nat.toInt(b@1)).
+-- Operators are curried: `.app (.op name) arg` covers unary; for binary the
+-- first .app produces VPartial which the outer .app consumes.
+private partial def evalExpr
+    (model  : Std.HashMap String EvalVal)
+    (defMap : Std.HashMap String Core.Expression.Expr)
+    : Core.Expression.Expr → Option EvalVal
+  | .intConst _ n  => some (EvalVal.VInt n)
+  | .boolConst _ b => some (EvalVal.VBool b)
+  | .fvar _ id _   =>
+      model.get? id.name <|>
+      -- Erase the key before recursing to break any circular definition (x ↦ fvar x).
+      (defMap.get? id.name >>= fun body => evalExpr model (defMap.erase id.name) body)
+  | .eq _ a b      => do
+      let va ← evalExpr model defMap a
+      let vb ← evalExpr model defMap b
+      match va, vb with
+      | EvalVal.VBool x, EvalVal.VBool y => some (EvalVal.VBool (x == y))
+      | EvalVal.VInt  x, EvalVal.VInt  y => some (EvalVal.VBool (x == y))
+      | EvalVal.VNat  x, EvalVal.VNat  y => some (EvalVal.VBool (natToInt x == natToInt y))
+      | EvalVal.VPos  x, EvalVal.VPos  y => some (EvalVal.VBool (posToInt x == posToInt y))
+      | _, _ => none  -- type mismatch (e.g. VPartial on one side): skip, don't falsify
+  | .ite _ c t f   => do
+      match ← evalExpr model defMap c with
+      | EvalVal.VBool true  => evalExpr model defMap t
+      | EvalVal.VBool false => evalExpr model defMap f
+      | _                   => none
+  | .app _ (.op _ op _) arg => do
+      let varg ← evalExpr model defMap arg
+      match evalUnaryOp op.name varg with
+      | some v => some v
+      | none   => some (EvalVal.VPartial op.name varg)
+  | .app _ inner arg => do
+      let vi   ← evalExpr model defMap inner
+      let varg ← evalExpr model defMap arg
+      match vi with
+      | EvalVal.VPartial name v1 => evalBinaryOp name v1 varg
+      | _                        => none
+  | _ => none
+
+-- Returns `true` when (1) the obligation expression evaluates to any value and
+-- (2) no ground path-condition assumption evaluates to `false`.
+-- Condition (2) rejects broken candidates: partial assignments from a timed-out
+-- solver where e.g. `toInt(a) = 73` is asserted but the candidate has `a = N0`.
+-- Quantified assumptions (bridge axioms) can't be evaluated and are skipped.
+private def validateNatModel
+    (obligation : Imperative.ProofObligation Core.Expression)
+    (m : Imperative.SMT.Model Core.Expression.Ident) : Bool :=
+  let model  := buildEvalModel m
+  let defMap := buildDefMap obligation.assumptions
+  -- Require the obligation to evaluate to false: obligation.obligation is P (the
+  -- assertion being checked). The SMT query asserts NOT(P) looking for a model
+  -- where P fails. A valid counterexample has P = false in the candidate model.
+  -- Accepting VBool true (P holds) would promote a non-counterexample to .sat.
+  let obligationOk := match evalExpr model defMap obligation.obligation with
+    | some (EvalVal.VBool false) => true
+    | _ => false
+  let groundAssumptionsHold := obligation.assumptions.all fun path =>
+    path.all fun entry =>
+      match entry with
+      | .assumption _ expr =>
+        -- Only reject when evaluation definitively returns false.
+        -- `none` (quantified, unsupported) is treated as unknown → accept.
+        match evalExpr model defMap expr with
+        | some (EvalVal.VBool false) => false
+        | _                          => true
+      | _ => true
+  obligationOk && groundAssumptionsHold
+
+-- AbstractedPhase that promotes concrete-nat unknown candidates to counterexamples.
+private def natCandidatePhase : Core.AbstractedPhase where
+  name := "natCandidateValidation"
+  getValidation := fun obligation => .modelToValidate (validateNatModel obligation)
+
 open Lean.Parser in
 def verify
     (smtsolver : String) (env : StrataDDM.Program)
@@ -1185,14 +1530,58 @@ def verify
     | .error e =>
       throw <| IO.Error.userError (toString (e.format (some ictx.fileMap)))
     | .ok cp =>
+      -- Auto-inject the binary nat library when grammar-level nat/pos types are used.
+      -- Skip if the user explicitly declared nat/pos datatypes (GlobalContext takes precedence),
+      -- or if the program doesn't reference nat/pos at all (avoid injecting quantified axioms
+      -- into unrelated programs, which hurts SMT performance).
+      let hasUserNatDecl := (env.globalContext.findIndex? "nat").isSome
+                         || (env.globalContext.findIndex? "pos").isSome
+      let userCp := cp
+      let usesNatOrPos := coreProgUsesNatOrPos userCp
+      let cp ← if hasUserNatDecl || !usesNatOrPos then pure userCp else do
+        -- Translate natLibrary (a Core program) through the Boole parser
+        -- (Boole inherits all Core commands) and prepend its declarations.
+        let toIOErr (e : DiagnosticModel) :=
+          IO.Error.userError (toString (e.format (some ictx.fileMap)) ++ " (natLibrary injection)")
+        let natCp ← IO.ofExcept <|
+          ((getProgram Strata.BooleNat.natLibrary).bind
+            (fun p => toCoreProgram p Strata.BooleNat.natLibrary.globalContext ""))
+            |>.mapError toIOErr
+        pure { userCp with decls := natCp.decls ++ userCp.decls }
+      -- Wire the nat candidate-validation phase whenever nat/pos types are in use.
+      -- Intentionally NOT conditioned on !hasUserNatDecl: `prepend`-based programs put
+      -- nat/pos into globalContext (triggering hasUserNatDecl=true) but still need
+      -- candidate validation. natCandidatePhase is a no-op for opaque/non-algebraic
+      -- nat since termToLeanPos/Nat won't parse those model entries.
+      let usesGrammarNat := usesNatOrPos
+      let externalPhases : List Core.AbstractedPhase :=
+        if usesGrammarNat then [natCandidatePhase] else []
+      let natBridgeAxioms : List String :=
+        if usesGrammarNat then ["nat_nonneg", "nat_fromInt_toInt", "nat_toInt_fromInt"] else []
       let runner tempPath :=
         EIO.toIO (fun dm => IO.Error.userError (toString (dm.format (some ictx.fileMap))))
-          (Core.verify cp tempPath proceduresToVerify options)
+          (Core.verify cp tempPath proceduresToVerify options
+            (externalPhases := externalPhases)
+            (requeryDropAxioms := natBridgeAxioms))
+      -- Decode nat/pos constructor model values to integers for display.
+      -- Replaces e.g. Npos(xO(xH)) with 2 in the counterexample model.
+      let decodeEntry (id : Core.Expression.Ident)
+                      (e  : LExpr Core.CoreLParams.mono) :=
+        match lExprToLeanNat e with
+        | some n => (id, LExpr.intConst () (natToInt n))
+        | none   => match lExprToLeanPos e with
+          | some p => (id, LExpr.intConst () (posToInt p))
+          | none   => (id, e)
+      let decodeModel (results : Core.VCResults) : Core.VCResults :=
+        results.map fun r =>
+          let model := r.lexprModel.map fun (id, e) => decodeEntry id e
+          { r with lexprModel := model }
+      let maybeDecodeModel := if usesGrammarNat then decodeModel else id
       match tempDir with
       | .none =>
-        IO.FS.withTempDir runner
+        maybeDecodeModel <$> IO.FS.withTempDir runner
       | .some path =>
         IO.FS.createDirAll ⟨path⟩
-        runner ⟨path⟩
+        maybeDecodeModel <$> runner ⟨path⟩
 
 end Strata.Boole
