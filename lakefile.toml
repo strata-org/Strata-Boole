@@ -2,6 +2,9 @@ name = "StrataBoole"
 version = "0.1.0"
 defaultTargets = ["StrataBoole"]
 testDriver = "StrataBooleTest"
+# The Boole grammar elaboration (via #strata_gen) requires more stack space on
+# Linux/x86-64 than the default. weakLeanArgs does not affect the build trace.
+weakLeanArgs = ["--tstack=32768"]
 
 [[require]]
 name = "Strata"
