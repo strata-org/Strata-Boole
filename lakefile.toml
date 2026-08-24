@@ -2,6 +2,8 @@ name = "StrataBoole"
 version = "0.1.0"
 defaultTargets = ["StrataBoole"]
 testDriver = "StrataBooleTest"
+# #strata_gen Boole needs more stack on Linux/x86-64 than the 8 MB default.
+weakLeanArgs = ["--tstack=32768"]
 
 [[require]]
 name = "Strata"
