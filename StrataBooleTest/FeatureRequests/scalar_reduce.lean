@@ -20,13 +20,13 @@ Implemented:
   struct-field access needed for this seed.
 - `u8_64_as_group_canonical` stays abstract; its recursive byte-accumulation
   definition can now be written (Gap #11 / #1167 merged), but requires
-  changing `ByteArray64` to `Sequence bv8` — see comment below.
+  changing `ByteArray64` to `Sequence (bv W8)` — see comment below.
 - Two axioms capture what `reduce` guarantees; the procedure body verifies
   by axiom instantiation alone.
 
 Remaining gap:
 - `u8_64_as_group_canonical` recursive definition: `ByteArray64` must be
-  changed to `Sequence bv8` to use the recursive form — see commented
+  changed to `Sequence (bv W8)` to use the recursive form — see commented
   definition below. Blocked by Gap #13 (`Scalar { bytes }` struct construction).
 - `Scalar { bytes }` struct construction requires Gap #13.
 -/
@@ -44,14 +44,14 @@ function u8_64_as_group_canonical(b: ByteArray64) : int;
 function is_canonical_scalar(s: Scalar) : bool;
 
 // Gap #11 (PR #1167) is now merged; u8_64_as_group_canonical can be given a
-// real recursive definition using Sequence bv8.  The recursive
+// real recursive definition using Sequence (bv W8).  The recursive
 // byte-accumulation (little-endian) follows dalek-lite's bytes_seq_as_nat
 // (curve25519-dalek/src/specs/core_specs.rs):
 //
-//   function bv8_to_int_u(x: bv8) : int;
+//   function bv8_to_int_u(x: bv W8) : int;
 //   function group_order() : int;
 //
-//   rec function bytes_seq_as_nat(b: Sequence bv8) : int
+//   rec function bytes_seq_as_nat(b: Sequence (bv W8)) : int
 //     decreases Sequence.length(b)
 //   {
 //     if Sequence.length(b) == 0 then
@@ -60,7 +60,7 @@ function is_canonical_scalar(s: Scalar) : bool;
 //       bv8_to_int_u(Sequence.select(b, 0)) + 256 * bytes_seq_as_nat(Sequence.skip(b, 1))
 //   }
 //
-//   function u8_64_as_group_canonical(b: Sequence bv8) : int {
+//   function u8_64_as_group_canonical(b: Sequence (bv W8)) : int {
 //     bytes_seq_as_nat(b) mod group_order()
 //   }
 //

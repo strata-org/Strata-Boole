@@ -36,8 +36,8 @@ program Boole;
 
 // type Value;
 //
-// function spec_parse(b: Map int bv8, n: int) : Option (int, Value);
-// function spec_serialize(v: Value) : Map int bv8;
+// function spec_parse(b: Map int (bv W8), n: int) : Option (int, Value);
+// function spec_serialize(v: Value) : Map int (bv W8);
 // function serialize_len(v: Value) : int;
 //
 // // trusted roundtrip (#[verifier::external_body] equivalent)
@@ -48,7 +48,7 @@ program Boole;
 // // corollary_parse_surjective
 // procedure parse_surjective_seed(v: Value) returns ()
 // spec {
-//   ensures ∃ b: Map int bv8, n: int .
+//   ensures ∃ b: Map int (bv W8), n: int .
 //     spec_parse(b, n) matches Some((_, v_)) && v_ == v;
 // }
 // {

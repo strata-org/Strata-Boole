@@ -15,7 +15,7 @@ type StrataRef;
 type StrataField (t: Type);
 
 // Variables
-var x : bv32;
+var x : bv W32;
 
 // Uninterpreted procedures
 // Implementations
@@ -35,7 +35,7 @@ spec {
 #end
 
 /-- info:
-Obligation: assert_1_423
+Obligation: assert_1_425
 Property: assert
 Result: ✅ pass-/
 #guard_msgs in
