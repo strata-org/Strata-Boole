@@ -10,6 +10,12 @@ name = "Strata"
 git = "https://github.com/strata-org/Strata"
 rev = "main"
 
+[[require]]
+name = "smt"
+git = "https://github.com/ufmg-smite/lean-smt"
+rev = "7d1d823"
+
+
 [[lean_lib]]
 name = "StrataBoole"
 
