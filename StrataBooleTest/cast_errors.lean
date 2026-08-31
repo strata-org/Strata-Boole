@@ -52,11 +52,11 @@ spec {
 
 #guard (helper asIntOnInt).isOk
 
--- (2) `as_int` on a `Map int bv8` — must be rejected
+-- (2) `as_int` on a `Map int (bv W8)` — must be rejected
 private def asIntOnMap :=
 #strata
 program Boole;
-procedure bad_as_int(m: Map int bv8) returns ()
+procedure bad_as_int(m: Map int (bv W8)) returns ()
 spec {
   ensures m as_int >= 0;
 } {
@@ -68,11 +68,11 @@ spec {
   | .error e => containsSubstr e "'as int' requires a bitvector source type"
   | .ok _ => false
 
--- (3) `as_sint` on a `Map int bv8` — must be rejected
+-- (3) `as_sint` on a `Map int (bv W8)` — must be rejected
 private def sintOnMap :=
 #strata
 program Boole;
-procedure bad_sint_map(m: Map int bv8) returns ()
+procedure bad_sint_map(m: Map int (bv W8)) returns ()
 spec {
   ensures m as_sint >= 0;
 } {

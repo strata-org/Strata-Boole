@@ -33,8 +33,8 @@ private def traitSpecMethodsSeed : StrataDDM.Program :=
 program Boole;
 
 // interface SpecCombinator (V: Type) {
-//   spec function spec_parse(s: Sequence bv8) : Option (int, V);
-//   spec function spec_serialize(v: V) : Sequence bv8;
+//   spec function spec_parse(s: Sequence (bv W8)) : Option (int, V);
+//   spec function spec_serialize(v: V) : Sequence (bv W8);
 // }
 //
 // interface SecureSpecCombinator (V: Type) extends SpecCombinator V {
@@ -47,7 +47,7 @@ program Boole;
 //
 //   lemma corollary_parse_surjective(v: V)
 //   spec {
-//     ensures ∃ b: Sequence bv8 . spec_parse(b) matches Some((_, v_)) && v_ == v;
+//     ensures ∃ b: Sequence (bv W8) . spec_parse(b) matches Some((_, v_)) && v_ == v;
 //   }
 //   {
 //     theorem_serialize_parse_roundtrip(v);

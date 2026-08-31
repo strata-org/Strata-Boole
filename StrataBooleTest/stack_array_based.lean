@@ -172,14 +172,14 @@ VCs:
 Label: StackInit_ensures_1_1071
 Property: assert
 Assumptions:
-StackInit_requires_0_1020: cap@1 >= 0
+StackInit_requires_0_1020: int.ge(cap@1, 0)
 Obligation:
 true
 
 Label: StackInit_ensures_2_1091
 Property: assert
 Assumptions:
-StackInit_requires_0_1020: cap@1 >= 0
+StackInit_requires_0_1020: int.ge(cap@1, 0)
 Obligation:
 true
 
@@ -202,35 +202,35 @@ top@3 == 0 ==> (if top@3 == 0 then true else false)
 Label: Push_ensures_6_1499
 Property: assert
 Assumptions:
-Push_requires_5_1448: top@4 < n@4
+Push_requires_5_1448: int.lt(top@4, n@4)
 Obligation:
 true
 
 Label: Push_ensures_7_1530
 Property: assert
 Assumptions:
-Push_requires_5_1448: top@4 < n@4
+Push_requires_5_1448: int.lt(top@4, n@4)
 Obligation:
-(S@3[top@4 + 1:=x@1])[top@4 + 1] == x@1
+(S@3[int.add(top@4, 1):=x@1])[int.add(top@4, 1)] == x@1
 
 Label: Push_ensures_8_1588
 Property: assert
 Assumptions:
-Push_requires_5_1448: top@4 < n@4
+Push_requires_5_1448: int.lt(top@4, n@4)
 Obligation:
-forall __q0 : int :: 1 <= __q0 && __q0 <= top@4 ==> (S@3[top@4 + 1:=x@1])[__q0] == S@3[__q0]
+forall __q0 : int :: int.le(1, __q0) && int.le(__q0, top@4) ==> (S@3[int.add(top@4, 1):=x@1])[__q0] == S@3[__q0]
 
 Label: Pop_ensures_10_1845
 Property: assert
 Assumptions:
-Pop_requires_9_1808: top@6 > 0
+Pop_requires_9_1808: int.gt(top@6, 0)
 Obligation:
 true
 
 Label: Pop_ensures_11_1876
 Property: assert
 Assumptions:
-Pop_requires_9_1808: top@6 > 0
+Pop_requires_9_1808: int.gt(top@6, 0)
 Obligation:
 true
 

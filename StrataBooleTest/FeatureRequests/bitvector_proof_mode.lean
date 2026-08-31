@@ -30,10 +30,10 @@ private def bitvectorProofModeSeed : StrataDDM.Program :=
 #strata
 program Boole;
 
-// function low7(b: bv8) : bv8;
-// axiom (∀ b: bv8 . low7(b) == b & bv{8}(127));
+// function low7(b: bv W8) : bv W8;
+// axiom (∀ b: bv W8 . low7(b) == b & bv{8}(127));
 //
-// procedure leb128_low7_seed(s: Map int bv8, len: int) returns ()
+// procedure leb128_low7_seed(s: Map int (bv W8), len: int) returns ()
 // spec {
 //   requires 0 < len;
 //   ensures leb128_parse_low7(s, len) == low7(s[0]);

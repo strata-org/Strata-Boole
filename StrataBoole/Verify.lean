@@ -53,7 +53,7 @@ structure TranslateState where
       classification. -/
   globalVarTypes : Std.HashMap String Lambda.LMonoTy := {}
 
-abbrev TranslateM := StateT TranslateState (Except DiagnosticModel)
+abbrev TranslateM := StateT TranslateState (Except Message)
 
 private def mkIdent (name : String) : Core.Expression.Ident :=
   ⟨name, ()⟩
@@ -61,7 +61,7 @@ private def mkIdent (name : String) : Core.Expression.Ident :=
 def topLevelBlockProcedureName : String := "__Boole_top"
 
 private def throwAt (m : SourceRange) (msg : String) : TranslateM α := do
-  throw (.withRange ⟨⟨(← get).fileName⟩, m⟩ msg)
+  throw (Message.withRange ⟨⟨(← get).fileName⟩, m⟩ msg)
 
 private def defaultLabel (m : SourceRange) (pfx : String) (l? : Option (BooleDDM.Label SourceRange)) : TranslateM String := do
   match l? with
@@ -227,12 +227,8 @@ private def typeRange : Boole.Type → SourceRange
   | .real m => m
   | .string m => m
   | .regex m => m
-  | .bv1 m => m
-  | .bv8 m => m
-  | .bv16 m => m
-  | .bv32 m => m
-  | .bv64 m => m
-  | .bv128 m => m
+  | .bv m _ => m
+  | .W1 m | .W8 m | .W16 m | .W32 m | .W64 m | .W128 m => m
   | .Map m _ _ => m
   | .Sequence m _ => m
 
@@ -249,12 +245,12 @@ private def toCoreMonoType (t : Boole.Type) : TranslateM Lambda.LMonoTy := do
   | .bool _ => return .bool
   | .int _ => return .int
   | .string _ => return .string
-  | .bv1 _ => return .bitvec 1
-  | .bv8 _ => return .bitvec 8
-  | .bv16 _ => return .bitvec 16
-  | .bv32 _ => return .bitvec 32
-  | .bv64 _ => return .bitvec 64
-  | .bv128 _ => return .bitvec 128
+  | .bv _ (.W1 _)   => return .bitvec 1
+  | .bv _ (.W8 _)   => return .bitvec 8
+  | .bv _ (.W16 _)  => return .bitvec 16
+  | .bv _ (.W32 _)  => return .bitvec 32
+  | .bv _ (.W64 _)  => return .bitvec 64
+  | .bv _ (.W128 _) => return .bitvec 128
   | .Map _ v k => return .tcons "Map" [← toCoreMonoType k, ← toCoreMonoType v]
   | .Sequence _ elem => return .tcons "Sequence" [← toCoreMonoType elem]
   | _ => throwAt (typeRange t) s!"Unsupported Boole type: {repr t}"
@@ -290,13 +286,13 @@ private def toCoreMonoBind (b : BooleDDM.MonoBind SourceRange) : TranslateM (Cor
   | .mono_bind_mk _ ⟨_, n⟩ ty => return (mkIdent n, ← toCoreMonoType ty)
 
 private def bvWidth? : Boole.Type → Option Nat
-  | .bv1 _   => some 1
-  | .bv8 _   => some 8
-  | .bv16 _  => some 16
-  | .bv32 _  => some 32
-  | .bv64 _  => some 64
-  | .bv128 _ => some 128
-  | _        => none
+  | .bv _ (.W1 _)   => some 1
+  | .bv _ (.W8 _)   => some 8
+  | .bv _ (.W16 _)  => some 16
+  | .bv _ (.W32 _)  => some 32
+  | .bv _ (.W64 _)  => some 64
+  | .bv _ (.W128 _) => some 128
+  | _               => none
 
 private def bvWidth (m : SourceRange) (ty : Boole.Type) : TranslateM Nat :=
   match bvWidth? ty with
@@ -536,7 +532,7 @@ private partial def toCoreExpr (e : Boole.Expr) : TranslateM Core.Expression.Exp
   | .as_bv32  _ e => return mkCoreApp (.op () (mkIdent "Int.ToBv32")  none) [← toCoreExpr e]
   | .as_bv64  _ e => return mkCoreApp (.op () (mkIdent "Int.ToBv64")  none) [← toCoreExpr e]
   | .as_bv128 _ e => return mkCoreApp (.op () (mkIdent "Int.ToBv128") none) [← toCoreExpr e]
-  | _ => throw (.fromMessage s!"Unsupported expression: {repr e}")
+  | _ => throw (Message.fromString s!"Unsupported expression: {repr e}")
 
 end
 
@@ -931,7 +927,6 @@ private def lowerPureFuncDef
       inputs := inputs
       output := ← toCoreMonoType ret
       body := some body
-      concreteEval := none
       attr := attr
       axioms := []
       preconditions := pres
@@ -943,7 +938,7 @@ private def collectModifiesFromSpec
     (pname : String)
     (spec? : Option (BooleDDM.Spec SourceRange))
     (varTypes : Std.HashMap String Lambda.LMonoTy)
-    : Except DiagnosticModel (List (Core.Expression.Ident × Lambda.LMonoTy)) := do
+    : Except Message (List (Core.Expression.Ident × Lambda.LMonoTy)) := do
   match spec? with
   | none => return []
   | some (.spec_mk _ ⟨_, elts⟩) =>
@@ -955,7 +950,7 @@ private def collectModifiesFromSpec
           match varTypes.get? vname with
           | some ty => mods := (mkIdent vname, ty) :: mods
           | none =>
-            throw (.withRange ⟨⟨fileName⟩, m⟩
+            throw (Message.withRange ⟨⟨fileName⟩, m⟩
               f!"modifies variable '{vname}' in procedure '{pname}' not found in global variable declarations")
       | _ => pure ()
     return mods.reverse
@@ -1024,15 +1019,17 @@ private def toCoreDecls (cmd : BooleDDM.Command SourceRange) : TranslateM (List 
       | some bs => (bindingsToList bs).map bindingName
     withTypeBVars tys do
       return [.type (.syn { name := n, typeArgs := tys, type := ← toCoreMonoType rhs }) .empty]
-  | .command_constdecl _ _ ⟨_, n⟩ ⟨_, targs?⟩ ret =>
-    let tys := match targs? with | none => [] | some ts => typeArgsToList ts
-    withTypeBVars tys do
-      return [.func { name := mkIdent n, typeArgs := tys, inputs := [], output := ← toCoreMonoType ret, body := none, concreteEval := none, attr := #[], axioms := [] } .empty]
+  | .command_constdecl _ _ ⟨_, n⟩ ret =>
+    return [.func { name := mkIdent n, typeArgs := [], inputs := [], output := ← toCoreMonoType ret, body := none, attr := #[], axioms := [] } .empty]
+  | .command_constdef _m _ ⟨_, n⟩ retTy value ⟨_, inline?⟩ =>
+    let body ← toCoreExpr value
+    let attr : Array Strata.DL.Util.FuncAttr := if inline?.isSome then #[.inline] else #[]
+    return [.func { name := mkIdent n, typeArgs := [], inputs := [], output := ← toCoreMonoType retTy, body := some body, attr := attr, axioms := [] } .empty]
   | .command_fndecl _ _ ⟨_, n⟩ ⟨_, targs?⟩ bs ret =>
     let tys := match targs? with | none => [] | some ts => typeArgsToList ts
     withTypeBVars tys do
       return [
-        .func { name := mkIdent n, typeArgs := tys, inputs := ← (bindingsToList bs).mapM toCoreBinding, output := ← toCoreMonoType ret, body := none, concreteEval := none, attr := #[], axioms := [] }
+        .func { name := mkIdent n, typeArgs := tys, inputs := ← (bindingsToList bs).mapM toCoreBinding, output := ← toCoreMonoType ret, body := none, attr := #[], axioms := [] }
            .empty]
   | .command_fndef m _ ⟨_, n⟩ ⟨_, targs?⟩ bs ret ⟨_, pres⟩ body ⟨_, inline?⟩ =>
     let tys := match targs? with | none => [] | some ts => typeArgsToList ts
@@ -1057,7 +1054,7 @@ private def toCoreDecls (cmd : BooleDDM.Command SourceRange) : TranslateM (List 
       let numParams := bsList.length
       let funcDecl : Core.Decl :=
         .func { name := mkIdent n, typeArgs := tys, inputs := inputs, output := retTy,
-                body := none, concreteEval := none, attr := #[], axioms := [] } .empty
+                body := none, attr := #[], axioms := [] } .empty
       -- Push n+1 passthrough bvar entries (for z=bvar0, pn=bvar1, ..., p1=bvar n) so that
       -- getBVarExpr doesn't throw. Passthrough entries return the original index unchanged,
       -- so pred's natural de Bruijn indices are preserved exactly as needed by the 3-forall.
@@ -1127,7 +1124,7 @@ def formatProgram (prog : Boole.Program) (gctx : GlobalContext) (dialects : Dial
   }
   (mformat (ArgF.op prog.toAst) ctx state).format
 
-def toCoreProgram (p : Boole.Program) (gctx : GlobalContext := {}) (fileName : String := "") : Except DiagnosticModel Core.Program := do
+def toCoreProgram (p : Boole.Program) (gctx : GlobalContext := {}) (fileName : String := "") : Except Message Core.Program := do
   match p with
   | .prog _ ⟨_, cmds⟩ =>
     -- Pre-pass: collect global variable types and modifies info.
@@ -1162,7 +1159,7 @@ def toCoreProgram (p : Boole.Program) (gctx : GlobalContext := {}) (fileName : S
 open Lean.Parser in
 
 /-- Parse Boole syntax using generated `BooleDDM.Program.ofAst`. -/
-def getProgram (p : StrataDDM.Program) : Except DiagnosticModel Boole.Program := do
+def getProgram (p : StrataDDM.Program) : Except Message Boole.Program := do
   let cmds : Array Arg := p.commands.map ArgF.op
   let progOp : Operation :=
     { ann := default
@@ -1170,9 +1167,9 @@ def getProgram (p : StrataDDM.Program) : Except DiagnosticModel Boole.Program :=
       args := #[.seq default .spacePrefix cmds] }
   match BooleDDM.Program.ofAst progOp with
   | .ok prog => return prog
-  | .error e => throw (.fromMessage e)
+  | .error e => throw (Message.fromString e)
 
-def typeCheck (p : StrataDDM.Program) (options : Core.VerifyOptions := .default) : Except DiagnosticModel Core.Program := do
+def typeCheck (p : StrataDDM.Program) (options : Core.VerifyOptions := .default) : Except Message Core.Program := do
   let prog ← getProgram p
   let coreProg ← toCoreProgram prog p.globalContext
   Core.typeCheck options coreProg
