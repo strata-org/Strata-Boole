@@ -16,6 +16,10 @@ import StrataBooleTest.find_max
 import StrataBooleTest.find_max_verus
 import StrataBooleTest.format_program
 import StrataBooleTest.function_definitions
+import StrataBooleTest.nat_native
+import StrataBooleTest.nat_counterexample
+import StrataBooleTest.nat_counterexample_extended
+import StrataBooleTest.nat_detection
 import StrataBooleTest.global_readonly_call
 import StrataBooleTest.grammar_extensions
 import StrataBooleTest.insertion_sort

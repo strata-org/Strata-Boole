@@ -31,7 +31,27 @@ namespace Strata
 #dialect
 dialect Boole;
 
+// ── Built-in binary nat/pos types ────────────────────────────────────────────
+// Declared BEFORE `import Core;` so Core's `command_typedecl` rule is not yet
+// in scope — avoiding the parser ambiguity between `Core.command_typedecl` and
+// `StrataDDL.typeCommand` that both match `type nat;`.
+// The binary nat encoding is automatically injected into the SMT query by
+// `Strata.Boole.verify` when grammar-level nat is detected.
+type nat;
+
 import Core;
+
+fn nat_toInt   (n : nat)         : int  => "nat_toInt"   "(" n ")";
+fn nat_fromInt (x : int)         : nat  => "nat_fromInt" "(" x ")";
+fn nat_add     (a : nat, b : nat): nat  => "nat_add"     "(" a ", " b ")";
+fn nat_sub     (a : nat, b : nat): nat  => "nat_sub"     "(" a ", " b ")";
+fn nat_mul     (a : nat, b : nat): nat  => "nat_mul"     "(" a ", " b ")";
+fn nat_div     (a : nat, b : nat): nat  => "nat_div"     "(" a ", " b ")";
+fn nat_mod     (a : nat, b : nat): nat  => "nat_mod"     "(" a ", " b ")";
+fn nat_lt      (a : nat, b : nat): bool => "nat_lt"      "(" a ", " b ")";
+fn nat_le      (a : nat, b : nat): bool => "nat_le"      "(" a ", " b ")";
+fn nat_gt      (a : nat, b : nat): bool => "nat_gt"      "(" a ", " b ")";
+fn nat_ge      (a : nat, b : nat): bool => "nat_ge"      "(" a ", " b ")";
 
 // Boole's global variables declarations and modifies clauses are converted into
 // inout parameters in Core.
