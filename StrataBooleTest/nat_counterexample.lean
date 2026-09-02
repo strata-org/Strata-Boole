@@ -13,11 +13,10 @@ open Strata
 
 Tests the verifier's response to false nat properties.
 
-With the current Strata version and the programmatic `natCorePreamble` encoding,
-cvc5 returns `❓ unknown` for nat-arithmetic counterexample queries: the solver
-cannot ground the quantified nat axioms into a concrete model within the time
-limit. A future Strata bump (with improved solver encoding) is expected to
-promote these to `❌ fail` via the candidate-validation phase.
+The Strata nat/pos commit (`764b03165`) preserves cvc5 candidate models through
+`SMT.Result.merge` and promotes them via the candidate-validation phase.
+nat-arithmetic counterexample queries now return `❌ fail` with a certified
+counterexample instead of `❓ unknown`.
 -/
 
 -- ── Test 1: simple false claim ─────────────────────────────────────────────
@@ -71,13 +70,13 @@ Obligation: pos.fromInt_terminates_3
 Property: assert
 Result: ✅ pass
 
-Obligation: assert_1_1096
+Obligation: assert_1_988
 Property: assert
-Result: ❓ unknown
+Result: ❌ fail
 
-Obligation: test_false_lt_ensures_0_1055
+Obligation: test_false_lt_ensures_0_947
 Property: assert
-Result: ❓ unknown
+Result: ❌ fail
 -/
 #guard_msgs in
 #eval Strata.Boole.verify "cvc5" nat_false_lt_prog (options := .quiet)
@@ -142,11 +141,11 @@ Obligation: pos.fromInt_terminates_3
 Property: assert
 Result: ✅ pass
 
-Obligation: assert_3_2900
+Obligation: assert_3_2784
 Property: assert
 Result: ❓ unknown
 
-Obligation: test_sum_counterexample_ensures_2_2869
+Obligation: test_sum_counterexample_ensures_2_2753
 Property: assert
 Result: ❓ unknown
 -/

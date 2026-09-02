@@ -21,7 +21,7 @@ Additional counterexample and regression tests:
 -- ── Test 3: requires-constrained nat — false claim about a positive nat ───
 -- `nat_toInt(a) >= 2` is the requires; the ensures `nat_toInt(a) == 0`
 -- is false because any a satisfying the requires has toInt ≥ 2 ≠ 0.
--- With the current solver encoding, cvc5 returns `unknown` (no candidate model).
+-- cvc5 returns a candidate counterexample, promoted to `❌ fail` via candidate-validation.
 
 private def nat_range_prog : StrataDDM.Program :=
 #strata
@@ -73,13 +73,13 @@ Obligation: pos.fromInt_terminates_3
 Property: assert
 Result: ✅ pass
 
-Obligation: assert_2_1031
+Obligation: assert_2_1042
 Property: assert
-Result: ❓ unknown
+Result: ❌ fail
 
-Obligation: test_nat_range_ensures_1_1000
+Obligation: test_nat_range_ensures_1_1011
 Property: assert
-Result: ❓ unknown
+Result: ❌ fail
 -/
 #guard_msgs in
 #eval Strata.Boole.verify "cvc5" nat_range_prog (options := .quiet)
@@ -111,23 +111,23 @@ spec {
 #end
 
 /-- info:
-Obligation: test_intlist_head_pre_test_intlist_head_requires_1_2665_calls_IntList..head_0
+Obligation: test_intlist_head_pre_test_intlist_head_requires_1_2670_calls_IntList..head_0
 Property: assert
 Result: ✅ pass
 
-Obligation: test_intlist_head_post_test_intlist_head_ensures_2_2698_calls_IntList..head_0
+Obligation: test_intlist_head_post_test_intlist_head_ensures_2_2703_calls_IntList..head_0
 Property: assert
 Result: ✅ pass
 
-Obligation: assert_assert_3_2733_calls_IntList..head_0
+Obligation: assert_assert_3_2738_calls_IntList..head_0
 Property: assert
 Result: ✅ pass
 
-Obligation: assert_3_2733
+Obligation: assert_3_2738
 Property: assert
 Result: ❌ fail
 
-Obligation: test_intlist_head_ensures_2_2698
+Obligation: test_intlist_head_ensures_2_2703
 Property: assert
 Result: ❌ fail
 -/
@@ -136,7 +136,7 @@ Result: ❌ fail
 
 -- ── Test 5: nonlinear — square cannot be negative ──────────────────────────
 -- `nat_toInt(nat_mul(a, a)) < 0` is always false: any nat² ≥ 0.
--- With the current solver encoding, cvc5 returns `unknown` (no candidate model).
+-- cvc5 returns a candidate counterexample, promoted to `❌ fail` via candidate-validation.
 
 private def nat_square_prog : StrataDDM.Program :=
 #strata
@@ -187,13 +187,13 @@ Obligation: pos.fromInt_terminates_3
 Property: assert
 Result: ✅ pass
 
-Obligation: assert_1_3810
+Obligation: assert_1_3826
 Property: assert
-Result: ❓ unknown
+Result: ❌ fail
 
-Obligation: test_nat_square_ensures_0_3768
+Obligation: test_nat_square_ensures_0_3784
 Property: assert
-Result: ❓ unknown
+Result: ❌ fail
 -/
 #guard_msgs in
 #eval Strata.Boole.verify "cvc5" nat_square_prog (options := .quiet)
@@ -261,19 +261,19 @@ Obligation: pos.fromInt_terminates_3
 Property: assert
 Result: ✅ pass
 
-Obligation: test_natlist_nonneg_post_test_natlist_nonneg_ensures_1_5526_calls_NatList..head_0
+Obligation: test_natlist_nonneg_post_test_natlist_nonneg_ensures_1_5536_calls_NatList..head_0
 Property: assert
 Result: ✅ pass
 
-Obligation: assert_assert_2_5572_calls_NatList..head_0
+Obligation: assert_assert_2_5582_calls_NatList..head_0
 Property: assert
 Result: ✅ pass
 
-Obligation: assert_2_5572
+Obligation: assert_2_5582
 Property: assert
 Result: ✅ pass
 
-Obligation: test_natlist_nonneg_ensures_1_5526
+Obligation: test_natlist_nonneg_ensures_1_5536
 Property: assert
 Result: ✅ pass
 -/
