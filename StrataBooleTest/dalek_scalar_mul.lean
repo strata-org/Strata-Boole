@@ -36,23 +36,40 @@ Level 1 — Verus source (verbatim):
   }
 -/
 
--- Level 2 — Boole encoding
--- `mul_fn` models the multiplication. Two axioms capture:
--- (1) the modular product equation, (2) canonical output.
--- cvc5 discharges both by instantiating each axiom with the arguments.
+/-
+Level 2 — Boole encoding
+
+`mul_assign` body is a single call to the Mul operator implementation.
+The stub carries the two postconditions from the Verus ensures; after the
+`call`, cvc5 assumes them and discharges the top-level spec directly.
+
+Sub-function Verus postconditions (from dalek-lite scalar.rs):
+
+  impl<'a, 'b> Mul<&'b Scalar> for &'a Scalar -> (result: Scalar)
+    ensures u8_32_as_group_canonical(result.bytes) ==
+              group_canonical(scalar_as_nat(self) * scalar_as_nat(rhs))
+    ensures is_canonical_scalar(&result)
+-/
 private def scalarMulSeed : StrataDDM.Program :=
 #strata
 program Boole;
 
 type Scalar;
 
-function mul_fn(a: Scalar, b: Scalar) : Scalar;
 function scalar_as_nat(s: Scalar) : int;
 function group_canonical(n: int) : int;
 function is_canonical_scalar(s: Scalar) : bool;
 
-axiom (∀ a: Scalar . ∀ b: Scalar . group_canonical(scalar_as_nat(mul_fn(a, b))) == group_canonical(scalar_as_nat(a) * scalar_as_nat(b)));
-axiom (∀ a: Scalar . ∀ b: Scalar . is_canonical_scalar(mul_fn(a, b)));
+procedure Impl__Scalar_mul(self: Scalar, rhs: Scalar) returns (result: Scalar)
+spec {
+  requires is_canonical_scalar(self);
+  requires is_canonical_scalar(rhs);
+  ensures group_canonical(scalar_as_nat(result)) == group_canonical(scalar_as_nat(self) * scalar_as_nat(rhs));
+  ensures is_canonical_scalar(result);
+}
+{
+  assume false;
+};
 
 procedure scalar_mul(a: Scalar, b: Scalar) returns (result: Scalar)
 spec {
@@ -62,17 +79,33 @@ spec {
   ensures is_canonical_scalar(result);
 }
 {
-  result := mul_fn(a, b);
+  call result := Impl__Scalar_mul(a, b);
 };
 #end
 
 -- Level 3 — Lean backend
 /-- info:
-Obligation: scalar_mul_ensures_4_1954
+Obligation: Impl__Scalar_mul_ensures_2_2027
 Property: assert
 Result: ✅ pass
 
-Obligation: scalar_mul_ensures_5_2060
+Obligation: Impl__Scalar_mul_ensures_3_2138
+Property: assert
+Result: ✅ pass
+
+Obligation: callElimAssert_Impl__Scalar_mul_requires_0_1952_3
+Property: assert
+Result: ✅ pass
+
+Obligation: callElimAssert_Impl__Scalar_mul_requires_1_1990_4
+Property: assert
+Result: ✅ pass
+
+Obligation: scalar_mul_ensures_7_2346
+Property: assert
+Result: ✅ pass
+
+Obligation: scalar_mul_ensures_8_2452
 Property: assert
 Result: ✅ pass-/
 #guard_msgs in

@@ -41,13 +41,21 @@ Level 1 — Verus source (verbatim):
   }
 -/
 
--- Level 2 — Boole encoding
--- `EdwardsPoint` and `AffinePoint` are uninterpreted types.
--- `affine_of` projects an extended Edwards point to affine coordinates.
--- `edwards_add_fn` models the internal point-addition algorithm; its result
--- is axiomatized against `affine_of` and `edwards_add_affine` (the spec-level
--- Edwards group law), matching the structure the verus-boogie translator would
--- emit for functions whose body delegates to a lower-level UF.
+/-
+Level 2 — Boole encoding
+
+`add_assign` body is a single call to the Add operator implementation.
+The stub carries the two postconditions from the Verus ensures; after the
+`call`, cvc5 assumes them and discharges the top-level spec directly.
+
+Sub-function Verus postconditions (from dalek-lite edwards.rs):
+
+  impl<'a, 'b> Add<&'b EdwardsPoint> for &'a EdwardsPoint -> (result: EdwardsPoint)
+    ensures is_well_formed_edwards_point(result)
+    ensures ({ let (x1,y1) = edwards_point_as_affine(*self);
+               let (x2,y2) = edwards_point_as_affine(*rhs);
+               edwards_point_as_affine(result) == edwards_add(x1,y1,x2,y2) })
+-/
 private def edwardsAddSeed : StrataDDM.Program :=
 #strata
 program Boole;
@@ -55,13 +63,20 @@ program Boole;
 type EdwardsPoint;
 type AffinePoint;
 
-function edwards_add_fn(p1: EdwardsPoint, p2: EdwardsPoint) : EdwardsPoint;
 function affine_of(p: EdwardsPoint) : AffinePoint;
 function edwards_add_affine(a1: AffinePoint, a2: AffinePoint) : AffinePoint;
 function is_well_formed(p: EdwardsPoint) : bool;
 
-axiom (∀ p1: EdwardsPoint . ∀ p2: EdwardsPoint . is_well_formed(edwards_add_fn(p1, p2)));
-axiom (∀ p1: EdwardsPoint . ∀ p2: EdwardsPoint . affine_of(edwards_add_fn(p1, p2)) == edwards_add_affine(affine_of(p1), affine_of(p2)));
+procedure Impl__EdwardsPoint_add(self: EdwardsPoint, rhs: EdwardsPoint) returns (result: EdwardsPoint)
+spec {
+  requires is_well_formed(self);
+  requires is_well_formed(rhs);
+  ensures is_well_formed(result);
+  ensures affine_of(result) == edwards_add_affine(affine_of(self), affine_of(rhs));
+}
+{
+  assume false;
+};
 
 procedure edwards_point_add(p1: EdwardsPoint, p2: EdwardsPoint) returns (result: EdwardsPoint)
 spec {
@@ -71,17 +86,33 @@ spec {
   ensures affine_of(result) == edwards_add_affine(affine_of(p1), affine_of(p2));
 }
 {
-  result := edwards_add_fn(p1, p2);
+  call result := Impl__EdwardsPoint_add(p1, p2);
 };
 #end
 
 -- Level 3 — Lean backend
 /-- info:
-Obligation: edwards_point_add_ensures_4_2682
+Obligation: Impl__EdwardsPoint_add_ensures_2_2560
 Property: assert
 Result: ✅ pass
 
-Obligation: edwards_point_add_ensures_5_2716
+Obligation: Impl__EdwardsPoint_add_ensures_3_2594
+Property: assert
+Result: ✅ pass
+
+Obligation: callElimAssert_Impl__EdwardsPoint_add_requires_0_2495_3
+Property: assert
+Result: ✅ pass
+
+Obligation: callElimAssert_Impl__EdwardsPoint_add_requires_1_2528_4
+Property: assert
+Result: ✅ pass
+
+Obligation: edwards_point_add_ensures_7_2866
+Property: assert
+Result: ✅ pass
+
+Obligation: edwards_point_add_ensures_8_2900
 Property: assert
 Result: ✅ pass-/
 #guard_msgs in
