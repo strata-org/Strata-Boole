@@ -111,6 +111,45 @@ op boole_call_statement (vs : CommaSepBy Ident, f : Ident, expr : CommaSepBy Exp
 
 fn ext_equal (tp : Type, a : tp, b : tp) : bool => @[prec(15)] a " =~= " b;
 
+// Polymorphic comparison operators — Core's grammar removed these in favour of
+// typed variants (int.le, bv8.uLe, …), but Boole preserves the user-facing
+// infix syntax and dispatches to the appropriate Core op in toCoreExpr.
+fn le (ty : Type, a : ty, b : ty) : bool => @[prec(15)] a " <= " b;
+fn lt (ty : Type, a : ty, b : ty) : bool => @[prec(15)] a " < "  b;
+fn ge (ty : Type, a : ty, b : ty) : bool => @[prec(15)] a " >= " b;
+fn gt (ty : Type, a : ty, b : ty) : bool => @[prec(15)] a " > "  b;
+
+// Polymorphic arithmetic operators — likewise removed from Core in favour of
+// type-specific named forms (int.add, bv8.add, …). Boole restores the infix
+// surface syntax and lowers to the appropriate Core op in toCoreExpr.
+fn neg_expr (tp : Type, a : tp) : tp => "-" a;
+fn add_expr (tp : Type, a : tp, b : tp) : tp => @[prec(25), leftassoc] a " + " b;
+fn sub_expr (tp : Type, a : tp, b : tp) : tp => @[prec(25), leftassoc] a " - " b;
+fn mul_expr (tp : Type, a : tp, b : tp) : tp => @[prec(30), leftassoc] a " * " b;
+fn div_expr (tp : Type, a : tp, b : tp) : tp => @[prec(30), leftassoc] a " div " b;
+fn mod_expr (tp : Type, a : tp, b : tp) : tp => @[prec(30), leftassoc] a " mod " b;
+
+// Bitvector bitwise and shift operators — same story.
+fn bvnot  (tp : Type, a : tp) : tp => "~" a;
+fn bvand  (tp : Type, a : tp, b : tp) : tp => @[prec(20), leftassoc] a " & "    b;
+fn bvor   (tp : Type, a : tp, b : tp) : tp => @[prec(20), leftassoc] a " | "    b;
+fn bvxor  (tp : Type, a : tp, b : tp) : tp => @[prec(20), leftassoc] a " ^ "    b;
+fn bvshl  (tp : Type, a : tp, b : tp) : tp => @[prec(20), leftassoc] a " << "   b;
+fn bvushr (tp : Type, a : tp, b : tp) : tp => @[prec(20), leftassoc] a " >> "   b;
+fn bvsshr (tp : Type, a : tp, b : tp) : tp => @[prec(20), leftassoc] a " ashr " b;
+fn bvsdiv (tp : Type, a : tp, b : tp) : tp => @[prec(20), leftassoc] a " sdiv " b;
+fn bvsmod (tp : Type, a : tp, b : tp) : tp => @[prec(20), leftassoc] a " smod " b;
+
+// Bitvector signed comparison operators.
+fn bvslt (tp : Type, a : tp, b : tp) : bool => @[prec(15)] a " slt " b;
+fn bvsle (tp : Type, a : tp, b : tp) : bool => @[prec(15)] a " sle " b;
+fn bvsgt (tp : Type, a : tp, b : tp) : bool => @[prec(15)] a " sgt " b;
+fn bvsge (tp : Type, a : tp, b : tp) : bool => @[prec(15)] a " sge " b;
+
+// Bitvector-to-int cast operators — lower to Bv{n}.ToUInt / Bv{n}.ToInt.
+fn as_uint (T : Type, e : T) : int => "as_uint" "(" e ")";
+fn as_sint (T : Type, e : T) : int => "as_sint" "(" e ")";
+
 // Unicode dotted quantifiers are normalized earlier in `Strata.DDM.Elab`.
 // This keeps modern surface syntax such as `∀ x . P` working while the DDM
 // grammar continues to elaborate through the legacy `::` separator.
@@ -150,18 +189,18 @@ fn let_in_expr (v : MonoBind, value : Expr, @[scope(v)] body : bool) : bool =>
 // `.seq_empty_*` match in `Verify.lean`'s `toCoreExpr`.
 // TODO: remove these in favour of a single `Sequence.empty : Sequence T`
 // when DDM supports 0-ary polymorphic resolution (tracking: #1157).
-fn seq_empty_bv8  () : Sequence bv8  => "Sequence.empty_bv8";
-fn seq_empty_bv16 () : Sequence bv16 => "Sequence.empty_bv16";
-fn seq_empty_bv32 () : Sequence bv32 => "Sequence.empty_bv32";
-fn seq_empty_bv64 () : Sequence bv64 => "Sequence.empty_bv64";
+fn seq_empty_bv8  () : Sequence (bv W8)  => "Sequence.empty_bv8";
+fn seq_empty_bv16 () : Sequence (bv W16) => "Sequence.empty_bv16";
+fn seq_empty_bv32 () : Sequence (bv W32) => "Sequence.empty_bv32";
+fn seq_empty_bv64 () : Sequence (bv W64) => "Sequence.empty_bv64";
 fn seq_empty_int  () : Sequence int  => "Sequence.empty_int";
 
 // Sequence literals: Sequence.of_bv32[v0, v1, ..., vn]
 // Lowers to a left-fold of seq_build over seq_empty.
-fn seq_of_bv8  (vs : CommaSepBy Expr) : Sequence bv8  => "Sequence.of_bv8["  vs "]";
-fn seq_of_bv16 (vs : CommaSepBy Expr) : Sequence bv16 => "Sequence.of_bv16[" vs "]";
-fn seq_of_bv32 (vs : CommaSepBy Expr) : Sequence bv32 => "Sequence.of_bv32[" vs "]";
-fn seq_of_bv64 (vs : CommaSepBy Expr) : Sequence bv64 => "Sequence.of_bv64[" vs "]";
+fn seq_of_bv8  (vs : CommaSepBy Expr) : Sequence (bv W8)  => "Sequence.of_bv8["  vs "]";
+fn seq_of_bv16 (vs : CommaSepBy Expr) : Sequence (bv W16) => "Sequence.of_bv16[" vs "]";
+fn seq_of_bv32 (vs : CommaSepBy Expr) : Sequence (bv W32) => "Sequence.of_bv32[" vs "]";
+fn seq_of_bv64 (vs : CommaSepBy Expr) : Sequence (bv W64) => "Sequence.of_bv64[" vs "]";
 fn seq_of_int  (vs : CommaSepBy Expr) : Sequence int  => "Sequence.of_int["  vs "]";
 fn seq_skip (A : Type, s : Sequence A, n : int) : Sequence A =>
   "Sequence.skip" "(" s ", " n ")";

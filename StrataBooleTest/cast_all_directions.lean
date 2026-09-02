@@ -20,7 +20,7 @@ private def castAllDirectionsSeed : StrataDDM.Program :=
 program Boole;
 
 // (1) ubv_to_int: unsigned interpretation, always in [0, 255]
-procedure test_ubv_to_int(x: bv8) returns ()
+procedure test_ubv_to_int(x: bv W8) returns ()
 spec {
   ensures as_uint(x) >= 0;
   ensures as_uint(x) <= 255;
@@ -29,7 +29,7 @@ spec {
 };
 
 // (2) sbv_to_int: signed interpretation, range [-128, 127]
-procedure test_sbv_to_int(x: bv8) returns ()
+procedure test_sbv_to_int(x: bv W8) returns ()
 spec {
   ensures as_sint(x) >= -128;
   ensures as_sint(x) <= 127;
@@ -38,7 +38,7 @@ spec {
 };
 
 // (3) int_to_bv: truncating cast, as_uint(result) == n for n in [0, 255]
-procedure test_int_to_bv(n: int) returns (result: bv8)
+procedure test_int_to_bv(n: int) returns (result: bv W8)
 spec {
   requires 0 <= n && n < 256;
   ensures as_uint(result) == n;
@@ -57,7 +57,7 @@ spec {
 };
 
 // Signed and unsigned agree when value is non-negative
-procedure test_sign_agreement(x: bv8) returns ()
+procedure test_sign_agreement(x: bv W8) returns ()
 spec {
   requires as_sint(x) >= 0;
   ensures as_uint(x) == as_sint(x);
@@ -67,31 +67,31 @@ spec {
 #end
 
 /-- info:
-Obligation: test_ubv_to_int_ensures_0_557
+Obligation: test_ubv_to_int_ensures_0_559
 Property: assert
 Result: ✅ pass
 
-Obligation: test_ubv_to_int_ensures_1_584
+Obligation: test_ubv_to_int_ensures_1_586
 Property: assert
 Result: ✅ pass
 
-Obligation: test_sbv_to_int_ensures_2_757
+Obligation: test_sbv_to_int_ensures_2_761
 Property: assert
 Result: ✅ pass
 
-Obligation: test_sbv_to_int_ensures_3_787
+Obligation: test_sbv_to_int_ensures_3_791
 Property: assert
 Result: ✅ pass
 
-Obligation: test_int_to_bv_ensures_5_1014
+Obligation: test_int_to_bv_ensures_5_1020
 Property: assert
 Result: ✅ pass
 
-Obligation: test_roundtrip_ensures_7_1238
+Obligation: test_roundtrip_ensures_7_1244
 Property: assert
 Result: ✅ pass
 
-Obligation: test_sign_agreement_ensures_9_1444
+Obligation: test_sign_agreement_ensures_9_1452
 Property: assert
 Result: ✅ pass-/
 #guard_msgs in

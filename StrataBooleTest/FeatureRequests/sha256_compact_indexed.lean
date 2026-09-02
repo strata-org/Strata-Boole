@@ -12,9 +12,9 @@ open Strata
 Near-upstream anchor:
 - Source: RustCrypto `sha2/src/sha256/soft/compact.rs`
 
-Loop counters and block indices use `int` rather than `bv64`.
+Loop counters and block indices use `int` rather than `bv W64`.
 In the original Rust, the loop variable is `usize` — a non-negative integer,
-not a bitvector. Encoding it as `bv64` requires a `bv64_to_int_u` cast to
+not a bitvector. Encoding it as `bv W64` requires a `bv64_to_int_u` cast to
 use it as a `Sequence` index; as an uninterpreted function that cast causes
 unknown VCs for loop invariants that mix the counter with `Sequence.length`.
 `int` with range bounds is the faithful encoding and eliminates the cast.
@@ -26,7 +26,7 @@ original Rust source uses three features not yet supported in Boole:
 - Gap #16: slice types
 
 This seed works around all three (using `Sequence`, `int` counters, and
-`Sequence bv8` instead of slices). A fuller port would need those gaps closed.
+`Sequence (bv W8)` instead of slices). A fuller port would need those gaps closed.
 -/
 
 private def sha256_compact_indexed_program : StrataDDM.Program :=
@@ -36,26 +36,26 @@ program Boole;
  type nat;
  function int_to_nat (i : int) : nat;
  type Set (T : Type);
- function Seq_len_bv32 (s : Sequence bv32) : nat {
+ function Seq_len_bv32 (s : Sequence (bv W32)) : nat {
   int_to_nat(Sequence.length(s))
 }
- function Seq_lib_insert_bv32 (s : Sequence bv32, i : int, val : bv32) : Sequence bv32
+ function Seq_lib_insert_bv32 (s : Sequence (bv W32), i : int, val : bv W32) : Sequence (bv W32)
   requires 0 <= i && i <= Sequence.length(s);
  {
   Sequence.append(Sequence.build(Sequence.take(s, i), val), Sequence.drop(s, i))
 }
- function Seq_new_bv32 (len : nat, f : int -> bv32) : Sequence bv32;
- function Seq_lib_map_bv32 (s : Sequence bv32, f : int -> bv32 -> bv32) : Sequence bv32;
- function Seq_lib_map_values_bv32 (s : Sequence bv32, f : bv32 -> bv32) : Sequence bv32;
- function Seq_lib_filter_bv32 (s : Sequence bv32, p : bv32 -> bool) : Sequence bv32;
- function Seq_lib_sort_by_bv32 (s : Sequence bv32, less : bv32 -> bv32 -> bool) : Sequence bv32;
- function Seq_lib_to_set_bv32 (s : Sequence bv32) : Set bv32;
- function Set_finite_bv32 (s : Set bv32) : bool;
- function bv8_to_bv32_u (x : bv8) : bv32;
- function k32 () : Sequence bv32 {
+ function Seq_new_bv32 (len : nat, f : int -> bv W32) : Sequence (bv W32);
+ function Seq_lib_map_bv32 (s : Sequence (bv W32), f : int -> bv W32 -> bv W32) : Sequence (bv W32);
+ function Seq_lib_map_values_bv32 (s : Sequence (bv W32), f : bv W32 -> bv W32) : Sequence (bv W32);
+ function Seq_lib_filter_bv32 (s : Sequence (bv W32), p : bv W32 -> bool) : Sequence (bv W32);
+ function Seq_lib_sort_by_bv32 (s : Sequence (bv W32), less : bv W32 -> bv W32 -> bool) : Sequence (bv W32);
+ function Seq_lib_to_set_bv32 (s : Sequence (bv W32)) : Set bv W32;
+ function Set_finite_bv32 (s : Set bv W32) : bool;
+ function bv8_to_bv32_u (x : bv W8) : bv W32;
+ function k32 () : Sequence (bv W32) {
   Sequence.of_bv32[bv{32}(1116352408), bv{32}(1899447441), bv{32}(3049323471), bv{32}(3921009573), bv{32}(961987163), bv{32}(1508970993), bv{32}(2453635748), bv{32}(2870763221), bv{32}(3624381080), bv{32}(310598401), bv{32}(607225278), bv{32}(1426881987), bv{32}(1925078388), bv{32}(2162078206), bv{32}(2614888103), bv{32}(3248222580), bv{32}(3835390401), bv{32}(4022224774), bv{32}(264347078), bv{32}(604807628), bv{32}(770255983), bv{32}(1249150122), bv{32}(1555081692), bv{32}(1996064986), bv{32}(2554220882), bv{32}(2821834349), bv{32}(2952996808), bv{32}(3210313671), bv{32}(3336571891), bv{32}(3584528711), bv{32}(113926993), bv{32}(338241895), bv{32}(666307205), bv{32}(773529912), bv{32}(1294757372), bv{32}(1396182291), bv{32}(1695183700), bv{32}(1986661051), bv{32}(2177026350), bv{32}(2456956037), bv{32}(2730485921), bv{32}(2820302411), bv{32}(3259730800), bv{32}(3345764771), bv{32}(3516065817), bv{32}(3600352804), bv{32}(4094571909), bv{32}(275423344), bv{32}(430227734), bv{32}(506948616), bv{32}(659060556), bv{32}(883997877), bv{32}(958139571), bv{32}(1322822218), bv{32}(1537002063), bv{32}(1747873779), bv{32}(1955562222), bv{32}(2024104815), bv{32}(2227730452), bv{32}(2361852424), bv{32}(2428436474), bv{32}(2756734187), bv{32}(3204031479), bv{32}(3329325298)]
 }
- procedure rotate_right (x : bv32, n : bv32) returns (_pct_return : bv32)
+ procedure rotate_right (x : bv W32, n : bv W32) returns (_pct_return : bv W32)
 spec {
   requires bv{32}(1) <= n && n < bv{32}(32);
   } {
@@ -64,13 +64,13 @@ spec {
   _pct_return := x >> n | (x << bv{32}(32) - n);
   exit rotate_right;
 };
- procedure to_u32s (block : Sequence bv8) returns (_pct_return : (Sequence bv32))
+ procedure to_u32s (block : Sequence (bv W8)) returns (_pct_return : (Sequence (bv W32)))
 spec {
   requires Sequence.length(block) >= 64;
   ensures Sequence.length(_pct_return) == 16;
   } {
   var j : int;
-  var res : (Sequence bv32);
+  var res : (Sequence (bv W32));
   res := Sequence.of_bv32[bv{32}(0), bv{32}(0), bv{32}(0), bv{32}(0), bv{32}(0), bv{32}(0), bv{32}(0), bv{32}(0), bv{32}(0), bv{32}(0), bv{32}(0), bv{32}(0), bv{32}(0), bv{32}(0), bv{32}(0), bv{32}(0)];
   for i : int := 0 to 16 - 1
   invariant 0 <= i
@@ -85,42 +85,42 @@ spec {
   _pct_return := res;
   exit to_u32s;
 };
- procedure compress_u32 (state : Sequence bv32, block : Sequence bv32) returns (state_out : (Sequence bv32))
+ procedure compress_u32 (state : Sequence (bv W32), block : Sequence (bv W32)) returns (state_out : (Sequence (bv W32)))
 spec {
   requires Sequence.length(state) >= 8 && Sequence.length(block) >= 16;
   ensures Sequence.length(state_out) == Sequence.length(state);
   } {
-  var tmp15 : bv32;
-  var tmp16 : bv32;
-  var tmp22 : bv32;
-  var tmp23 : bv32;
-  var w15 : bv32;
-  var s0 : bv32;
-  var w2 : bv32;
-  var s1 : bv32;
-  var new_w : bv32;
-  var tmp36 : bv32;
-  var tmp37 : bv32;
-  var tmp38 : bv32;
-  var tmp40 : bv32;
-  var tmp44 : (Sequence bv32);
-  var tmp48 : bv32;
-  var tmp49 : bv32;
-  var tmp51 : bv32;
-  var w : bv32;
-  var ch : bv32;
-  var t1 : bv32;
-  var maj : bv32;
-  var t2 : bv32;
-  var a : bv32;
-  var b : bv32;
-  var c : bv32;
-  var d : bv32;
-  var e : bv32;
-  var f : bv32;
-  var g : bv32;
-  var h : bv32;
-  var block_local : (Sequence bv32);
+  var tmp15 : bv W32;
+  var tmp16 : bv W32;
+  var tmp22 : bv W32;
+  var tmp23 : bv W32;
+  var w15 : bv W32;
+  var s0 : bv W32;
+  var w2 : bv W32;
+  var s1 : bv W32;
+  var new_w : bv W32;
+  var tmp36 : bv W32;
+  var tmp37 : bv W32;
+  var tmp38 : bv W32;
+  var tmp40 : bv W32;
+  var tmp44 : (Sequence (bv W32));
+  var tmp48 : bv W32;
+  var tmp49 : bv W32;
+  var tmp51 : bv W32;
+  var w : bv W32;
+  var ch : bv W32;
+  var t1 : bv W32;
+  var maj : bv W32;
+  var t2 : bv W32;
+  var a : bv W32;
+  var b : bv W32;
+  var c : bv W32;
+  var d : bv W32;
+  var e : bv W32;
+  var f : bv W32;
+  var g : bv W32;
+  var h : bv W32;
+  var block_local : (Sequence (bv W32));
   state_out := state;
   block_local := block;
   a := Sequence.select(state_out, 0);
@@ -196,12 +196,12 @@ spec {
   state_out := Sequence.update(state_out, 7, Sequence.select(state_out, 7) + h);
   exit compress_u32;
 };
- procedure compress (state : Sequence bv32, blocks : Sequence (Sequence bv8)) returns (state_out : (Sequence bv32))
+ procedure compress (state : Sequence (bv W32), blocks : Sequence (Sequence (bv W8))) returns (state_out : (Sequence (bv W32)))
 spec {
   requires Sequence.length(state) >= 8;
   requires ∀ k:int . 0 <= k && k < Sequence.length(blocks) ==> Sequence.length(Sequence.select(blocks, k)) >= 64;
   } {
-  var tmp6 : (Sequence bv32);
+  var tmp6 : (Sequence (bv W32));
   state_out := state;
   for k : int := 0 to Sequence.length(blocks) - 1
   invariant 0 <= k

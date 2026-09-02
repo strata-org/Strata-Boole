@@ -123,7 +123,7 @@ VCs:
 Label: inc_ensures_1_2587
 Property: assert
 Assumptions:
-inc_requires_0_2569: z@1 > 0
+inc_requires_0_2569: int.gt(z@1, 0)
 Obligation:
 true
 
@@ -133,14 +133,14 @@ Assumptions:
 main_caller_requires_2_2703: z@3 == 10
 main_caller_requires_3_2723: g@3 == 0
 Obligation:
-z@3 > 0
+int.gt(z@3, 0)
 
 Label: main_caller_ensures_4_2742
 Property: assert
 Assumptions:
 main_caller_requires_2_2703: z@3 == 10
 main_caller_requires_3_2723: g@3 == 0
-callElimAssume_inc_ensures_1_2587_7: g@5 == g@3 + 5 + z@5
+callElimAssume_inc_ensures_1_2587_7: g@5 == int.add(int.add(g@3, 5), z@5)
 Obligation:
 g@5 == 15
 

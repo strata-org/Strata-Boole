@@ -86,14 +86,14 @@ private def emptyBv32LiteralPgm : StrataDDM.Program :=
 #strata
 program Boole;
 
-procedure p() returns (s: (Sequence bv32))
+procedure p() returns (s: (Sequence (bv W32)))
 spec { }
 {
   s := Sequence.of_bv32[];
 };
 #end
 
-/-- info: Except.ok ["Sequence bv32"] -/
+/-- info: Except.ok ["Sequence (bv W32)"] -/
 #guard_msgs in #eval seqEmptyTysIn emptyBv32LiteralPgm
 
 /-! ## Empty literal: `Sequence.of_int[]` must lower to a typed `Sequence.empty`. -/
@@ -118,14 +118,14 @@ private def nonEmptyBv32LiteralPgm : StrataDDM.Program :=
 #strata
 program Boole;
 
-procedure p() returns (s: (Sequence bv32))
+procedure p() returns (s: (Sequence (bv W32)))
 spec { }
 {
   s := Sequence.of_bv32[bv{32}(0), bv{32}(1)];
 };
 #end
 
-/-- info: Except.ok ["Sequence bv32"] -/
+/-- info: Except.ok ["Sequence (bv W32)"] -/
 #guard_msgs in #eval seqEmptyTysIn nonEmptyBv32LiteralPgm
 
 end Strata

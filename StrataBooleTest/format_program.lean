@@ -26,13 +26,13 @@ private def vec_program : StrataDDM.Program :=
 #strata
 program Boole;
 
-datatype Vec (T: Type) { Vec_ctor(Vec_data: Map bv64 T, Vec_len: bv64)};
+datatype Vec (T: Type) { Vec_ctor(Vec_data: Map (bv W64) T, Vec_len: bv W64)};
 
-function Vec_len<T>(v: Vec T): bv64 {
+function Vec_len<T>(v: Vec T): bv W64 {
   Vec..Vec_len(v)
 }
 
-function Vec_index<T>(v: Vec T, i: bv64): T {
+function Vec_index<T>(v: Vec T, i: bv W64): T {
   (Vec..Vec_data(v))[i]
 }
 
