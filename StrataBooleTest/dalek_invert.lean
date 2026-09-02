@@ -23,8 +23,8 @@ Relation to CryptoProver (arXiv 2608.00965):
   chain (Fermat exponentiation inside `UnpackedScalar::invert`), which the
   AXIOM-DRIFT gate caught and was later reproved inline.  This benchmark
   independently re-checks the same top-level contract through cvc5 (Level 2)
-  and the Lean kernel (Level 3), abstracting the squaring chain to a single
-  procedure stub whose postcondition was already verified by Verus.
+  and the Lean kernel (Level 3), taking the squaring chain's postcondition as
+  a trusted axiom already verified by Verus+Z3.
 
 Level 1 — Verus source (verbatim):
 
@@ -57,63 +57,46 @@ Level 1 — Verus source (verbatim):
 /-
 Level 2 — Boole encoding
 
-Each callee is a procedure stub: `spec { ensures ... }` carries its
-Verus-verified postcondition; `assume false` marks the body as opaque.
-After each `call`, cvc5 assumes the callee's ensures as a fact.
+Each sub-function from the Rust body is declared as an uninterpreted function (UF).
+Its Verus-verified postcondition becomes an axiom — the trusted fact cvc5 uses
+when chaining through the three-step composition.
 
-Sub-function Verus postconditions (from dalek-lite scalar.rs):
+Sub-function Verus postconditions (from dalek-lite scalar.rs), encoded as axioms:
 
-  fn unpack(&self) -> (result: Scalar52)
+  fn unpack(&self) -> (result: UnpackedScalar)           -- Scalar_unpack
     ensures scalar52_as_nat(&result) == scalar_as_nat(self)
 
-  impl Scalar52 { fn invert(&self) -> (result: Scalar52)
+  impl UnpackedScalar { fn invert(&self) -> (result: UnpackedScalar) -- UnpackedScalar_invert
     ensures scalar52_as_nat(self) > 0 ==>
       group_canonical(scalar52_as_nat(&result) * scalar52_as_nat(self)) == 1 }
+    -- Verus proves this via lemma_group_order_smaller_than_pow256,
+    -- lemma_small_mod, and the 27-step Fermat chain s^(group_order-2) mod group_order.
+    -- We take the postcondition as a trusted axiom.
 
-  impl Scalar52 { fn pack(&self) -> (result: Scalar)
+  impl UnpackedScalar { fn pack(&self) -> (result: Scalar)  -- UnpackedScalar_pack
     ensures scalar_as_nat(&result) == scalar52_as_nat(self)
     ensures is_canonical_scalar(&result) }
-
-The 27-step squaring chain (Fermat exponentiation) inside Scalar52::invert is
-hidden behind its stub — CryptoProver already verified that sub-function.
 -/
 private def invertSeed : StrataDDM.Program :=
 #strata
 program Boole;
 
 type Scalar;
-type scalar52;
+type UnpackedScalar;
 
 function scalar_as_nat(s: Scalar) : int;
-function scalar52_as_nat(u: scalar52) : int;
+function scalar52_as_nat(u: UnpackedScalar) : int;
 function group_canonical(n: int) : int;
 function is_canonical_scalar(s: Scalar) : bool;
 
-procedure Impl__Scalar_unpack(self: Scalar) returns (result: scalar52)
-spec {
-  ensures scalar52_as_nat(result) == scalar_as_nat(self);
-}
-{
-  assume false;
-};
+function Scalar_unpack(self: Scalar) : UnpackedScalar;
+function UnpackedScalar_invert(self: UnpackedScalar) : UnpackedScalar;
+function UnpackedScalar_pack(self: UnpackedScalar) : Scalar;
 
-procedure Impl__Scalar52_invert(self: scalar52) returns (result: scalar52)
-spec {
-  ensures (scalar52_as_nat(self) > 0 ==>
-    group_canonical(scalar52_as_nat(result) * scalar52_as_nat(self)) == 1);
-}
-{
-  assume false;
-};
-
-procedure Impl__Scalar52_pack(self: scalar52) returns (result: Scalar)
-spec {
-  ensures scalar_as_nat(result) == scalar52_as_nat(self);
-  ensures is_canonical_scalar(result);
-}
-{
-  assume false;
-};
+axiom (∀ s: Scalar . scalar52_as_nat(Scalar_unpack(s)) == scalar_as_nat(s));
+axiom (∀ u: UnpackedScalar . scalar52_as_nat(u) > 0 ==> group_canonical(scalar52_as_nat(UnpackedScalar_invert(u)) * scalar52_as_nat(u)) == 1);
+axiom (∀ u: UnpackedScalar . scalar_as_nat(UnpackedScalar_pack(u)) == scalar52_as_nat(u));
+axiom (∀ u: UnpackedScalar . is_canonical_scalar(UnpackedScalar_pack(u)));
 
 procedure scalar_invert(s: Scalar) returns (result: Scalar)
 spec {
@@ -123,37 +106,21 @@ spec {
   ensures is_canonical_scalar(result);
 }
 {
-  var unpacked: scalar52;
-  call unpacked := Impl__Scalar_unpack(s);
-  var inv_unpacked: scalar52;
-  call inv_unpacked := Impl__Scalar52_invert(unpacked);
-  call result := Impl__Scalar52_pack(inv_unpacked);
+  var unpacked: UnpackedScalar;
+  unpacked := Scalar_unpack(s);
+  var inv_unpacked: UnpackedScalar;
+  inv_unpacked := UnpackedScalar_invert(unpacked);
+  result := UnpackedScalar_pack(inv_unpacked);
 };
 #end
 
 -- Level 3 — Lean backend
 /-- info:
-Obligation: Impl__Scalar_unpack_ensures_0_3161
+Obligation: scalar_invert_ensures_5_3951
 Property: assert
 Result: ✅ pass
 
-Obligation: Impl__Scalar52_invert_ensures_2_3325
-Property: assert
-Result: ✅ pass
-
-Obligation: Impl__Scalar52_pack_ensures_4_3544
-Property: assert
-Result: ✅ pass
-
-Obligation: Impl__Scalar52_pack_ensures_5_3602
-Property: assert
-Result: ✅ pass
-
-Obligation: scalar_invert_ensures_8_3767
-Property: assert
-Result: ✅ pass
-
-Obligation: scalar_invert_ensures_9_3872
+Obligation: scalar_invert_ensures_6_4056
 Property: assert
 Result: ✅ pass-/
 #guard_msgs in
