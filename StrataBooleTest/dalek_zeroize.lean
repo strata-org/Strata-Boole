@@ -48,6 +48,7 @@ axiom (∀ s: Scalar . ∀ i: int . is_zeroed(s) ==> select_byte(s, i) == 0);
 procedure zeroize(s: Scalar) returns (result: Scalar)
 spec {
   ensures is_zeroed(result);
+  ensures (∀ i: int . select_byte(result, i) == 0);
 }
 {
   result := zeroize_fn(s);
