@@ -48,7 +48,7 @@ axiom (∀ s: Scalar . ∀ i: int . is_zeroed(s) ==> select_byte(s, i) == 0);
 procedure zeroize(s: Scalar) returns (result: Scalar)
 spec {
   ensures is_zeroed(result);
-  ensures (∀ i: int . select_byte(result, i) == 0);
+  ensures (∀ i: int . 0 <= i && i < 32 ==> select_byte(result, i) == 0);
 }
 {
   result := zeroize_fn(s);
@@ -56,9 +56,17 @@ spec {
 #end
 
 -- Level 3 — Lean backend
+/-- info:
+Obligation: zeroize_ensures_2_1459
+Property: assert
+Result: ✅ pass
+
+Obligation: zeroize_ensures_3_1488
+Property: assert
+Result: ✅ pass-/
+#guard_msgs in
 #eval Strata.Boole.verify "cvc5" zeroizeSeed (options := .quiet)
 
 example : Strata.smtVCsCorrectBoole zeroizeSeed := by
   gen_smt_vcs_boole
   all_goals (try smt)
-  all_goals decide

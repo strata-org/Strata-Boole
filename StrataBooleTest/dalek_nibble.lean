@@ -63,6 +63,23 @@ spec {
 #end
 
 -- Level 3 — Lean backend
+/-- info:
+Obligation: bot_half_ensures_0_1258
+Property: assert
+Result: ✅ pass
+
+Obligation: bot_half_ensures_1_1289
+Property: assert
+Result: ✅ pass
+
+Obligation: top_half_ensures_2_1412
+Property: assert
+Result: ✅ pass
+
+Obligation: top_half_ensures_3_1442
+Property: assert
+Result: ✅ pass-/
+#guard_msgs in
 #eval Strata.Boole.verify "cvc5" nibbleSeed (options := .quiet)
 
 example : Strata.smtVCsCorrectBoole nibbleSeed := by

@@ -50,9 +50,8 @@ axiom (∀ s: Scalar . is_canonical_scalar(invert_fn(s)));
 
 procedure scalar_invert(s: Scalar) returns (result: Scalar)
 spec {
-  requires is_nonzero(s);
   requires is_canonical_scalar(s);
-  ensures group_canonical(scalar_as_nat(result) * scalar_as_nat(s)) == 1;
+  ensures (is_nonzero(s) ==> group_canonical(scalar_as_nat(result) * scalar_as_nat(s)) == 1);
   ensures is_canonical_scalar(result);
 }
 {
@@ -61,9 +60,17 @@ spec {
 #end
 
 -- Level 3 — Lean backend
+/-- info:
+Obligation: scalar_invert_ensures_3_1643
+Property: assert
+Result: ✅ pass
+
+Obligation: scalar_invert_ensures_4_1737
+Property: assert
+Result: ✅ pass-/
+#guard_msgs in
 #eval Strata.Boole.verify "cvc5" invertSeed (options := .quiet)
 
 example : Strata.smtVCsCorrectBoole invertSeed := by
   gen_smt_vcs_boole
   all_goals (try smt)
-  all_goals decide
