@@ -50,8 +50,6 @@ Result: ✅ pass-/
 #guard_msgs in
 #eval Strata.Boole.verify "cvc5" seqOobConjunctionPgm (options := .quiet)
 
--- VC generation via gen_smt_vcs_boole does not yet support programs that mix
--- sequence operations with polymorphic bitvector type variables; the obligations
--- are verified via #eval above.
 example : Strata.smtVCsCorrectBoole seqOobConjunctionPgm := by
-  sorry
+  gen_smt_vcs_boole
+  all_goals (try grind)
