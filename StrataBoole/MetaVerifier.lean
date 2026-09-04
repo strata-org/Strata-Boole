@@ -111,6 +111,27 @@ private unsafe def genSMTVCsBooleUnsafe (mv : MVarId) : MetaM (List MVarId) := d
 @[implemented_by genSMTVCsBooleUnsafe]
 meta opaque genSMTVCsBoole (mv : MVarId) : MetaM (List MVarId)
 
+/--
+Inline the function definitions of a goal produced by `gen_smt_vcs_boole`.
+
+The SMT→Lean bridge introduces every `define-fun` (a Boole `function f(..) : T { body }`)
+as a non-dependent `let` in the goal, printed as `have f := fun .. => body`. Tactics such
+as `omega`, `grind` and `smt` treat the let-bound `f` as an opaque atom, so an obligation
+that needs the body (e.g. a range bound on a 32-byte little-endian sum) cannot be closed.
+This zeta-reduces those lets and beta-reduces the resulting redexes; the new target is
+definitionally equal to the old one. It is deliberately not applied by default: for
+obligations that only need congruence on `f`, the opaque form is what lets `smt`
+succeed (e.g. `group_canonical(n) { n mod ℓ }` stays free of `mod`).
+-/
+meta def inlineBooleDefs (mv : MVarId) : MetaM MVarId := do
+  let ty ← mv.getType
+  let ty' ← Meta.transform ty (pre := fun e => do
+    match e with
+    | .letE _ _ v b _ => return .visit (b.instantiate1 v)
+    | .app .. => if e.getAppFn.isLambda then return .visit e.headBeta else return .continue
+    | _ => return .continue)
+  mv.replaceTargetDefEq ty'
+
 end Strata.Meta
 
 namespace Strata.Tactic
@@ -128,6 +149,21 @@ open Lean Elab Tactic in
   | `(tactic| gen_smt_vcs_boole) =>
     let mvs ← Meta.genSMTVCsBoole (← Tactic.getMainGoal)
     Tactic.replaceMainGoal mvs
+  | _ => throwUnsupportedSyntax
+
+/--
+`inline_boole_defs` exposes the bodies of Boole `function` definitions in the current
+goal (see `Strata.Meta.inlineBooleDefs`). Typical use, after `smt` has closed what it can:
+`all_goals (try smt); all_goals (inline_boole_defs; intros; omega)`.
+-/
+syntax (name := inlineBooleDefs) "inline_boole_defs" : tactic
+
+open Lean Elab Tactic in
+@[tactic inlineBooleDefs] meta def evalInlineBooleDefs : Tactic := fun stx => do
+  match stx with
+  | `(tactic| inline_boole_defs) =>
+    let mv ← Meta.inlineBooleDefs (← Tactic.getMainGoal)
+    Tactic.replaceMainGoal [mv]
   | _ => throwUnsupportedSyntax
 
 end Strata.Tactic
