@@ -7,8 +7,9 @@ weakLeanArgs = ["--tstack=32768"]
 
 [[require]]
 name = "Strata"
-git = "https://github.com/strata-org/Strata"
-rev = "main"
+# TEMPORARY: local checkout with fix/gen-vcs-precond-termcheck (Core.genVCs runs termCheck +
+# precondElim). Switch back to git/main once strata-org/Strata merges it.
+path = "/Users/kondylidou/Developer/Strata"
 
 [[require]]
 name = "smt"

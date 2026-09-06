@@ -475,6 +475,12 @@ private partial def toCoreExpr (e : Boole.Expr) : TranslateM Core.Expression.Exp
   | .seq_append  _ _ s1 s2  => return mkCoreApp Core.seqAppendOp  [← toCoreExpr s1, ← toCoreExpr s2]
   | .seq_build   _ _ s v    => return mkCoreApp Core.seqBuildOp   [← toCoreExpr s, ← toCoreExpr v]
   | .seq_update  _ _ s i v  => return mkCoreApp Core.seqUpdateOp  [← toCoreExpr s, ← toCoreExpr i, ← toCoreExpr v]
+  -- Total (unsafe) variants: no bounds precondition, unconstrained out of range.
+  -- Useful in spec functions over fixed-size arrays whose length is a typing fact.
+  | .seq_select_unsafe _ _ s i   => return mkCoreApp Core.seqSelectUnsafeOp [← toCoreExpr s, ← toCoreExpr i]
+  | .seq_update_unsafe _ _ s i v => return mkCoreApp Core.seqUpdateUnsafeOp [← toCoreExpr s, ← toCoreExpr i, ← toCoreExpr v]
+  | .seq_take_unsafe   _ _ s n   => return mkCoreApp Core.seqTakeUnsafeOp   [← toCoreExpr s, ← toCoreExpr n]
+  | .seq_drop_unsafe   _ _ s n   => return mkCoreApp Core.seqDropUnsafeOp   [← toCoreExpr s, ← toCoreExpr n]
   | .seq_contains _ _ s v   => return mkCoreApp Core.seqContainsOp [← toCoreExpr s, ← toCoreExpr v]
   -- Sequence operations (Boole Verus-style additions — not in Core Grammar)
   -- Sequence.skip(s, n)      = drop first n elements

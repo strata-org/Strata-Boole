@@ -49,3 +49,4 @@ import StrataBooleTest.FeatureRequests.struct_field_access
 import StrataBooleTest.FeatureRequests.trait_spec_methods
 import StrataBooleTest.widening_casts
 import StrataBooleTest.inline_boole_defs
+import StrataBooleTest.seq_unsafe_ops
