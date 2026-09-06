@@ -108,8 +108,8 @@ Result: ✅ pass-/
 -- termination and selector well-formedness VCs above (`even_terminates_0`,
 -- `even_body_calls_MyNat..pred_0`, ...) reach the SMT→Lean bridge, which
 -- cannot yet declare datatype sorts (it introduces only uninterpreted sorts and
--- functions).  The tactic must fail rather than drop such a VC; this pins the
--- current failure so it flips when the bridge learns datatypes.
+-- functions; strata-org/Strata#1472).  The tactic must fail rather than drop such
+-- a VC; this pins the current failure so it flips when the bridge learns datatypes.
 /--
 error: gen_smt_vcs: cannot translate verification condition 'even_body_calls_MyNat..pred_0' to a Lean goal: Error: variable 'Translate.Var.us
   { name := "MyNat", arity := 0 }' not found in context
