@@ -126,9 +126,8 @@ Level 2 — Boole encoding
   Loop invariants            the Verus ones, minus those the stub makes redundant.
 
   Level 3: requires Strata with `Core.genVCs` running the termination-check and
-  precondition-elimination phases (strata-org/Strata branch fix/gen-vcs-precond-termcheck),
-  so the Lean obligations match the cvc5 path exactly; all are closed by `smt`, cvc5's proof
-  replayed in the Lean kernel.
+  precondition-elimination phases (strata-org/Strata#1471), so the Lean obligations match
+  the cvc5 path exactly; all are closed by `smt`, cvc5's proof replayed in the Lean kernel.
 -/
 private def sumOfSliceSeed : StrataDDM.Program :=
 #strata
@@ -213,27 +212,27 @@ Obligation: sum_of_scalars_terminates_1
 Property: assert
 Result: ✅ pass
 
-Obligation: Scalar_add_ensures_6_9340
+Obligation: Scalar_add_ensures_6_9306
 Property: assert
 Result: ✅ pass
 
-Obligation: Scalar_add_ensures_7_9429
+Obligation: Scalar_add_ensures_7_9395
 Property: assert
 Result: ✅ pass
 
-Obligation: Scalar_add_ensures_8_9468
+Obligation: Scalar_add_ensures_8_9434
 Property: assert
 Result: ✅ pass
 
-Obligation: sum_of_slice_pre_sum_of_slice_requires_10_9603_calls_Sequence.select_0
+Obligation: sum_of_slice_pre_sum_of_slice_requires_10_9569_calls_Sequence.select_0
 Property: out-of-bounds access check
 Result: ✅ pass
 
-Obligation: sum_of_slice_pre_sum_of_slice_requires_11_9723_calls_Sequence.select_0
+Obligation: sum_of_slice_pre_sum_of_slice_requires_11_9689_calls_Sequence.select_0
 Property: out-of-bounds access check
 Result: ✅ pass
 
-Obligation: sum_of_slice_post_sum_of_slice_ensures_12_9836_calls_sum_of_scalars_0
+Obligation: sum_of_slice_post_sum_of_slice_ensures_12_9802_calls_sum_of_scalars_0
 Property: assert
 Result: ✅ pass
 
@@ -277,15 +276,15 @@ Obligation: insertLoopInvAssert_arbitrary_iter_maintain_invariant_loop_6_3
 Property: assert
 Result: ✅ pass
 
-Obligation: sum_of_slice_ensures_12_9836
+Obligation: sum_of_slice_ensures_12_9802
 Property: assert
 Result: ✅ pass
 
-Obligation: sum_of_slice_ensures_13_9922
+Obligation: sum_of_slice_ensures_13_9888
 Property: assert
 Result: ✅ pass
 
-Obligation: sum_of_slice_ensures_14_9961
+Obligation: sum_of_slice_ensures_14_9927
 Property: assert
 Result: ✅ pass-/
 #guard_msgs in

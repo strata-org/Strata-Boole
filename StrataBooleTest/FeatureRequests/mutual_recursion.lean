@@ -104,7 +104,7 @@ Result: ✅ pass-/
 #eval Strata.Boole.verify "cvc5" mutualRecursionSeed (options := .quiet)
 
 -- Lean backend: since Strata's `Core.genVCs` runs the termination-check and
--- precondition-elimination phases (fix/gen-vcs-precond-termcheck), the
+-- precondition-elimination phases (strata-org/Strata#1471), the
 -- termination and selector well-formedness VCs above (`even_terminates_0`,
 -- `even_body_calls_MyNat..pred_0`, ...) reach the SMT→Lean bridge, which
 -- cannot yet declare datatype sorts (it introduces only uninterpreted sorts and
