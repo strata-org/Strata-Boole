@@ -18,21 +18,14 @@ top bit clear).  ℓ = 2^252 + 27742317777372353535851937790883648493 is the ord
 of the Ed25519 group.
 
 How the proof goes:
-- The key invariant: after i iterations the accumulator equals
-  sum_of_scalars(scalars, i), the recursively defined sum of the first i
-  scalars mod ℓ (plus: the accumulator is canonical and well-typed).
-- It is preserved by two facts: the `Scalar_add` contract gives
-  acc' = (acc + scalars[i]) mod ℓ, and the unfolding equation of
-  `sum_of_scalars` gives sum(i+1) = (sum(i) + scalars[i]) mod ℓ; substituting
-  acc = sum(i) makes the two sides equal.
-- At loop exit i = n = length of the slice, so the invariant is literally the
-  postcondition `scalar_as_nat(result) == sum_of_scalars(scalars, n)`; the
-  canonical and well-typed postconditions come from the other two invariants
-  the same way.
-- dalek-lite's Verus proof needs five lemma calls, four proof blocks and three
-  sequence-extensionality asserts for this; in Boole the invariant alone
-  suffices — cvc5 discharges every obligation, and lean-smt replays each cvc5
-  proof in the Lean kernel.
+- Loop invariant: the accumulator is always the sum, mod ℓ, of the scalars
+  seen so far (and it stays canonical and well-typed).
+- Each step adds the next scalar with `Scalar_add`, whose contract says the
+  result is the sum mod ℓ, so the invariant still holds.
+- When the loop ends, all scalars have been seen, so the invariant is the
+  postcondition.
+- Verus needs five lemma calls and four proof blocks for this; Boole needs the
+  invariant only, and Lean's kernel checks every step.
 
 Verus source:
 
@@ -110,42 +103,18 @@ Verus source:
 -/
 
 /-
-Boole encoding
-
-  scalars : Sequence Scalar  the slice, as in Verus (`Seq<Scalar>`); `Sequence.select(scalars, i)`
-                             is `scalars[i]`.  Strata axiomatises `Sequence` as first-order
-                             functions (length/select/update/...), which lean-smt handles.
-  Scalar := Sequence int     the 32 bytes of `Scalar { bytes: [u8; 32] }`, as in the verus-boogie
-                             translation, except bytes are ints: lean-smt has no translation
-                             for bit-vector→int conversion (`BitVec.toNat`/`ubv_to_int`), so no
-                             `bv W8`.  The `[u8; 32]` typing facts (length 32, bytes in [0,256))
-                             are stated explicitly as `bytes_are_u8`.
-  scalar_as_nat, is_canonical_scalar, group_canonical
-                             the Verus definitions, verbatim; constants pre-evaluated
-                             (ℓ, powers of 256) so the arithmetic stays linear.  The byte
-                             reads use the total `Sequence.select!` (no bounds obligation),
-                             as befits a fixed-size array whose length is a typing fact.
-  sum_of_scalars(s, n)       the Verus spec function, indexed by the prefix length n
-                             (Verus recurses on `subrange`; same recursion), with
-                             `requires 0 <= n <= length(s)` so `select(s, n-1)` is in bounds.
-                             Unfolding equations as axioms: int-recursive functions are
-                             exported to SMT uninterpreted (the translator emits the same axiom).
-  scalar_zero                `Scalar::ZERO`, uninterpreted; its three properties as axioms.
-  Scalar_add                 stub with the Verus contract of `&Scalar + &Scalar`
-                             (verified separately in dalek-lite); the `bytes_are_u8`
-                             requires/ensures are the Rust typing of its arguments and result.
-  Loop invariants            the Verus ones, minus those the stub makes redundant.
-
-  Level 3: requires Strata with `Core.genVCs` running the termination-check and
-  precondition-elimination phases (strata-org/Strata#1471), so the Lean obligations match
-  the cvc5 path exactly; all are closed by `smt`, cvc5's proof replayed in the Lean kernel.
+Boole encoding: from the verus-boogie translation, with two departures for the
+Lean path (bytes as ints, one callee as a contract stub); each is marked below.
 -/
 private def sumOfSliceSeed : StrataDDM.Program :=
 #strata
 program Boole;
 
+// Scalar { bytes: [u8; 32] } — bytes as ints: lean-smt has no bv→int conversion.
+// The [u8; 32] typing facts are stated as bytes_are_u8.
 type Scalar := Sequence int;
 
+// The Verus spec functions, with ℓ and the powers of 256 written out as numbers.
 function scalar_as_nat(s: Scalar) : int {
   Sequence.select!(s, 0) + 256 * Sequence.select!(s, 1) + 65536 * Sequence.select!(s, 2) + 16777216 * Sequence.select!(s, 3) + 4294967296 * Sequence.select!(s, 4) + 1099511627776 * Sequence.select!(s, 5) + 281474976710656 * Sequence.select!(s, 6) + 72057594037927936 * Sequence.select!(s, 7) + 18446744073709551616 * Sequence.select!(s, 8) + 4722366482869645213696 * Sequence.select!(s, 9) + 1208925819614629174706176 * Sequence.select!(s, 10) + 309485009821345068724781056 * Sequence.select!(s, 11) + 79228162514264337593543950336 * Sequence.select!(s, 12) + 20282409603651670423947251286016 * Sequence.select!(s, 13) + 5192296858534827628530496329220096 * Sequence.select!(s, 14) + 1329227995784915872903807060280344576 * Sequence.select!(s, 15) + 340282366920938463463374607431768211456 * Sequence.select!(s, 16) + 87112285931760246646623899502532662132736 * Sequence.select!(s, 17) + 22300745198530623141535718272648361505980416 * Sequence.select!(s, 18) + 5708990770823839524233143877797980545530986496 * Sequence.select!(s, 19) + 1461501637330902918203684832716283019655932542976 * Sequence.select!(s, 20) + 374144419156711147060143317175368453031918731001856 * Sequence.select!(s, 21) + 95780971304118053647396689196894323976171195136475136 * Sequence.select!(s, 22) + 24519928653854221733733552434404946937899825954937634816 * Sequence.select!(s, 23) + 6277101735386680763835789423207666416102355444464034512896 * Sequence.select!(s, 24) + 1606938044258990275541962092341162602522202993782792835301376 * Sequence.select!(s, 25) + 411376139330301510538742295639337626245683966408394965837152256 * Sequence.select!(s, 26) + 105312291668557186697918027683670432318895095400549111254310977536 * Sequence.select!(s, 27) + 26959946667150639794667015087019630673637144422540572481103610249216 * Sequence.select!(s, 28) + 6901746346790563787434755862277025452451108972170386555162524223799296 * Sequence.select!(s, 29) + 1766847064778384329583297500742918515827483896875618958121606201292619776 * Sequence.select!(s, 30) + 452312848583266388373324160190187140051835877600158453279131187530910662656 * Sequence.select!(s, 31)
 }
@@ -156,12 +125,18 @@ function is_canonical_scalar(s: Scalar) : bool {
 function bytes_are_u8(s: Scalar) : bool {
   Sequence.length(s) == 32 && (∀ j: int . 0 <= j && j < 32 ==> 0 <= Sequence.select!(s, j) && Sequence.select!(s, j) < 256)
 }
+
+// Scalar::ZERO with its properties (Verus: lemma_scalar_zero_properties).
 function scalar_zero() : Scalar;
 
 axiom scalar_as_nat(scalar_zero()) == 0;
 axiom is_canonical_scalar(scalar_zero());
 axiom bytes_are_u8(scalar_zero());
 
+// Verus sum_of_scalars, recursing on a count n instead of on subrange(0, n):
+// the loop then needs no reasoning about sequence equality.
+// The solver sees sum_of_scalars only by name; these two axioms are its
+// definition (base case and step), restated as facts.
 rec function sum_of_scalars(s: Sequence Scalar, n: int) : int
   requires 0 <= n && n <= Sequence.length(s);
   decreases n
@@ -172,6 +147,8 @@ rec function sum_of_scalars(s: Sequence Scalar, n: int) : int
 axiom (∀ s: Sequence Scalar . sum_of_scalars(s, 0) == 0);
 axiom (∀ s: Sequence Scalar, n: int . n > 0 && n <= Sequence.length(s) ==> sum_of_scalars(s, n) == group_canonical(sum_of_scalars(s, n - 1) + scalar_as_nat(Sequence.select(s, n - 1))));
 
+// &Scalar + &Scalar: dalek's verified contract as a stub; the implementation
+// (52-bit limbs) is proved separately in dalek-lite.
 procedure Scalar_add(a: Scalar, b: Scalar) returns (result: Scalar)
 spec {
   requires bytes_are_u8(a) && bytes_are_u8(b);
@@ -183,10 +160,21 @@ spec {
 
 procedure sum_of_slice(scalars: Sequence Scalar) returns (result: Scalar)
 spec {
+  // Precondition (Verus): every scalar in the slice is canonical, i.e. its value is
+  // below ℓ and its top bit is 0.
   requires (∀ i: int . 0 <= i && i < Sequence.length(scalars) ==> is_canonical_scalar(Sequence.select(scalars, i)));
+
+  // Precondition (Rust typing): every scalar is 32 bytes, each in 0..255.
   requires (∀ i: int . 0 <= i && i < Sequence.length(scalars) ==> bytes_are_u8(Sequence.select(scalars, i)));
+
+  // Postconditions: what the function guarantees on return.
+  // (1, Verus) the result is the sum of all scalars mod ℓ.
   ensures scalar_as_nat(result) == sum_of_scalars(scalars, Sequence.length(scalars));
+
+  // (2, Verus) the result is canonical: value below ℓ, top bit 0 (last byte <= 127).
   ensures is_canonical_scalar(result);
+
+  // (3, Rust typing) the result is 32 bytes, each in 0..255.
   ensures bytes_are_u8(result);
 }
 {
@@ -208,7 +196,9 @@ spec {
 };
 #end
 
--- Level 3 — Lean backend (lean-smt: every cvc5 proof replayed in the Lean kernel)
+-- Lean backend (lean-smt: every cvc5 proof replayed in the Lean kernel).
+-- Requires Strata with Core.genVCs running the termination-check and precondition-elimination
+-- phases (strata-org/Strata#1471), so the Lean obligations match the cvc5 path exactly.
 /-- info:
 Obligation: sum_of_scalars_body_calls_sum_of_scalars_0
 Property: assert
@@ -226,27 +216,27 @@ Obligation: sum_of_scalars_terminates_1
 Property: assert
 Result: ✅ pass
 
-Obligation: Scalar_add_ensures_7_9913
+Obligation: Scalar_add_ensures_7_7987
 Property: assert
 Result: ✅ pass
 
-Obligation: Scalar_add_ensures_8_10002
+Obligation: Scalar_add_ensures_8_8076
 Property: assert
 Result: ✅ pass
 
-Obligation: Scalar_add_ensures_9_10041
+Obligation: Scalar_add_ensures_9_8115
 Property: assert
 Result: ✅ pass
 
-Obligation: sum_of_slice_pre_sum_of_slice_requires_11_10176_calls_Sequence.select_0
+Obligation: sum_of_slice_pre_sum_of_slice_requires_11_8372_calls_Sequence.select_0
 Property: out-of-bounds access check
 Result: ✅ pass
 
-Obligation: sum_of_slice_pre_sum_of_slice_requires_12_10296_calls_Sequence.select_0
+Obligation: sum_of_slice_pre_sum_of_slice_requires_12_8568_calls_Sequence.select_0
 Property: out-of-bounds access check
 Result: ✅ pass
 
-Obligation: sum_of_slice_post_sum_of_slice_ensures_13_10409_calls_sum_of_scalars_0
+Obligation: sum_of_slice_post_sum_of_slice_ensures_13_8805_calls_sum_of_scalars_0
 Property: assert
 Result: ✅ pass
 
@@ -274,7 +264,7 @@ Obligation: init_calls_Sequence.select_0
 Property: out-of-bounds access check
 Result: ✅ pass
 
-Obligation: callElimAssert_Scalar_add_requires_6_9866_3
+Obligation: callElimAssert_Scalar_add_requires_6_7940_3
 Property: assert
 Result: ✅ pass
 
@@ -294,15 +284,15 @@ Obligation: insertLoopInvAssert_arbitrary_iter_maintain_invariant_loop_7_3
 Property: assert
 Result: ✅ pass
 
-Obligation: sum_of_slice_ensures_13_10409
+Obligation: sum_of_slice_ensures_13_8805
 Property: assert
 Result: ✅ pass
 
-Obligation: sum_of_slice_ensures_14_10495
+Obligation: sum_of_slice_ensures_14_8980
 Property: assert
 Result: ✅ pass
 
-Obligation: sum_of_slice_ensures_15_10534
+Obligation: sum_of_slice_ensures_15_9082
 Property: assert
 Result: ✅ pass-/
 #guard_msgs in
