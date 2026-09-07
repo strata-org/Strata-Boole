@@ -27,8 +27,9 @@ How the proof goes:
 - Verus needs five lemma calls and four proof blocks for this; Boole needs the
   invariant only, and Lean's kernel checks every step.
 
-Verus source:
+Verus source (verbatim from dalek-lite):
 
+  #[allow(clippy::needless_range_loop, clippy::op_ref)]
   pub fn sum_of_slice(scalars: &[Scalar]) -> (result: Scalar)
       requires
           forall|i: int| #![auto] 0 <= i < scalars@.len() ==> is_canonical_scalar(&scalars@[i]),
@@ -86,20 +87,6 @@ Verus source:
       acc
   }
 
-  Spec functions (curve25519-dalek/src/specs/scalar_specs.rs):
-
-  pub open spec fn sum_of_scalars(scalars: Seq<Scalar>) -> nat
-      decreases scalars.len(),
-  {
-      if scalars.len() == 0 { 0 }
-      else {
-          let last = (scalars.len() - 1) as int;
-          group_canonical((sum_of_scalars(scalars.subrange(0, last)) + scalar_as_nat(&scalars[last])))
-      }
-  }
-  pub open spec fn scalar_congruent_nat(s: &Scalar, n: nat) -> bool {
-      scalar_as_canonical(s) == group_canonical(n)
-  }
 -/
 
 /-
@@ -188,6 +175,10 @@ spec {
     invariant bytes_are_u8(acc)
 
     // after i iterations, acc is the modular sum of the first i elements of the slice.
+    // Stated on values: the Scalar_add ensures gives acc' = group_canonical(acc + s[i]) and the
+    // sum_of_scalars unfolding gives sum(i+1) = group_canonical(sum(i) + s[i]), so the step is
+    // congruence alone. Verus states it as a congruence mod ℓ and needs lemma_add_mod_noop
+    // and lemma_mod_twice to bridge the two reductions.
     invariant scalar_as_nat(acc) == sum_of_scalars(scalars, i)
   {
     call acc := Scalar_add(acc, Sequence.select(scalars, i));
@@ -216,27 +207,27 @@ Obligation: sum_of_scalars_terminates_1
 Property: assert
 Result: ✅ pass
 
-Obligation: Scalar_add_ensures_7_7987
+Obligation: Scalar_add_ensures_7_7572
 Property: assert
 Result: ✅ pass
 
-Obligation: Scalar_add_ensures_8_8076
+Obligation: Scalar_add_ensures_8_7661
 Property: assert
 Result: ✅ pass
 
-Obligation: Scalar_add_ensures_9_8115
+Obligation: Scalar_add_ensures_9_7700
 Property: assert
 Result: ✅ pass
 
-Obligation: sum_of_slice_pre_sum_of_slice_requires_11_8372_calls_Sequence.select_0
+Obligation: sum_of_slice_pre_sum_of_slice_requires_11_7957_calls_Sequence.select_0
 Property: out-of-bounds access check
 Result: ✅ pass
 
-Obligation: sum_of_slice_pre_sum_of_slice_requires_12_8568_calls_Sequence.select_0
+Obligation: sum_of_slice_pre_sum_of_slice_requires_12_8153_calls_Sequence.select_0
 Property: out-of-bounds access check
 Result: ✅ pass
 
-Obligation: sum_of_slice_post_sum_of_slice_ensures_13_8805_calls_sum_of_scalars_0
+Obligation: sum_of_slice_post_sum_of_slice_ensures_13_8390_calls_sum_of_scalars_0
 Property: assert
 Result: ✅ pass
 
@@ -264,7 +255,7 @@ Obligation: init_calls_Sequence.select_0
 Property: out-of-bounds access check
 Result: ✅ pass
 
-Obligation: callElimAssert_Scalar_add_requires_6_7940_3
+Obligation: callElimAssert_Scalar_add_requires_6_7525_3
 Property: assert
 Result: ✅ pass
 
@@ -284,15 +275,15 @@ Obligation: insertLoopInvAssert_arbitrary_iter_maintain_invariant_loop_7_3
 Property: assert
 Result: ✅ pass
 
-Obligation: sum_of_slice_ensures_13_8805
+Obligation: sum_of_slice_ensures_13_8390
 Property: assert
 Result: ✅ pass
 
-Obligation: sum_of_slice_ensures_14_8980
+Obligation: sum_of_slice_ensures_14_8565
 Property: assert
 Result: ✅ pass
 
-Obligation: sum_of_slice_ensures_15_9082
+Obligation: sum_of_slice_ensures_15_8667
 Property: assert
 Result: ✅ pass-/
 #guard_msgs in
