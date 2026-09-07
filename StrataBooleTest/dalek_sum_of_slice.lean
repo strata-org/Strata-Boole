@@ -10,19 +10,20 @@ open Strata
 
 /-
 Benchmark: sum_of_slice — sum of a slice of scalars modulo the group order ℓ
-Source: dalek-lite `curve25519-dalek/src/scalar_helpers.rs`, `Scalar::sum_of_slice`
-        (backs `impl Sum for Scalar`, used by multiscalar and batch code paths)
+Source: dalek-lite `curve25519-dalek/src/scalar_helpers.rs`,
+`Scalar::sum_of_slice` (backs `impl Sum for Scalar`, used by multiscalar and
+batch code paths)
 
 Spec in words:  result ≡ Σ scalars[i]  (mod ℓ),  and result is canonical (< ℓ).
-ℓ = 2^252 + 27742317777372353535851937790883648493 is the order of the Ed25519 group.
+ℓ = 2^252 + 27742317777372353535851937790883648493 is the order of the Ed25519
+group.
 
 Why it is not trivial: the proof needs a loop invariant relating the running
-accumulator to a recursively defined prefix sum, plus the modular identity
-(a mod ℓ + b) mod ℓ = (a + b) mod ℓ at every step.  dalek-lite's Verus proof
-needs five lemma calls, four proof blocks and three sequence-extensionality
-asserts around the loop; in Boole the invariant alone suffices — cvc5
-discharges every obligation, and lean-smt replays each cvc5 proof in the Lean
-kernel.
+accumulator to a recursively defined prefix sum, plus the modular identity (a
+mod ℓ + b) mod ℓ = (a + b) mod ℓ at every step.  dalek-lite's Verus proof needs
+five lemma calls, four proof blocks and three sequence-extensionality asserts
+around the loop; in Boole the invariant alone suffices — cvc5 discharges every
+obligation, and lean-smt replays each cvc5 proof in the Lean kernel.
 
 Level 1 — Verus source (verbatim):
 
