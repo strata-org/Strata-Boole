@@ -289,6 +289,99 @@ Obligation: sum_of_slice_ensures_14_9927
 Property: assert
 Result: ✅ pass-/
 #guard_msgs in
+/-- info:
+Obligation: sum_of_scalars_body_calls_sum_of_scalars_0
+Property: assert
+Result: ✅ pass
+
+Obligation: sum_of_scalars_body_calls_Sequence.select_1
+Property: out-of-bounds access check
+Result: ✅ pass
+
+Obligation: sum_of_scalars_terminates_0
+Property: assert
+Result: ✅ pass
+
+Obligation: sum_of_scalars_terminates_1
+Property: assert
+Result: ✅ pass
+
+Obligation: Scalar_add_ensures_6_9341
+Property: assert
+Result: ✅ pass
+
+Obligation: Scalar_add_ensures_7_9430
+Property: assert
+Result: ✅ pass
+
+Obligation: Scalar_add_ensures_8_9469
+Property: assert
+Result: ✅ pass
+
+Obligation: sum_of_slice_pre_sum_of_slice_requires_10_9604_calls_Sequence.select_0
+Property: out-of-bounds access check
+Result: ✅ pass
+
+Obligation: sum_of_slice_pre_sum_of_slice_requires_11_9724_calls_Sequence.select_0
+Property: out-of-bounds access check
+Result: ✅ pass
+
+Obligation: sum_of_slice_post_sum_of_slice_ensures_12_9837_calls_sum_of_scalars_0
+Property: assert
+Result: ✅ pass
+
+Obligation: loop_invariant_calls_sum_of_scalars_0
+Property: assert
+Result: ✅ pass
+
+Obligation: insertLoopInvAssert_entry_invariant_loop_6_0
+Property: assert
+Result: ✅ pass
+
+Obligation: insertLoopInvAssert_entry_invariant_loop_6_1
+Property: assert
+Result: ✅ pass
+
+Obligation: insertLoopInvAssert_entry_invariant_loop_6_2
+Property: assert
+Result: ✅ pass
+
+Obligation: insertLoopInvAssert_entry_invariant_loop_6_3
+Property: assert
+Result: ✅ pass
+
+Obligation: init_calls_Sequence.select_0
+Property: out-of-bounds access check
+Result: ✅ pass
+
+Obligation: insertLoopInvAssert_arbitrary_iter_maintain_invariant_loop_6_0
+Property: assert
+Result: ✅ pass
+
+Obligation: insertLoopInvAssert_arbitrary_iter_maintain_invariant_loop_6_1
+Property: assert
+Result: ✅ pass
+
+Obligation: insertLoopInvAssert_arbitrary_iter_maintain_invariant_loop_6_2
+Property: assert
+Result: ✅ pass
+
+Obligation: insertLoopInvAssert_arbitrary_iter_maintain_invariant_loop_6_3
+Property: assert
+Result: ✅ pass
+
+Obligation: sum_of_slice_ensures_12_9837
+Property: assert
+Result: ✅ pass
+
+Obligation: sum_of_slice_ensures_13_9923
+Property: assert
+Result: ✅ pass
+
+Obligation: sum_of_slice_ensures_14_9962
+Property: assert
+Result: ✅ pass-/
+#guard_msgs in
 #eval Strata.Boole.verify "cvc5" sumOfSliceSeed (options := .quiet)
 
 example : Strata.smtVCsCorrectBoole sumOfSliceSeed := by
