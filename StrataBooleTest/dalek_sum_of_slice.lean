@@ -11,8 +11,7 @@ open Strata
 /-
 Benchmark: sum_of_slice — sum of a slice of scalars modulo the group order ℓ
 Source: dalek-lite `curve25519-dalek/src/scalar_helpers.rs`,
-`Scalar::sum_of_slice` (backs `impl Sum for Scalar`, used by multiscalar and
-batch code paths)
+`Scalar::sum_of_slice` (the verified implementation behind `impl Sum for Scalar`)
 
 Spec in words:  result ≡ Σ scalars[i]  (mod ℓ),  and result is canonical (< ℓ).
 ℓ = 2^252 + 27742317777372353535851937790883648493 is the order of the Ed25519
@@ -213,27 +212,27 @@ Obligation: sum_of_scalars_terminates_1
 Property: assert
 Result: ✅ pass
 
-Obligation: Scalar_add_ensures_6_9306
+Obligation: Scalar_add_ensures_6_9285
 Property: assert
 Result: ✅ pass
 
-Obligation: Scalar_add_ensures_7_9395
+Obligation: Scalar_add_ensures_7_9374
 Property: assert
 Result: ✅ pass
 
-Obligation: Scalar_add_ensures_8_9434
+Obligation: Scalar_add_ensures_8_9413
 Property: assert
 Result: ✅ pass
 
-Obligation: sum_of_slice_pre_sum_of_slice_requires_10_9569_calls_Sequence.select_0
+Obligation: sum_of_slice_pre_sum_of_slice_requires_10_9548_calls_Sequence.select_0
 Property: out-of-bounds access check
 Result: ✅ pass
 
-Obligation: sum_of_slice_pre_sum_of_slice_requires_11_9689_calls_Sequence.select_0
+Obligation: sum_of_slice_pre_sum_of_slice_requires_11_9668_calls_Sequence.select_0
 Property: out-of-bounds access check
 Result: ✅ pass
 
-Obligation: sum_of_slice_post_sum_of_slice_ensures_12_9802_calls_sum_of_scalars_0
+Obligation: sum_of_slice_post_sum_of_slice_ensures_12_9781_calls_sum_of_scalars_0
 Property: assert
 Result: ✅ pass
 
@@ -277,108 +276,15 @@ Obligation: insertLoopInvAssert_arbitrary_iter_maintain_invariant_loop_6_3
 Property: assert
 Result: ✅ pass
 
-Obligation: sum_of_slice_ensures_12_9802
+Obligation: sum_of_slice_ensures_12_9781
 Property: assert
 Result: ✅ pass
 
-Obligation: sum_of_slice_ensures_13_9888
+Obligation: sum_of_slice_ensures_13_9867
 Property: assert
 Result: ✅ pass
 
-Obligation: sum_of_slice_ensures_14_9927
-Property: assert
-Result: ✅ pass-/
-#guard_msgs in
-/-- info:
-Obligation: sum_of_scalars_body_calls_sum_of_scalars_0
-Property: assert
-Result: ✅ pass
-
-Obligation: sum_of_scalars_body_calls_Sequence.select_1
-Property: out-of-bounds access check
-Result: ✅ pass
-
-Obligation: sum_of_scalars_terminates_0
-Property: assert
-Result: ✅ pass
-
-Obligation: sum_of_scalars_terminates_1
-Property: assert
-Result: ✅ pass
-
-Obligation: Scalar_add_ensures_6_9341
-Property: assert
-Result: ✅ pass
-
-Obligation: Scalar_add_ensures_7_9430
-Property: assert
-Result: ✅ pass
-
-Obligation: Scalar_add_ensures_8_9469
-Property: assert
-Result: ✅ pass
-
-Obligation: sum_of_slice_pre_sum_of_slice_requires_10_9604_calls_Sequence.select_0
-Property: out-of-bounds access check
-Result: ✅ pass
-
-Obligation: sum_of_slice_pre_sum_of_slice_requires_11_9724_calls_Sequence.select_0
-Property: out-of-bounds access check
-Result: ✅ pass
-
-Obligation: sum_of_slice_post_sum_of_slice_ensures_12_9837_calls_sum_of_scalars_0
-Property: assert
-Result: ✅ pass
-
-Obligation: loop_invariant_calls_sum_of_scalars_0
-Property: assert
-Result: ✅ pass
-
-Obligation: insertLoopInvAssert_entry_invariant_loop_6_0
-Property: assert
-Result: ✅ pass
-
-Obligation: insertLoopInvAssert_entry_invariant_loop_6_1
-Property: assert
-Result: ✅ pass
-
-Obligation: insertLoopInvAssert_entry_invariant_loop_6_2
-Property: assert
-Result: ✅ pass
-
-Obligation: insertLoopInvAssert_entry_invariant_loop_6_3
-Property: assert
-Result: ✅ pass
-
-Obligation: init_calls_Sequence.select_0
-Property: out-of-bounds access check
-Result: ✅ pass
-
-Obligation: insertLoopInvAssert_arbitrary_iter_maintain_invariant_loop_6_0
-Property: assert
-Result: ✅ pass
-
-Obligation: insertLoopInvAssert_arbitrary_iter_maintain_invariant_loop_6_1
-Property: assert
-Result: ✅ pass
-
-Obligation: insertLoopInvAssert_arbitrary_iter_maintain_invariant_loop_6_2
-Property: assert
-Result: ✅ pass
-
-Obligation: insertLoopInvAssert_arbitrary_iter_maintain_invariant_loop_6_3
-Property: assert
-Result: ✅ pass
-
-Obligation: sum_of_slice_ensures_12_9837
-Property: assert
-Result: ✅ pass
-
-Obligation: sum_of_slice_ensures_13_9923
-Property: assert
-Result: ✅ pass
-
-Obligation: sum_of_slice_ensures_14_9962
+Obligation: sum_of_slice_ensures_14_9906
 Property: assert
 Result: ✅ pass-/
 #guard_msgs in
