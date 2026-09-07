@@ -13,18 +13,28 @@ Benchmark: sum_of_slice — sum of a slice of scalars modulo the group order ℓ
 Source: dalek-lite `curve25519-dalek/src/scalar_helpers.rs`,
 `Scalar::sum_of_slice` (the verified implementation behind `impl Sum for Scalar`)
 
-Spec in words:  result ≡ Σ scalars[i]  (mod ℓ),  and result is canonical (< ℓ).
-ℓ = 2^252 + 27742317777372353535851937790883648493 is the order of the Ed25519
-group.
+Spec in words:  result ≡ Σ scalars[i]  (mod ℓ),  and result is canonical (< ℓ,
+top bit clear).  ℓ = 2^252 + 27742317777372353535851937790883648493 is the order
+of the Ed25519 group.
 
-Why it is not trivial: the proof needs a loop invariant relating the running
-accumulator to a recursively defined prefix sum, plus the modular identity (a
-mod ℓ + b) mod ℓ = (a + b) mod ℓ at every step.  dalek-lite's Verus proof needs
-five lemma calls, four proof blocks and three sequence-extensionality asserts
-around the loop; in Boole the invariant alone suffices — cvc5 discharges every
-obligation, and lean-smt replays each cvc5 proof in the Lean kernel.
+How the proof goes:
+- The key invariant: after i iterations the accumulator equals
+  sum_of_scalars(scalars, i), the recursively defined sum of the first i
+  scalars mod ℓ (plus: the accumulator is canonical and well-typed).
+- It is preserved by two facts: the `Scalar_add` contract gives
+  acc' = (acc + scalars[i]) mod ℓ, and the unfolding equation of
+  `sum_of_scalars` gives sum(i+1) = (sum(i) + scalars[i]) mod ℓ; substituting
+  acc = sum(i) makes the two sides equal.
+- At loop exit i = n = length of the slice, so the invariant is literally the
+  postcondition `scalar_as_nat(result) == sum_of_scalars(scalars, n)`; the
+  canonical and well-typed postconditions come from the other two invariants
+  the same way.
+- dalek-lite's Verus proof needs five lemma calls, four proof blocks and three
+  sequence-extensionality asserts for this; in Boole the invariant alone
+  suffices — cvc5 discharges every obligation, and lean-smt replays each cvc5
+  proof in the Lean kernel.
 
-Level 1 — Verus source (verbatim):
+Verus source:
 
   pub fn sum_of_slice(scalars: &[Scalar]) -> (result: Scalar)
       requires
@@ -100,7 +110,7 @@ Level 1 — Verus source (verbatim):
 -/
 
 /-
-Level 2 — Boole encoding
+Boole encoding
 
   scalars : Sequence Scalar  the slice, as in Verus (`Seq<Scalar>`); `Sequence.select(scalars, i)`
                              is `scalars[i]`.  Strata axiomatises `Sequence` as first-order
@@ -122,7 +132,8 @@ Level 2 — Boole encoding
                              exported to SMT uninterpreted (the translator emits the same axiom).
   scalar_zero                `Scalar::ZERO`, uninterpreted; its three properties as axioms.
   Scalar_add                 stub with the Verus contract of `&Scalar + &Scalar`
-                             (verified separately in dalek-lite); `bytes_are_u8` is Rust typing.
+                             (verified separately in dalek-lite); the `bytes_are_u8`
+                             requires/ensures are the Rust typing of its arguments and result.
   Loop invariants            the Verus ones, minus those the stub makes redundant.
 
   Level 3: requires Strata with `Core.genVCs` running the termination-check and
@@ -163,6 +174,7 @@ axiom (∀ s: Sequence Scalar, n: int . n > 0 && n <= Sequence.length(s) ==> sum
 
 procedure Scalar_add(a: Scalar, b: Scalar) returns (result: Scalar)
 spec {
+  requires bytes_are_u8(a) && bytes_are_u8(b);
   ensures scalar_as_nat(result) == group_canonical(scalar_as_nat(a) + scalar_as_nat(b));
   ensures is_canonical_scalar(result);
   ensures bytes_are_u8(result);
@@ -186,6 +198,8 @@ spec {
     invariant 0 <= i && i <= n && n == Sequence.length(scalars)
     invariant is_canonical_scalar(acc)
     invariant bytes_are_u8(acc)
+
+    // after i iterations, acc is the modular sum of the first i elements of the slice.
     invariant scalar_as_nat(acc) == sum_of_scalars(scalars, i)
   {
     call acc := Scalar_add(acc, Sequence.select(scalars, i));
@@ -212,27 +226,27 @@ Obligation: sum_of_scalars_terminates_1
 Property: assert
 Result: ✅ pass
 
-Obligation: Scalar_add_ensures_6_9285
+Obligation: Scalar_add_ensures_7_9913
 Property: assert
 Result: ✅ pass
 
-Obligation: Scalar_add_ensures_7_9374
+Obligation: Scalar_add_ensures_8_10002
 Property: assert
 Result: ✅ pass
 
-Obligation: Scalar_add_ensures_8_9413
+Obligation: Scalar_add_ensures_9_10041
 Property: assert
 Result: ✅ pass
 
-Obligation: sum_of_slice_pre_sum_of_slice_requires_10_9548_calls_Sequence.select_0
+Obligation: sum_of_slice_pre_sum_of_slice_requires_11_10176_calls_Sequence.select_0
 Property: out-of-bounds access check
 Result: ✅ pass
 
-Obligation: sum_of_slice_pre_sum_of_slice_requires_11_9668_calls_Sequence.select_0
+Obligation: sum_of_slice_pre_sum_of_slice_requires_12_10296_calls_Sequence.select_0
 Property: out-of-bounds access check
 Result: ✅ pass
 
-Obligation: sum_of_slice_post_sum_of_slice_ensures_12_9781_calls_sum_of_scalars_0
+Obligation: sum_of_slice_post_sum_of_slice_ensures_13_10409_calls_sum_of_scalars_0
 Property: assert
 Result: ✅ pass
 
@@ -240,19 +254,19 @@ Obligation: loop_invariant_calls_sum_of_scalars_0
 Property: assert
 Result: ✅ pass
 
-Obligation: insertLoopInvAssert_entry_invariant_loop_6_0
+Obligation: insertLoopInvAssert_entry_invariant_loop_7_0
 Property: assert
 Result: ✅ pass
 
-Obligation: insertLoopInvAssert_entry_invariant_loop_6_1
+Obligation: insertLoopInvAssert_entry_invariant_loop_7_1
 Property: assert
 Result: ✅ pass
 
-Obligation: insertLoopInvAssert_entry_invariant_loop_6_2
+Obligation: insertLoopInvAssert_entry_invariant_loop_7_2
 Property: assert
 Result: ✅ pass
 
-Obligation: insertLoopInvAssert_entry_invariant_loop_6_3
+Obligation: insertLoopInvAssert_entry_invariant_loop_7_3
 Property: assert
 Result: ✅ pass
 
@@ -260,31 +274,35 @@ Obligation: init_calls_Sequence.select_0
 Property: out-of-bounds access check
 Result: ✅ pass
 
-Obligation: insertLoopInvAssert_arbitrary_iter_maintain_invariant_loop_6_0
+Obligation: callElimAssert_Scalar_add_requires_6_9866_3
 Property: assert
 Result: ✅ pass
 
-Obligation: insertLoopInvAssert_arbitrary_iter_maintain_invariant_loop_6_1
+Obligation: insertLoopInvAssert_arbitrary_iter_maintain_invariant_loop_7_0
 Property: assert
 Result: ✅ pass
 
-Obligation: insertLoopInvAssert_arbitrary_iter_maintain_invariant_loop_6_2
+Obligation: insertLoopInvAssert_arbitrary_iter_maintain_invariant_loop_7_1
 Property: assert
 Result: ✅ pass
 
-Obligation: insertLoopInvAssert_arbitrary_iter_maintain_invariant_loop_6_3
+Obligation: insertLoopInvAssert_arbitrary_iter_maintain_invariant_loop_7_2
 Property: assert
 Result: ✅ pass
 
-Obligation: sum_of_slice_ensures_12_9781
+Obligation: insertLoopInvAssert_arbitrary_iter_maintain_invariant_loop_7_3
 Property: assert
 Result: ✅ pass
 
-Obligation: sum_of_slice_ensures_13_9867
+Obligation: sum_of_slice_ensures_13_10409
 Property: assert
 Result: ✅ pass
 
-Obligation: sum_of_slice_ensures_14_9906
+Obligation: sum_of_slice_ensures_14_10495
+Property: assert
+Result: ✅ pass
+
+Obligation: sum_of_slice_ensures_15_10534
 Property: assert
 Result: ✅ pass-/
 #guard_msgs in
