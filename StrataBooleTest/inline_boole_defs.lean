@@ -81,9 +81,10 @@ Result: ✅ pass-/
 #guard_msgs in
 #eval Strata.Boole.verify "cvc5" bytesSeed (options := .quiet)
 
--- Without `inline_boole_defs` the range obligation is stuck behind the opaque
--- `have u8_32_as_nat := ...`; with it, `omega` sees the 32-term sum (the first
--- obligation reduces to `True`, hence `trivial`).
+-- Without inlining the range obligation is stuck behind the opaque
+-- `have u8_32_as_nat := ...`.  `inline_boole_defs` keeps a body this deeply nested
+-- (the 32-term sum) opaque on purpose; `inline_boole_defs !` exposes it, and `omega`
+-- then sees the sum (the first obligation reduces to `True`, hence `trivial`).
 example : Strata.smtVCsCorrectBoole bytesSeed (options := { useArrayTheory := false }) := by
   gen_smt_vcs_boole
-  all_goals (inline_boole_defs; intros; first | trivial | omega)
+  all_goals (inline_boole_defs !; intros; first | trivial | omega)

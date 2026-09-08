@@ -123,11 +123,36 @@ definitionally equal to the old one. It is deliberately not applied by default: 
 obligations that only need congruence on `f`, the opaque form is what lets `smt`
 succeed (e.g. `group_canonical(n) { n mod ℓ }` stays free of `mod`).
 -/
-meta def inlineBooleDefs (mv : MVarId) : MetaM MVarId := do
+meta def inlineBooleDefs (mv : MVarId) (skipMod : Bool := true) (maxDepth : Nat := 16) :
+    MetaM MVarId := do
   let ty ← mv.getType
-  let ty' ← Meta.transform ty (pre := fun e => do
+  -- A definition whose body uses `%` stays opaque unless asked otherwise: lean-smt
+  -- cannot replay cvc5's modular-arithmetic proofs (they go through the reals), and a
+  -- goal that only needs the definition by congruence closes with it opaque.  So does a
+  -- definition with a deeply nested body (a 32-term little-endian byte sum): inlined
+  -- into every goal it makes each cvc5 proof and its replay several times more
+  -- expensive, while the goals that need such a definition need it by congruence.
+  -- `inline_boole_defs!` inlines everything.
+  let mentionsMod (v : Expr) : Bool :=
+    Option.isSome <| v.find? fun s => s.isConstOf ``HMod.hMod || s.isConstOf ``Int.emod || s.isConstOf ``Int.fmod
+  let keepOpaque (v : Expr) : Bool :=
+    skipMod && (mentionsMod v || v.approxDepth.toNat > maxDepth)
+  -- Zeta-reduce the `let` chain by hand: a kept (skipped) `let` must not stop the
+  -- reduction of the definitions declared after it, which a `Meta.transform`
+  -- traversal did.  `b.instantiate1 v` only touches the innermost bound variable,
+  -- so a kept outer `let` keeps its binder and its later references.
+  -- (fuel: `instantiate1` does not shrink the term structurally)
+  let rec zeta (fuel : Nat) (e : Expr) : Expr :=
+    match fuel, e with
+    | 0, e => e
+    | fuel + 1, .letE n t v b nd =>
+      if keepOpaque v then .letE n t v (zeta fuel b) nd else zeta fuel (b.instantiate1 v)
+    | fuel + 1, .forallE n t b bi => .forallE n t (zeta fuel b) bi
+    | fuel + 1, .lam n t b bi => .lam n t (zeta fuel b) bi
+    | fuel + 1, .mdata m e => .mdata m (zeta fuel e)
+    | _, e => e
+  let ty' ← Meta.transform (zeta 100000 ty) (pre := fun e => do
     match e with
-    | .letE _ _ v b _ => return .visit (b.instantiate1 v)
     | .app .. => if e.getAppFn.isLambda then return .visit e.headBeta else return .continue
     | _ => return .continue)
   mv.replaceTargetDefEq ty'
@@ -155,14 +180,19 @@ open Lean Elab Tactic in
 `inline_boole_defs` exposes the bodies of Boole `function` definitions in the current
 goal (see `Strata.Meta.inlineBooleDefs`). Typical use, after `smt` has closed what it can:
 `all_goals (try smt); all_goals (inline_boole_defs; intros; omega)`.
+Definitions whose body uses `%` or is deeply nested are left opaque; `inline_boole_defs!`
+inlines those too.
 -/
-syntax (name := inlineBooleDefs) "inline_boole_defs" : tactic
+syntax (name := inlineBooleDefs) "inline_boole_defs" ("!")? : tactic
 
 open Lean Elab Tactic in
 @[tactic inlineBooleDefs] meta def evalInlineBooleDefs : Tactic := fun stx => do
   match stx with
   | `(tactic| inline_boole_defs) =>
     let mv ← Meta.inlineBooleDefs (← Tactic.getMainGoal)
+    Tactic.replaceMainGoal [mv]
+  | `(tactic| inline_boole_defs !) =>
+    let mv ← Meta.inlineBooleDefs (← Tactic.getMainGoal) (skipMod := false)
     Tactic.replaceMainGoal [mv]
   | _ => throwUnsupportedSyntax
 

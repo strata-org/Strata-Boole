@@ -802,6 +802,127 @@ spec {
 
 #end
 
+/-- info:
+Obligation: montgomery_scalar_mul_terminates_0
+Property: assert
+Result: ✅ pass
+
+Obligation: montgomery_scalar_mul_terminates_1
+Property: assert
+Result: ✅ pass
+
+Obligation: bits_be_as_nat_body_calls_Sequence.select_0
+Property: out-of-bounds access check
+Result: ✅ pass
+
+Obligation: bits_be_as_nat_body_calls_bits_be_as_nat_1
+Property: assert
+Result: ✅ pass
+
+Obligation: bits_be_as_nat_terminates_0
+Property: assert
+Result: ✅ pass
+
+Obligation: bits_be_as_nat_terminates_1
+Property: assert
+Result: ✅ pass
+
+Obligation: FieldElement_from_bytes_ensures_11_33166
+Property: assert
+Result: ✅ pass
+
+Obligation: ProjectivePoint_identity_ensures_13_33404
+Property: assert
+Result: ✅ pass
+
+Obligation: ProjectivePoint_identity_ensures_14_33447
+Property: assert
+Result: ✅ pass
+
+Obligation: ProjectivePoint_from_affine_u_ensures_16_33776
+Property: assert
+Result: ✅ pass
+
+Obligation: ProjectivePoint_from_affine_u_ensures_17_33849
+Property: assert
+Result: ✅ pass
+
+Obligation: Choice_from_ensures_19_34129
+Property: assert
+Result: ✅ pass
+
+Obligation: conditional_swap_montgomery_projective_ensures_21_34441
+Property: assert
+Result: ✅ pass
+
+Obligation: conditional_swap_montgomery_projective_ensures_22_34505
+Property: assert
+Result: ✅ pass
+
+Obligation: differential_add_and_double_ensures_25_34918
+Property: assert
+Result: ✅ pass
+
+Obligation: differential_add_and_double_ensures_26_35125
+Property: assert
+Result: ✅ pass
+
+Obligation: differential_add_and_double_ensures_27_35796
+Property: assert
+Result: ✅ pass
+
+Obligation: zeroize_bool_ensures_29_36585
+Property: assert
+Result: ✅ pass
+
+Obligation: as_affine_ensures_31_36785
+Property: assert
+Result: ✅ pass
+
+Obligation: mul_bits_be_post_mul_bits_be_ensures_35_37352_calls_bits_be_as_nat_0
+Property: assert
+Result: ✅ pass
+
+Obligation: loop_invariant_calls_bits_be_as_nat_0
+Property: assert
+Result: ✅ pass
+
+Obligation: insertLoopInvAssert_entry_invariant_loop_45_0
+Property: assert
+Result: ✅ pass
+
+Obligation: insertLoopInvAssert_entry_invariant_loop_45_1
+Property: assert
+Result: ✅ pass
+
+Obligation: insertLoopInvAssert_measure_lb_loop_45
+Property: assert
+Result: ✅ pass
+
+Obligation: set_cur_bit_calls_Sequence.select_0
+Property: out-of-bounds access check
+Result: ✅ pass
+
+Obligation: callElimAssert_differential_add_and_double_requires_24_34849_25
+Property: assert
+Result: ✅ pass
+
+Obligation: insertLoopInvAssert_arbitrary_iter_maintain_invariant_loop_45_0
+Property: assert
+Result: ✅ pass
+
+Obligation: insertLoopInvAssert_arbitrary_iter_maintain_invariant_loop_45_1
+Property: assert
+Result: ✅ pass
+
+Obligation: insertLoopInvAssert_measure_decrease_loop_45
+Property: assert
+Result: ✅ pass
+
+Obligation: mul_bits_be_ensures_35_37352
+Property: assert
+Result: ✅ pass-/
+#guard_msgs in
 #eval Strata.Boole.verify "cvc5" montgomeryLadderSeed (options := .quiet)
 
 -- Lean backend (lean-smt: cvc5 proofs replayed in the Lean kernel).
