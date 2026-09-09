@@ -13,13 +13,13 @@ exactly this layout:
 
 ```
 <workspace>/
-  verus/            Verus fork with the lean-export feature
+  verus/             Verus fork with the lean-export feature
   dalek-lite/        the Rust crate a benchmark's function is verified in
-  verus-boogie/      the Rust -> Boole translator (this session's fork/branch)
-  Strata-Boole/      this repo
+  verus-boogie/      the Rust -> Boole translator
+  Strata-Boole/      Boole repo
 ```
 
-1. **Verus fork** (provides `--export-lean-all`; not a personal fork — shared upstream):
+1. **Verus fork** (provides `--export-lean-all`):
    ```
    git clone --branch boogie https://github.com/ccodel/verus.git
    cd verus/source
@@ -28,7 +28,7 @@ exactly this layout:
    Toolchain: rustc 1.93.1 (pinned in the fork's `rust-toolchain.toml`). This produces
    `verus/source/target-verus/release/` (the `--verus-bin` argument below).
 
-2. **dalek-lite** (this session's fork — has the one needed fix already):
+2. **dalek-lite** (fork — has the one needed fix already):
    ```
    git clone --branch lean-export-path-fix git@github.com:kondylidou/dalek-lite.git
    ```
@@ -38,7 +38,7 @@ exactly this layout:
    `Beneficial-AI-Foundation/dalek-lite`, branch `main` — everything else in the crate is
    identical to it.)
 
-3. **verus-boogie** (this session's fork) — clone next to the above; its `lakefile.lean`
+3. **verus-boogie** (fork) — clone next to the above; its `lakefile.lean`
    requires `../Strata-Boole`, so it must sit as a sibling of this repo:
    ```
    git clone --branch boole git@github.com:kondylidou/verus-boogie.git
@@ -54,7 +54,7 @@ exactly this layout:
    lake build StrataBoole
    ```
    `lakefile.toml` resolves `Strata` from `https://github.com/kondylidou/Strata`, branch
-   `fix/gen-vcs-precond-termcheck` (this session's fork of strata-org/Strata#1471) — fetched
+   `fix/gen-vcs-precond-termcheck` (fork of strata-org/Strata#1471) — fetched
    automatically by `lake build`, already pushed, nothing extra to clone by hand.
 
 ## Running the pipeline
