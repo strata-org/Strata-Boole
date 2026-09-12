@@ -34,8 +34,12 @@ cd ../..
 
 cd verus-boogie && lake build && cd ..
 
-cd Strata-Boole && lake build StrataBoole && cd ..
+cd Strata-Boole && lake build StrataBoole smt && cd ..
 ```
+
+The `smt` target is lean-smt and the mathlib pieces it needs — the heaviest part of the
+setup. Nothing in `StrataBoole` imports it, only the generated file does, so building it
+here keeps it from turning up as a silent multi-minute wait inside the first run.
 
 ## 3. Run
 
