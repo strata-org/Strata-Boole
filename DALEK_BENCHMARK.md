@@ -6,8 +6,8 @@ Produces `StrataBooleTest/dalek_sum_of_slice_translated.lean`: a real dalek-lite
 
 Three levels in the output file: **Level 1** is the original Rust, kept as a comment.
 **Level 2** is the Boole program plus `#eval Strata.Boole.verify "cvc5"` — cvc5 trusted
-directly, fast. **Level 3** is `gen_smt_vcs_boole; smt` — cvc5's proof reconstructed and
-checked by Lean's own kernel, slow, nothing taken on cvc5's word alone.
+directly. **Level 3** is `gen_smt_vcs_boole; smt` — cvc5's proof reconstructed and checked
+by Lean's own kernel.
 
 ## 1. Clone four repos as siblings
 
