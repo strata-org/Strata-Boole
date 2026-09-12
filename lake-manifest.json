@@ -15,7 +15,7 @@
    "type": "git",
    "subDir": null,
    "scope": "",
-   "rev": "285ea8503cb177933e34ea96113f9405549a5e41",
+   "rev": "32b24aea963b50189adfc61ad5fd292433076e1c",
    "name": "Strata",
    "manifestFile": "lake-manifest.json",
    "inputRev": "fix/gen-vcs-precond-termcheck",
