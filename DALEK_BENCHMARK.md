@@ -26,7 +26,11 @@ git clone --branch lean_smt git@github.com:strata-org/Strata-Boole.git
 ## 2. Build
 
 ```
-cd verus/source && vargo build --release --features lean && cd ../..
+cd verus/source
+./tools/get-z3.sh
+source ../tools/activate
+vargo build --release --features lean
+cd ../..
 
 cd verus-boogie && lake build && cd ..
 
