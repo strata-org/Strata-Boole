@@ -1,87 +1,47 @@
-# The dalek-lite benchmark pipeline
+# Reproducing the `sum_of_slice` benchmark
 
-How `StrataBooleTest/dalek_sum_of_slice_translated.lean` (and any similar file) is produced:
-a Verus-annotated Rust function, translated end to end into a three-level Strata-Boole
-benchmark (Verus source, Boole program with a cvc5 result, a Lean theorem certified by
-lean-smt). The driver script lives in the sibling `verus-boogie` repo, not here.
+Produces `StrataBooleTest/dalek_sum_of_slice_translated.lean`: a real dalek-lite function
+([`scalar_helpers.rs#L158-L234`](https://github.com/Beneficial-AI-Foundation/dalek-lite/blob/de9ebf01599fedbbced28b938e2c36c538fe4ae5/curve25519-dalek/src/scalar_helpers.rs#L158-L234),
+`Scalar::sum_of_slice`), translated to Boole and certified by lean-smt.
 
-## Setup (one time)
-
-Four repositories, laid out as siblings under one directory — the paths inside them
-(`dalek-lite`'s `Cargo.toml`, `verus-boogie`'s `lakefile.lean`) are relative and expect
-exactly this layout:
+## 1. Clone four repos as siblings
 
 ```
-<workspace>/
-  verus/             Verus fork with the lean-export feature
-  dalek-lite/        the Rust crate a benchmark's function is verified in
-  verus-boogie/      the Rust -> Boole translator
-  Strata-Boole/      Boole repo
+mkdir workspace && cd workspace
+
+git clone --branch boogie https://github.com/ccodel/verus.git
+
+git clone --branch lean-export-path-fix git@github.com:kondylidou/dalek-lite.git
+
+git clone --branch boole git@github.com:kondylidou/verus-boogie.git
+
+git clone --branch lean_smt git@github.com:strata-org/Strata-Boole.git
 ```
 
-1. **Verus fork** (provides `--export-lean-all`):
-   ```
-   git clone --branch boogie https://github.com/ccodel/verus.git
-   cd verus/source
-   vargo build --release --features lean
-   ```
-   Toolchain: rustc 1.93.1 (pinned in the fork's `rust-toolchain.toml`). This produces
-   `verus/source/target-verus/release/` (the `--verus-bin` argument below).
-
-2. **dalek-lite** (fork — has the one needed fix already):
-   ```
-   git clone --branch lean-export-path-fix git@github.com:kondylidou/dalek-lite.git
-   ```
-   Its `curve25519-dalek/Cargo.toml` points `vstd`/`verus_builtin`/`verus_builtin_macros` at
-   `../../verus/source/...` — a relative path assuming the sibling layout above. If your
-   layout differs, edit those three lines. (Upstream is
-   `Beneficial-AI-Foundation/dalek-lite`, branch `main` — everything else in the crate is
-   identical to it.)
-
-3. **verus-boogie** (fork) — clone next to the above; its `lakefile.lean`
-   requires `../Strata-Boole`, so it must sit as a sibling of this repo:
-   ```
-   git clone --branch boole git@github.com:kondylidou/verus-boogie.git
-   cd verus-boogie
-   lake build
-   ```
-   Builds `.lake/build/bin/verus-lean`, the translator binary the script calls.
-
-4. **This repo (Strata-Boole)**:
-   ```
-   git clone --branch lean_smt git@github.com:strata-org/Strata-Boole.git
-   cd Strata-Boole
-   lake build StrataBoole
-   ```
-   `lakefile.toml` resolves `Strata` from `https://github.com/kondylidou/Strata`, branch
-   `fix/gen-vcs-precond-termcheck` (fork of strata-org/Strata#1471) — fetched
-   automatically by `lake build`, already pushed, nothing extra to clone by hand.
-
-## Running the pipeline
-
-From inside `verus-boogie`:
+## 2. Build
 
 ```
-sh dalek/rust_to_boole.sh <module.rs> --only <fn> \
-    --dalek-lite <path/to/dalek-lite> \
-    --strata-boole <path/to/Strata-Boole> \
-    --verus-bin <path/to/verus>/source/target-verus/release
+cd verus/source && vargo build --release --features lean && cd ../..
+
+cd verus-boogie && lake build && cd ..
+
+cd Strata-Boole && lake build StrataBoole && cd ..
 ```
 
-Example, with the sibling layout above:
+## 3. Run
 
 ```
+cd verus-boogie
 sh dalek/rust_to_boole.sh dalek/input/scalar_helpers.rs --only sum_of_slice \
     --dalek-lite ../dalek-lite \
     --strata-boole ../Strata-Boole \
     --verus-bin ../verus/source/target-verus/release
 ```
 
-Writes `verus-boogie/dalek/out/sum_of_slice.boole.st` (the Boole program) and, in this
-repo, `StrataBooleTest/dalek_sum_of_slice_translated.lean` (the three-level file, built —
-cvc5 result and Lean kernel certification both checked before the script prints success).
-See the comment block at the top of `verus-boogie/dalek/rust_to_boole.sh` for what each
-translator flag does and for the optional `--lean-out`/`--no-lean` flags.
+Ends with `Lean: ... builds — every obligation certified by lean-smt`. Output:
+`Strata-Boole/StrataBooleTest/dalek_sum_of_slice_translated.lean`.
 
-Takes a few minutes, almost all of it the Verus export step (`cargo verus verify` on the
-whole crate) — the translation and the Lean build in this repo are fast.
+Takes a few minutes (mostly the Verus verification step).
+
+Add `--lean-only` to skip the cvc5 `#guard_msgs` check on Level 2 (a redundant cvc5 pass —
+Level 3 already re-proves every obligation) and build just the Lean theorem, faster.
