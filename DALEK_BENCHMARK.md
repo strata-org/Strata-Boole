@@ -50,7 +50,8 @@ sh dalek/rust_to_boole.sh dalek/input/scalar_helpers.rs --only sum_of_slice \
 Ends with `Lean: ... builds — every obligation certified by lean-smt`. Output:
 `Strata-Boole/StrataBooleTest/dalek_sum_of_slice_translated.lean`.
 
-Takes a few minutes (mostly the Verus verification step).
+Takes a few minutes (mostly the Verus verification step); the first run also compiles
+`vstd` into `dalek-lite`'s target directory, so expect roughly twice that once.
 
 Add `--lean-only` to skip Level 2 entirely and go straight to Level 3 — faster, but if
 Level 3 then fails you lose the ability to tell whether cvc5 couldn't prove the obligation
