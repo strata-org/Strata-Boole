@@ -9,6 +9,9 @@ Three levels in the output file: **Level 1** is the original Rust, kept as a com
 directly. **Level 3** is `gen_smt_vcs_boole; smt` — cvc5's proof reconstructed and checked
 by Lean's own kernel.
 
+Needs `rustup`, `elan`, and a `cvc5` executable on `PATH` (Level 2 calls it directly;
+Level 3 uses its own bundled copy, so `--lean-only` below works without it).
+
 ## 1. Clone four repos as siblings
 
 ```
@@ -16,11 +19,11 @@ mkdir workspace && cd workspace
 
 git clone --branch boogie https://github.com/ccodel/verus.git
 
-git clone --branch lean-export-path-fix git@github.com:kondylidou/dalek-lite.git
+git clone --branch lean-export-path-fix https://github.com/kondylidou/dalek-lite.git
 
-git clone --branch boole git@github.com:kondylidou/verus-boogie.git
+git clone --branch boole https://github.com/kondylidou/verus-boogie.git
 
-git clone --branch lean_smt git@github.com:strata-org/Strata-Boole.git
+git clone --branch lean_smt https://github.com/strata-org/Strata-Boole.git
 ```
 
 ## 2. Build
