@@ -23,6 +23,10 @@ dialect of Strata.
 - **VC generation**: `Strata.Boole.genVCs`
 - **Pretty-printing**: `Strata.Boole.formatProgram`
 
+### `import StrataBoole.Nat`
+
+- **Binary nat library**: `Strata.BooleNat.natLibrary`, `Strata.BooleNat.prepend`
+
 ### `import StrataBoole.MetaVerifier`
 
 The `gen_smt_vcs_boole` tactic and `Strata.smtVCsCorrectBoole` are available

@@ -116,30 +116,7 @@ spec
 #guard_msgs in #eval callHelper callerPgm
 
 /--
-info:
-
-[DEBUG] Boole program:
- var z : int;
- var g : int;
- procedure inc (x : int) returns ()
-spec {
-  modifies g, z;
-  requires z > 0;
-  ensures g == old g + x + z;
-  } {
-  g := g + x + z;
-};
- procedure main_caller () returns ()
-spec {
-  modifies g, z;
-  requires z == 10;
-  requires g == 0;
-  ensures g == 15;
-  } {
-  call inc(5);
-};
-
-[Strata.Core] Type checking succeeded.
+info: [Strata.Core] Type checking succeeded.
 
 
 VCs:
