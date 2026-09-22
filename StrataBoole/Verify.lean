@@ -645,11 +645,11 @@ private def getGlobalParamPrefix (n : String)
 /-- Build `CallArg` prefix for a call site from `getGlobalParamPrefix`.
     Modified globals become `inoutArg`; read-only globals become `inArg`. -/
 private def constructProcArgsPrefix (n : String)
-    : TranslateM (List (Core.CallArg Core.Expression)) := do
+    : TranslateM (List (Imperative.CallArg Core.Expression)) := do
   let (modifiesTyped, readOnlyGlobals) ← getGlobalParamPrefix n
-  let modifiesArgs := modifiesTyped.map fun (id, _) => Core.CallArg.inoutArg id
+  let modifiesArgs := modifiesTyped.map fun (id, _) => Imperative.CallArg.inoutArg id
   let readOnlyArgs := readOnlyGlobals.map
-    fun (id, _) => Core.CallArg.inArg (Lambda.LExpr.fvar () id none : Core.Expression.Expr)
+    fun (id, _) => Imperative.CallArg.inArg (Lambda.LExpr.fvar () id none : Core.Expression.Expr)
   return modifiesArgs ++ readOnlyArgs
 
 /-- Returns `true` when the annotation contains a bare `@[reachCheck]` flag,
@@ -736,8 +736,8 @@ private def toCoreStmt (s : BooleDDM.Statement SourceRange) : TranslateM Core.St
     return .loop guard measureExpr (← toCoreInvariants invs) (← withBVars [] (toCoreBlock b)) (← toCoreMetaData m)
   | .boole_call_statement m ⟨_, lhs⟩ ⟨_, n⟩ ⟨_, args⟩ => do
     let globalsPrefix ← constructProcArgsPrefix n
-    let userIn := (← args.toList.mapM toCoreExpr).map Core.CallArg.inArg
-    let userOut := (lhs.toList.map (mkIdent ·.val)).map Core.CallArg.outArg
+    let userIn := (← args.toList.mapM toCoreExpr).map Imperative.CallArg.inArg
+    let userOut := (lhs.toList.map (mkIdent ·.val)).map Imperative.CallArg.outArg
     return Core.Statement.call n (globalsPrefix ++ userIn ++ userOut) (← toCoreMetaData m)
   | .call_statement m _ ⟨_, n⟩ ⟨_, callArgs⟩ => do
     -- Reject Core-only out/inout call argument syntax in Boole.
@@ -752,7 +752,7 @@ private def toCoreStmt (s : BooleDDM.Statement SourceRange) : TranslateM Core.St
     let globalsPrefix ← constructProcArgsPrefix n
     let userIn ← callArgs.toList.filterMapM fun ca =>
       match ca with
-      | .callArgExpr _ e => return some (Core.CallArg.inArg (← toCoreExpr e))
+      | .callArgExpr _ e => return some (Imperative.CallArg.inArg (← toCoreExpr e))
       | _ => return none  -- unreachable: out/inout rejected above
     return Core.Statement.call n (globalsPrefix ++ userIn) (← toCoreMetaData m)
   | .block_statement m _ ⟨_, l⟩ b =>
@@ -1688,10 +1688,13 @@ def verify
       let usesGrammarNat := usesNatOrPos
       let externalPhases : List Core.AbstractedPhase :=
         if usesGrammarNat then [natCandidatePhase] else []
+      -- `Core.verify` takes the procedure filter through `VerifyOptions`; a
+      -- filter passed to this function takes precedence over one in `options`.
+      let options := { options with
+        proceduresToVerify := proceduresToVerify <|> options.proceduresToVerify }
       let runner tempPath :=
         EIO.toIO (fun dm => IO.Error.userError (toString (dm.format (some ictx.fileMap))))
-          (Core.verify cp tempPath proceduresToVerify options
-            (externalPhases := externalPhases))
+          (Core.verify cp tempPath options (externalPhases := externalPhases))
       -- Decode nat/pos constructor model values to integers for display.
       -- Replaces e.g. Npos(xO(xH)) with 2 in the counterexample model.
       let decodeEntry (id : Core.Expression.Ident)
