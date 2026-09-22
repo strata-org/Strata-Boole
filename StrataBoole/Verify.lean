@@ -1294,11 +1294,13 @@ private def natCorePreamble : List Core.Decl :=
             body := some body, attr := #[], axioms := [],
             preconditions := [], measure := none }
            .empty
-  let mkFuncPre (name : String) (inputs : List (Core.Expression.Ident × LMonoTy))
-      (output : LMonoTy) (body : Core.Expression.Expr)
-      (pres : List (DL.Util.FuncPrecondition Core.Expression.Expr Unit)) : Core.Decl :=
+  -- Uninterpreted function: no body, so the SMT encoder emits `declare-fun`
+  -- instead of a `define-fun` macro.  Meaning comes from separate axioms.
+  let mkFuncNoBody (name : String) (inputs : List (Core.Expression.Ident × LMonoTy))
+      (output : LMonoTy)
+      (pres : List (DL.Util.FuncPrecondition Core.Expression.Expr Unit) := []) : Core.Decl :=
     .func { name := ⟨name, ()⟩, typeArgs := [], inputs := inputs, output := output,
-            body := some body, attr := #[], axioms := [],
+            body := none, attr := #[], axioms := [],
             preconditions := pres, measure := none }
            .empty
   let mkRec (name : String) (inputs : List (Core.Expression.Ident × LMonoTy))
@@ -1338,11 +1340,12 @@ private def natCorePreamble : List Core.Decl :=
       #[Strata.DL.Util.FuncAttr.inlineIfConstr 0] none
 
   -- nat.toInt: n : nat → int
-  let n := fv' "n"
-  let natToInt :=
-    mkFunc "nat.toInt" [(⟨"n", ()⟩, natTy)] intTy
-      (ite' (app1 (op' "nat..isN0") n) (int' 0)
-        (app1 (op' "pos.toInt") (app1 (op' "nat..val") n)))
+  -- Uninterpreted, defined constructor-wise by `nat_toInt_N0`/`nat_toInt_Npos`
+  -- below (like `pos.toInt`).  As a bodied function it became an SMT macro
+  -- applying the selector `nat..val` to an opaque `nat`, which forces a
+  -- constructor split at every use: on dalek `sum_of_slice` that was 47k
+  -- DATATYPES_INST per goal, starving E-matching 6.7x (514 -> 77).
+  let natToInt := mkFuncNoBody "nat.toInt" [(⟨"n", ()⟩, natTy)] intTy
 
   -- pos.fromInt: x : int → pos, decreases x
   let x := fv' "x"
@@ -1356,11 +1359,11 @@ private def natCorePreamble : List Core.Decl :=
       #[] (some x)
 
   -- nat.fromInt: x : int → nat
-  let natFromInt :=
-    mkFunc "nat.fromInt" [(⟨"x", ()⟩, intTy)] natTy
-      (ite' (app2 (op' "Int.Le") x (int' 0))
-        (op' "N0")
-        (app1 (op' "Npos") (app1 (op' "pos.fromInt") x)))
+  -- Uninterpreted, defined by `nat_fromInt_nonpos`/`nat_fromInt_pos` below.
+  -- Must stay a symbol: inlining it rewrites `nat.toInt(nat.fromInt(x))` into
+  -- `nat.toInt(ite ...)`, and the bridge axiom `nat_fromInt_toInt` no longer
+  -- matches syntactically.
+  let natFromInt := mkFuncNoBody "nat.fromInt" [(⟨"x", ()⟩, intTy)] natTy
 
   -- Bridge axioms
   let axNonneg : Core.Decl := .ax
@@ -1381,23 +1384,77 @@ private def natCorePreamble : List Core.Decl :=
              (eq' (app1 (op' "nat.fromInt") (app1 (op' "nat.toInt") bv0)) bv0) }
     .empty
 
+  -- Defining axioms for nat.toInt / nat.fromInt (constructor-wise: they fire
+  -- on `N0()`/`Npos(p)` or on a known sign, never forcing a constructor split).
+  let axToIntN0 : Core.Decl := .ax
+    { name := "nat_toInt_N0"
+      e := eq' (app1 (op' "nat.toInt") (op' "N0")) (int' 0) }
+    .empty
+  let axToIntNpos : Core.Decl := .ax
+    { name := "nat_toInt_Npos"
+      e := .quant () .all "" (some posTy) bv0
+             (eq' (app1 (op' "nat.toInt") (app1 (op' "Npos") bv0))
+                  (app1 (op' "pos.toInt") bv0)) }
+    .empty
+  let axFromIntNonpos : Core.Decl := .ax
+    { name := "nat_fromInt_nonpos"
+      e := .quant () .all "" (some intTy) bv0
+             (mkCoreApp Core.boolImpliesOp
+               [ app2 (op' "Int.Le") bv0 (int' 0)
+               , eq' (app1 (op' "nat.fromInt") bv0) (op' "N0") ]) }
+    .empty
+  let axFromIntPos : Core.Decl := .ax
+    { name := "nat_fromInt_pos"
+      e := .quant () .all "" (some intTy) bv0
+             (mkCoreApp Core.boolImpliesOp
+               [ app2 (op' "Int.Lt") (int' 0) bv0
+               , eq' (app1 (op' "nat.fromInt") bv0)
+                     (app1 (op' "Npos") (app1 (op' "pos.fromInt") bv0)) ]) }
+    .empty
+
   -- Arithmetic operators (a : nat, b : nat)
   let a := fv' "a"; let b := fv' "b"
   let toIntA := app1 (op' "nat.toInt") a
   let toIntB := app1 (op' "nat.toInt") b
-  let fromInt (expr : Core.Expression.Expr) : Core.Expression.Expr := app1 (op' "nat.fromInt") expr
   let ab : List (Core.Expression.Ident × LMonoTy) := [(⟨"a", ()⟩, natTy), (⟨"b", ()⟩, natTy)]
+
+  -- The nat-valued operators are uninterpreted, each characterised by ONE
+  -- distribution axiom `nat.toInt(op(a,b)) == nat.toInt(a) <op> nat.toInt(b)`
+  -- (guarded where the int result could be negative or the divisor zero).
+  -- As bodied `nat.fromInt(nat.toInt(a) <op> nat.toInt(b))` macros, every
+  -- arithmetic node was a `fromInt(toInt ..)` round trip needing a bridge
+  -- instantiation plus a non-negativity side condition; on the 32-term byte
+  -- sum of dalek `sum_of_slice` that is ~2000 instantiations per goal (z3's
+  -- profile), which cvc5 does not find.  With this shape cvc5 closes 35/35 at
+  -- the default budget where the macro form closed 32/35.
+  -- `bvar 1` is the outer binder (a), `bvar 0` the inner (b).
+  let bv1 : Core.Expression.Expr := .bvar () 1
+  let tA := app1 (op' "nat.toInt") bv1
+  let tB := app1 (op' "nat.toInt") bv0
+  let distrib (nm op intOp : String) (guard : Option Core.Expression.Expr) : Core.Decl :=
+    let body := eq' (app1 (op' "nat.toInt") (app2 (op' op) bv1 bv0)) (app2 (op' intOp) tA tB)
+    let body := match guard with
+      | some g => mkCoreApp Core.boolImpliesOp [g, body]
+      | none => body
+    .ax { name := nm, e := .quant () .all "" (some natTy) bv0 (.quant () .all "" (some natTy) bv0 body) }
+        .empty
+  let axAdd := distrib "nat_toInt_add" "nat.add" "Int.Add" none
+  let axSub := distrib "nat_toInt_sub" "nat.sub" "Int.Sub" (some (app2 (op' "Int.Le") tB tA))
+  let axMul := distrib "nat_toInt_mul" "nat.mul" "Int.Mul" none
+  let axDiv := distrib "nat_toInt_div" "nat.div" "Int.Div" (some (app2 (op' "Int.Lt") (int' 0) tB))
+  let axMod := distrib "nat_toInt_mod" "nat.mod" "Int.Mod" (some (app2 (op' "Int.Lt") (int' 0) tB))
 
   [ .type (.data [posDecl]) .empty
   , .type (.data [natDecl]) .empty
   , posToInt, natToInt, posFromInt, natFromInt
+  , axToIntN0, axToIntNpos, axFromIntNonpos, axFromIntPos
   , axNonneg, axFromIntToInt, axToIntFromInt
-  , mkFunc    "nat.add" ab natTy  (fromInt (app2 (op' "Int.Add") toIntA toIntB))
-  , mkFuncPre "nat.sub" ab natTy  (fromInt (app2 (op' "Int.Sub") toIntA toIntB))
-      [⟨app2 (op' "Int.Le") toIntB toIntA, ()⟩]
-  , mkFunc    "nat.mul" ab natTy  (fromInt (app2 (op' "Int.Mul") toIntA toIntB))
-  , mkFunc    "nat.div" ab natTy  (fromInt (app2 (op' "Int.Div") toIntA toIntB))
-  , mkFunc    "nat.mod" ab natTy  (fromInt (app2 (op' "Int.Mod") toIntA toIntB))
+  , mkFuncNoBody "nat.add" ab natTy
+  , mkFuncNoBody "nat.sub" ab natTy [⟨app2 (op' "Int.Le") toIntB toIntA, ()⟩]
+  , mkFuncNoBody "nat.mul" ab natTy
+  , mkFuncNoBody "nat.div" ab natTy
+  , mkFuncNoBody "nat.mod" ab natTy
+  , axAdd, axSub, axMul, axDiv, axMod
   , mkFunc    "nat.lt"  ab boolTy (app2 (op' "Int.Lt") toIntA toIntB)
   , mkFunc    "nat.le"  ab boolTy (app2 (op' "Int.Le") toIntA toIntB)
   , mkFunc    "nat.gt"  ab boolTy (app2 (op' "Int.Gt") toIntA toIntB)
