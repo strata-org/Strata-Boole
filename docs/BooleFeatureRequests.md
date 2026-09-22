@@ -65,12 +65,12 @@ several that are now fully implemented; a few have moved to
   - `e as_sint` → `Bv{n}.ToInt` → SMT-LIB 2.7 `sbv_to_int` (signed); widths 1/8/16/32/64/128.
   - `e as_bv{n}` → `Int.ToBv{n}` → SMT-LIB 2.7 `(_ int_to_bv n)` (truncating mod 2^n); widths 1/8/16/32/64/128.
   - Benchmarks: [`cast_expr.lean`](../StrataBooleTest/cast_expr.lean), [`widening_casts.lean`](../StrataBooleTest/widening_casts.lean), [`cast_all_directions.lean`](../StrataBooleTest/cast_all_directions.lean), [`cast_nested.lean`](../StrataBooleTest/cast_nested.lean).
-- **Native `nat`** (Gap #8; Strata-Boole #10, #nat-uf-axioms; Strata #1439)
+- **Native `nat`** (Gap #8; Strata-Boole #10, #14; Strata #1439)
   - `nat` and `pos` are grammar-level types; `nat_toInt`, `nat_fromInt`, `nat_add/sub/mul/div/mod`, `nat_lt/le/gt/ge` are in scope in every Boole program.
   - Encoding: binary datatypes `pos` (`xH`, `xO`, `xI`) and `nat` (`N0`, `Npos`), built programmatically (`natCorePreamble`, `Verify.lean`) and injected only when a program uses `nat`/`pos`. `StrataBoole/Nat.lean` is the readable spec, not used by the implementation.
   - `nat.toInt`, `nat.fromInt` and the operators have no bodies and are defined by axioms. Bodies were inlined as SMT macros, which forced a case split at every `nat.toInt` use and a `fromInt(toInt …)` round trip at every `+`; on dalek `sum_of_slice` 3 obligations timed out. With axioms it verifies 43/43.
   - Counterexamples: `natCandidatePhase` validates cvc5's candidate model and promotes it to `❌ fail`.
-  - Gap: `pos.toInt`/`pos.fromInt` are UF + axioms, not `define-fun-rec`, so cvc5 cannot evaluate them during model search and some false obligations return `❓ unknown` (sound, no model). `nat_counterexample.lean` Test 2. Fix: encoder `define-fun-rec` opt-in, or a re-query without axioms.
+  - Gap: `pos.toInt`/`pos.fromInt` are UF + axioms, not `define-fun-rec`, so cvc5 cannot evaluate them during model search and some false obligations return `❓ unknown` (sound, no model). `nat_counterexample.lean` Test 2. Fix, both parts needed: the encoder's `define-fun-rec` opt-in (Strata #1478) and a re-query of the unknown obligation without axioms that uses it (Strata-Boole follow-up).
   - Benchmarks: [`nat_native.lean`](../StrataBooleTest/nat_native.lean), [`nat_detection.lean`](../StrataBooleTest/nat_detection.lean), [`nat_counterexample.lean`](../StrataBooleTest/nat_counterexample.lean), [`nat_counterexample_extended.lean`](../StrataBooleTest/nat_counterexample_extended.lean).
 
 ## Semantic preservation requests
@@ -85,7 +85,7 @@ several that are now fully implemented; a few have moved to
 
 ## Type/model requests
 
-8. **Native `nat` support**: Implemented (#10, #nat-uf-axioms). Remaining: some false obligations return `❓ unknown` instead of a counterexample (see the entry above).
+8. **Native `nat` support**: Implemented (#10, #14). Remaining: some false obligations return `❓ unknown` instead of a counterexample (see the entry above).
 9. **Missing model types**: Add or standardize support for model types such as `Cell`, `Atomic`, `Thread`, `Rwlock`, `Unit`, and `Arithmetic_overflow`.
 10. **On-demand stdlib/pervasive stubs**: Some pervasive stubs may be droppable after pruning translation output.
 11. **Sequence slicing**: Implemented. Int-based termination for recursive seq functions: implemented (#1167).
