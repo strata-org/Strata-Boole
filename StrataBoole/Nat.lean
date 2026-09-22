@@ -14,16 +14,17 @@ import StrataDDM.Integration.Lean.HashCommands
 Provides `Strata.BooleNat.prepend` — injects a binary-nat datatype and
 arithmetic library into any Boole program.
 
-## Status: specification, not implementation
+## Status
 
-This file is the readable, Core-syntax **spec** of the nat library.  The
-implementation is `natCorePreamble` in `StrataBoole/Verify.lean`, which builds
-the same declarations programmatically and which `Strata.Boole.verify` injects
-automatically whenever a program uses `nat` or `pos`.  Nothing in the
-implementation imports this file; keep the two in sync by hand.  It is written
-in Core, whose grammar has prefix integer operators (`int.add`, `int.le`, …) and
-no infix arithmetic; build it with `lake build StrataBoole.Nat` — nothing else
-builds it, so a stale spec goes unnoticed otherwise.
+This module is the specification of the nat library, written in Core syntax.
+The implementation is `natCorePreamble` in `StrataBoole/Verify.lean`, which
+constructs the same declarations programmatically; `Strata.Boole.verify`
+injects them whenever a program mentions `nat` or `pos`.  This module is not
+imported by the implementation and has no effect on verification.  The two
+copies are maintained in parallel: a change to one is mirrored in the other.
+Core's grammar provides prefix integer operators (`int.add`, `int.le`, …) and
+no infix arithmetic, hence the notation below.  The module is built by
+`lake build StrataBoole.Nat` only; it belongs to no other build target.
 
 ## Problem with opaque nat
 
@@ -46,32 +47,36 @@ them on constructor terms during model search, so constrained nat arithmetic (e.
 `toInt(a) = 73`) returns `unknown` instead of a concrete counterexample. Three bridge
 axioms are kept as E-matching hints (they are valid theorems of the definitions).
 
-## Why `nat.toInt`, `nat.fromInt` and the arithmetic operators have no bodies
+## Encoding of `nat.toInt`, `nat.fromInt` and the arithmetic operators
 
-A function *with* a body is inlined by Strata everywhere it is used, like a
-macro.  For these functions that was expensive (measured on dalek
-`sum_of_slice`, 3 of 44 obligations timed out even at 6x the budget):
+`nat.toInt`, `nat.fromInt` and `nat.add`/`sub`/`mul`/`div`/`mod` are declared
+without bodies and characterised by axioms.  A function with a body is emitted
+as an SMT `define-fun` and expanded at every use.  Two costs of that expansion
+were measured on the dalek `sum_of_slice` benchmark, where three of 44
+obligations timed out at six times the default budget:
 
-- `nat.toInt`'s body looks inside its argument ("is it `N0`? otherwise take the
-  `pos` out of `Npos`").  Inlined at a call on a variable, that forces the solver
-  to case-split on the variable's constructor at every use — ~47,000 splits per
-  obligation, starving the quantifier engine.
-- `nat.add(a, b)` as `nat.fromInt(nat.toInt(a) + nat.toInt(b))` makes every `+`
-  a detour through `int` and back, and the solver must show the detour is
-  harmless (non-negative) each time — ~2,000 such steps on a 32-term byte sum.
+- The body of `nat.toInt` applies the selector `nat..val` to its argument.
+  Expanded at an application to an opaque `nat`, it forces a constructor case
+  split at every use: about 47,000 datatype instantiations per obligation,
+  reducing quantifier instantiation by a factor of 6.7.
+- The body `nat.fromInt(nat.toInt(a) + nat.toInt(b))` of `nat.add` introduces a
+  `fromInt`/`toInt` round trip at every arithmetic node, each requiring a bridge
+  instantiation together with a non-negativity side condition: about 2,000 per
+  obligation on a 32-term byte sum.
 
-So they are declared without bodies and defined by axioms instead: `nat.toInt`
-and `nat.fromInt` constructor-wise (`N0`/`Npos`, `x <= 0`/`x > 0`), and each
-operator by one distribution law `nat.toInt(op(a, b)) == nat.toInt(a) <op>
-nat.toInt(b)`.  An axiom only fires when its pattern appears, so `nat.toInt(x)`
-on a variable triggers nothing, and a `+` is one step.  Both `nat.toInt` and
-`nat.fromInt` must stay symbols: inlining `nat.fromInt` alone rewrites
-`nat.toInt(nat.fromInt(x))` into `nat.toInt(if … )` and the bridge axiom
-`nat_fromInt_toInt` no longer matches.
+With axioms instead, `nat.toInt` and `nat.fromInt` are defined
+constructor-wise (`N0`/`Npos`; `x <= 0`/`x > 0`) and each operator by a single
+distribution law `nat.toInt(op(a, b)) == nat.toInt(a) <op> nat.toInt(b)`.  An
+axiom is instantiated only where its pattern occurs, so `nat.toInt(x)` on an
+opaque `x` introduces no case split, and an arithmetic node is one
+instantiation.  Both `nat.toInt` and `nat.fromInt` must remain symbols: with
+`nat.fromInt` expanded, `nat.toInt(nat.fromInt(x))` becomes `nat.toInt(if …)`
+and the bridge axiom `nat_fromInt_toInt` no longer matches syntactically.
 
-This is conservative: every axiom is a theorem of the body it replaces, and the
-old bodies are a model of the axioms.  Result on `sum_of_slice`: 43/43, the
-loop-invariant goal from timeout (30 s) to unsat in 3.6 s.
+The change is conservative: each axiom is a theorem of the body it replaces,
+and the original bodies form a model of the axioms.  On `sum_of_slice` all 43
+obligations are discharged; the loop-invariant obligation that previously
+timed out at 30 s is discharged in 3.6 s.
 
 ## Usage
 
@@ -125,8 +130,8 @@ function pos.toInt (@[cases] p : pos) : int {
 ;
 
 // ── nat.toInt ────────────────────────────────────────────────────────────────
-// No body (see the header): defined constructor-wise, so it never forces a
-// case split on an opaque nat.
+// Declared without a body (see the header); defined constructor-wise below, so
+// an application to an opaque nat introduces no case split.
 function nat.toInt (n : nat) : int;
 axiom [nat_toInt_N0]:   nat.toInt(N0()) == 0;
 axiom [nat_toInt_Npos]: forall p : pos :: nat.toInt(Npos(p)) == pos.toInt(p);
@@ -148,7 +153,8 @@ decreases x
 ;
 
 // ── nat.fromInt ──────────────────────────────────────────────────────────────
-// No body: must stay a symbol so the bridge axioms below keep their triggers.
+// Declared without a body: it must remain a symbol for the triggers of the
+// bridge axioms below to match.
 function nat.fromInt (x : int) : nat;
 axiom [nat_fromInt_nonpos]: forall x : int :: int.le(x, 0) ==> nat.fromInt(x) == N0();
 axiom [nat_fromInt_pos]:    forall x : int :: int.lt(0, x) ==> nat.fromInt(x) == Npos(pos.fromInt(x));
@@ -159,14 +165,14 @@ axiom [nat_fromInt_toInt]: forall x : int :: int.le(0, x) ==> nat.toInt(nat.from
 axiom [nat_toInt_fromInt]: forall n : nat :: nat.fromInt(nat.toInt(n)) == n;
 
 // ── Arithmetic operators ─────────────────────────────────────────────────────
-// No bodies: each is characterised by one distribution law over nat.toInt
-// (guarded where the int result could be negative or the divisor zero).
+// Declared without bodies; each is characterised by one distribution law over
+// nat.toInt, guarded where the integer result could be negative or the divisor
+// zero.
 function nat.add (a : nat, b : nat) : nat;
 axiom [nat_toInt_add]: forall a : nat, b : nat :: nat.toInt(nat.add(a, b)) == int.add(nat.toInt(a), nat.toInt(b));
-// The implementation additionally puts `requires nat.toInt(b) <= nat.toInt(a)`
-// on nat.sub, so every call site proves it; Core's text syntax has no
-// bodyless-function-with-requires form, so the spec carries the guard on the
-// axiom only.
+// In the implementation nat.sub carries `requires nat.toInt(b) <= nat.toInt(a)`,
+// checked at each call site.  Core's grammar has no bodiless-function form with
+// preconditions, so here the guard appears on the axiom only.
 function nat.sub (a : nat, b : nat) : nat;
 axiom [nat_toInt_sub]: forall a : nat, b : nat :: int.le(nat.toInt(b), nat.toInt(a)) ==> nat.toInt(nat.sub(a, b)) == int.sub(nat.toInt(a), nat.toInt(b));
 function nat.mul (a : nat, b : nat) : nat;
