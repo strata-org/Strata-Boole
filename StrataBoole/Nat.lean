@@ -77,10 +77,8 @@ datatype nat () {
 };
 
 // ── pos.toInt ────────────────────────────────────────────────────────────────
-// Structural recursion on pos via @[cases]. Currently emitted by the Strata SMT
-// encoder as a UF (declare-fun) with per-constructor axioms — NOT define-fun-rec.
-// To get concrete counterexamples for constrained nat arithmetic, the encoder
-// would need to emit this as define-fun-rec (pending Strata team opt-in support).
+// Structural recursion on pos via @[cases]; emitted as a UF with per-constructor
+// axioms (define-fun-rec on request, Strata #1478).
 rec
 function pos.toInt (@[cases] p : pos) : int {
   if pos..isxH(p) then 1
@@ -96,11 +94,8 @@ axiom [nat_toInt_N0]:   nat.toInt(N0()) == 0;
 axiom [nat_toInt_Npos]: forall p : pos :: nat.toInt(Npos(p)) == pos.toInt(p);
 
 // ── pos.fromInt ──────────────────────────────────────────────────────────────
-// Recursive on x div 2; meaningful for x >= 1 (nat.fromInt guards x <= 0).
-// `decreases x` generates two termination obligations (one per recursive branch):
-//   x > 1 ==> x div 2 < x   — discharged by cvc5 as a trivial LIA fact.
-// Currently emitted as UF + per-constructor axioms — NOT define-fun-rec.
-// Same constraint as pos.toInt above.
+// Recursive on x div 2, meaningful for x >= 1 (nat.fromInt guards x <= 0);
+// `decreases x` gives one termination obligation per branch.  Emitted like pos.toInt.
 rec
 function pos.fromInt (x : int) : pos
 decreases x
