@@ -25,11 +25,9 @@ dialect of Strata.
 
 ### `import StrataBoole.Nat` (specification only)
 
-- **Binary nat library, as a readable Core-syntax spec**: `Strata.BooleNat.natLibrary`,
-  `Strata.BooleNat.prepend`.  Not part of the implementation: `Strata.Boole.verify`
-  injects its own copy (`natCorePreamble` in `StrataBoole/Verify.lean`) whenever a
-  program uses `nat`/`pos`, and nothing imports this module.  Build it with
-  `lake build StrataBoole.Nat` to check the spec still parses.
+- **Binary nat library as a Core-syntax spec**: `Strata.BooleNat.natLibrary`,
+  `Strata.BooleNat.prepend`.  The implementation is `natCorePreamble` in
+  `StrataBoole/Verify.lean`; nothing imports this module.  `lake build StrataBoole.Nat`.
 
 ### `import StrataBoole.MetaVerifier`
 

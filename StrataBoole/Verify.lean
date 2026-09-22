@@ -1340,11 +1340,9 @@ private def natCorePreamble : List Core.Decl :=
       #[Strata.DL.Util.FuncAttr.inlineIfConstr 0] none
 
   -- nat.toInt: n : nat → int
-  -- Uninterpreted, defined constructor-wise by `nat_toInt_N0`/`nat_toInt_Npos`
-  -- below (like `pos.toInt`).  As a bodied function it became an SMT macro
-  -- applying the selector `nat..val` to an opaque `nat`, which forces a
-  -- constructor split at every use: on dalek `sum_of_slice` that was 47k
-  -- DATATYPES_INST per goal, starving E-matching 6.7x (514 -> 77).
+  -- Uninterpreted; defined constructor-wise below (`nat_toInt_N0`/`nat_toInt_Npos`),
+  -- like `pos.toInt`.  A body would be inlined as an SMT macro applying `nat..val`
+  -- to opaque nats, forcing a constructor split at every use (Strata-Boole #14).
   let natToInt := mkFuncNoBody "nat.toInt" [(⟨"n", ()⟩, natTy)] intTy
 
   -- pos.fromInt: x : int → pos, decreases x
@@ -1359,10 +1357,8 @@ private def natCorePreamble : List Core.Decl :=
       #[] (some x)
 
   -- nat.fromInt: x : int → nat
-  -- Uninterpreted, defined by `nat_fromInt_nonpos`/`nat_fromInt_pos` below.
-  -- Must stay a symbol: inlining it rewrites `nat.toInt(nat.fromInt(x))` into
-  -- `nat.toInt(ite ...)`, and the bridge axiom `nat_fromInt_toInt` no longer
-  -- matches syntactically.
+  -- Uninterpreted; defined below.  Must stay a symbol: inlined, the bridge
+  -- axiom `nat_fromInt_toInt` no longer matches `nat.toInt(nat.fromInt(x))`.
   let natFromInt := mkFuncNoBody "nat.fromInt" [(⟨"x", ()⟩, intTy)] natTy
 
   -- Bridge axioms
@@ -1418,15 +1414,11 @@ private def natCorePreamble : List Core.Decl :=
   let toIntB := app1 (op' "nat.toInt") b
   let ab : List (Core.Expression.Ident × LMonoTy) := [(⟨"a", ()⟩, natTy), (⟨"b", ()⟩, natTy)]
 
-  -- The nat-valued operators are uninterpreted, each characterised by ONE
-  -- distribution axiom `nat.toInt(op(a,b)) == nat.toInt(a) <op> nat.toInt(b)`
-  -- (guarded where the int result could be negative or the divisor zero).
-  -- As bodied `nat.fromInt(nat.toInt(a) <op> nat.toInt(b))` macros, every
-  -- arithmetic node was a `fromInt(toInt ..)` round trip needing a bridge
-  -- instantiation plus a non-negativity side condition; on the 32-term byte
-  -- sum of dalek `sum_of_slice` that is ~2000 instantiations per goal (z3's
-  -- profile), which cvc5 does not find.  With this shape cvc5 closes 35/35 at
-  -- the default budget where the macro form closed 32/35.
+  -- The operators are uninterpreted, one distribution axiom each:
+  -- `nat.toInt(op(a,b)) == nat.toInt(a) <op> nat.toInt(b)`, guarded where the
+  -- int result could be negative or the divisor zero.  As bodies they were
+  -- `fromInt(toInt a <op> toInt b)` macros: a bridge round trip per arithmetic
+  -- node, which E-matching does not find on large terms (Strata-Boole #14).
   -- `bvar 1` is the outer binder (a), `bvar 0` the inner (b).
   let bv1 : Core.Expression.Expr := .bvar () 1
   let tA := app1 (op' "nat.toInt") bv1

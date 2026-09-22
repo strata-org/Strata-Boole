@@ -11,32 +11,16 @@ import StrataDDM.Integration.Lean.HashCommands
 /-!
 # Binary Nat Library for Boole
 
-Specification, in Core syntax, of the nat library that `Strata.Boole.verify`
-injects whenever a program uses `nat` or `pos`.  The implementation is
-`natCorePreamble` in `StrataBoole/Verify.lean`, which builds the same
-declarations programmatically; nothing imports this module and it has no
-effect on verification.  The two are kept in step by hand.  Build with
-`lake build StrataBoole.Nat`; no other target builds it.
+Core-syntax specification of the nat library that `Strata.Boole.verify` injects
+whenever a program uses `nat` or `pos`.  The implementation is `natCorePreamble`
+in `StrataBoole/Verify.lean`; nothing imports this module.  Keep the two in
+step.  Build with `lake build StrataBoole.Nat` (no other target does).
 
-`nat` is a binary algebraic datatype whose term algebra is ℕ: `pos` (`xH = 1`,
-`xO(h) = 2h`, `xI(h) = 2h + 1`) and `nat` (`N0`, `Npos(p)`), with a recursive
-`int` bridge `pos.toInt` / `pos.fromInt`.  Every model value is therefore a
-genuine natural, and a counterexample is a concrete constructor term — unlike
-an opaque sort, for which cvc5 can only answer `unknown`.
-
-`nat.toInt`, `nat.fromInt` and the arithmetic operators are declared without
-bodies and characterised by axioms: constructor-wise for the bridge, and one
-distribution law `nat.toInt(op(a, b)) == nat.toInt(a) <op> nat.toInt(b)` per
-operator.  A bodied function is inlined as an SMT macro at every use, which
-forces a constructor case split on each opaque `nat` and a `fromInt`/`toInt`
-round trip at each arithmetic node; on dalek `sum_of_slice` that cost three
-obligations.  Each axiom is a theorem of the body it replaces, so the change is
-conservative.  Measurements: Strata-Boole #14.
-
-The Strata encoder emits `pos.toInt`/`pos.fromInt` as uninterpreted functions
-with per-constructor axioms; `define-fun-rec` is available on request
-(Strata #1478) for model finding.  Core has prefix integer operators
-(`int.add`, `int.le`, …) and no infix arithmetic, hence the notation below.
+`pos`/`nat` are binary datatypes (term algebra ℕ) with a recursive `int` bridge;
+`nat.toInt`, `nat.fromInt` and the operators are uninterpreted, characterised by
+axioms.  Reasoning and measurements: the comments in `natCorePreamble` and
+Strata-Boole #14.  Core has prefix integer operators (`int.add`, `int.le`, …),
+hence the notation below.
 
 ## Usage
 
