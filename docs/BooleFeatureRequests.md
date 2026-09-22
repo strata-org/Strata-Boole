@@ -65,12 +65,12 @@ several that are now fully implemented; a few have moved to
   - `e as_sint` → `Bv{n}.ToInt` → SMT-LIB 2.7 `sbv_to_int` (signed); widths 1/8/16/32/64/128.
   - `e as_bv{n}` → `Int.ToBv{n}` → SMT-LIB 2.7 `(_ int_to_bv n)` (truncating mod 2^n); widths 1/8/16/32/64/128.
   - Benchmarks: [`cast_expr.lean`](../StrataBooleTest/cast_expr.lean), [`widening_casts.lean`](../StrataBooleTest/widening_casts.lean), [`cast_all_directions.lean`](../StrataBooleTest/cast_all_directions.lean), [`cast_nested.lean`](../StrataBooleTest/cast_nested.lean).
-- **Native `nat`** (Gap #8; Strata-Boole #10, Strata #1439)
-  - `nat` and `pos` are grammar-level types: every Boole program has them and the operator surface `nat_toInt`, `nat_fromInt`, `nat_add/sub/mul/div/mod`, `nat_lt/le/gt/ge` in scope without declarations.
-  - Encoding: binary algebraic datatypes whose term algebra is ℕ — `pos` (`xH = 1`, `xO(h) = 2h`, `xI(h) = 2h + 1`) and `nat` (`N0`, `Npos(p)`) — with `pos.toInt`/`pos.fromInt` as `rec` functions. The library is built as `Core.Decl`s (`natCorePreamble` in `Verify.lean`) and injected into the SMT query only when the program uses `nat` or `pos` (`coreProgUsesNatOrPos`); `StrataBoole/Nat.lean` keeps the Boole-source form as reference.
-  - SMT shape (Strata-Boole nat-uf-axioms): `nat.toInt`, `nat.fromInt` and `nat.add/sub/mul/div/mod` are declared **without bodies** and defined by axioms — `nat.toInt`/`nat.fromInt` constructor-wise, each operator by one distribution law `nat.toInt(op(a, b)) == nat.toInt(a) <op> nat.toInt(b)`. A bodied function is inlined as an SMT macro; for `nat.toInt` that put a selector on every opaque `nat` (a constructor split per use, ~47k per obligation on dalek `sum_of_slice`), and for the operators a `fromInt(toInt …)` round trip per arithmetic node. With the axioms, `sum_of_slice` verifies 43/43 with native `nat` where 3 obligations timed out before. Conservative: each axiom is a theorem of the body it replaced.
-  - Counterexamples: a candidate-validation phase (`natCandidatePhase`) evaluates cvc5's candidate model against the obligation and promotes it to a certified `❌ fail`; Strata #1439 preserves the candidate through `SMT.Result.merge`.
-  - Remaining gap: the SMT encoder emits `pos.toInt`/`pos.fromInt` as uninterpreted functions with per-constructor axioms, not `define-fun-rec`, so cvc5 cannot evaluate them during model search. Constrained arithmetic queries (e.g. `nat_toInt(a) == 73`) can still come back `❓ unknown` — sound but not a counterexample. Test 2 in `nat_counterexample.lean` documents the case.
+- **Native `nat`** (Gap #8; Strata-Boole #10, #nat-uf-axioms; Strata #1439)
+  - `nat` and `pos` are grammar-level types; `nat_toInt`, `nat_fromInt`, `nat_add/sub/mul/div/mod`, `nat_lt/le/gt/ge` are in scope in every Boole program.
+  - Encoding: binary datatypes `pos` (`xH`, `xO`, `xI`) and `nat` (`N0`, `Npos`), built programmatically (`natCorePreamble`, `Verify.lean`) and injected only when a program uses `nat`/`pos`. `StrataBoole/Nat.lean` is the readable spec, not used by the implementation.
+  - `nat.toInt`, `nat.fromInt` and the operators have no bodies and are defined by axioms. Bodies were inlined as SMT macros, which forced a case split at every `nat.toInt` use and a `fromInt(toInt …)` round trip at every `+`; on dalek `sum_of_slice` 3 obligations timed out. With axioms it verifies 43/43.
+  - Counterexamples: `natCandidatePhase` validates cvc5's candidate model and promotes it to `❌ fail`.
+  - Gap: `pos.toInt`/`pos.fromInt` are UF + axioms, not `define-fun-rec`, so cvc5 cannot evaluate them during model search and some false obligations return `❓ unknown` (sound, no model). `nat_counterexample.lean` Test 2. Fix: encoder `define-fun-rec` opt-in, or a re-query without axioms.
   - Benchmarks: [`nat_native.lean`](../StrataBooleTest/nat_native.lean), [`nat_detection.lean`](../StrataBooleTest/nat_detection.lean), [`nat_counterexample.lean`](../StrataBooleTest/nat_counterexample.lean), [`nat_counterexample_extended.lean`](../StrataBooleTest/nat_counterexample_extended.lean).
 
 ## Semantic preservation requests
@@ -85,7 +85,7 @@ several that are now fully implemented; a few have moved to
 
 ## Type/model requests
 
-8. **Native `nat` support**: Implemented (Strata-Boole #10, Strata #1439) as binary `pos`/`nat` datatypes; `nat.toInt`/`nat.fromInt` and the operators are uninterpreted with axioms (nat-uf-axioms), which is what makes dalek `sum_of_slice` verify on native `nat`. Remaining gap: `pos.toInt`/`pos.fromInt` are UF+axioms rather than `define-fun-rec`, so some constrained counterexample queries return `❓ unknown`.
+8. **Native `nat` support**: Implemented (#10, #nat-uf-axioms). Remaining: some false obligations return `❓ unknown` instead of a counterexample (see the entry above).
 9. **Missing model types**: Add or standardize support for model types such as `Cell`, `Atomic`, `Thread`, `Rwlock`, `Unit`, and `Arithmetic_overflow`.
 10. **On-demand stdlib/pervasive stubs**: Some pervasive stubs may be droppable after pruning translation output.
 11. **Sequence slicing**: Implemented. Int-based termination for recursive seq functions: implemented (#1167).
@@ -129,8 +129,8 @@ The table below tracks all seeds regardless of location.
 | --- | --- | --- | --- |
 | [`datatypes_and_selectors.lean`](../StrataBooleTest/FeatureRequests/datatypes_and_selectors.lean) | Datatype constructor/selector robustness (#24) | Verus `guide/datatypes`, `adts`; VLIR `rec_adt_structural` | Basic seed passes; richer cases still active |
 | [`abstract_types_and_stubs.lean`](../StrataBooleTest/FeatureRequests/abstract_types_and_stubs.lean) | Missing model types (#9), stdlib/pervasive stubs (#10) | Verus `guide/quants`, `broadcast_proof`, `guide/higher_order_fns` | Active; `Sequence` lowering now implemented; primary gaps: Thread, Cell, Rwlock model types and pervasive stubs |
-| [`nat_int_boundary.lean`](../StrataBooleTest/FeatureRequests/nat_int_boundary.lean) | Native `nat` (#8), widening coercions (#6) | Verus `quantifiers`, `guide/integers`, `power_of_2`; VLIR `rec_adt_structural` | Both implemented; the seed itself is still written against an abstract `nat` with explicit coercions — porting it to native `nat` is open |
-| [`nat_native.lean`](../StrataBooleTest/nat_native.lean) | Native `nat` (#8) | Grammar-level `nat`/`pos` operator surface; counterexample battery in `nat_counterexample*.lean` | Implemented (#10); some constrained counterexample queries still `unknown` |
+| [`nat_int_boundary.lean`](../StrataBooleTest/FeatureRequests/nat_int_boundary.lean) | Native `nat` (#8), widening coercions (#6) | Verus `quantifiers`, `guide/integers`, `power_of_2`; VLIR `rec_adt_structural` | Implemented; seed still uses an abstract `nat` with explicit coercions — port to native `nat` open |
+| [`nat_native.lean`](../StrataBooleTest/nat_native.lean) | Native `nat` (#8) | Grammar-level `nat`/`pos` operator surface; counterexample battery in `nat_counterexample*.lean` | Implemented; counterexample gap as above |
 | [`map_extensionality.lean`](../StrataBooleTest/FeatureRequests/map_extensionality.lean) | Extensional equality | Verus `guide/ext_equal` | Implemented (#684, #795); named synonyms and non-map types still open |
 | [`overflow_guard.lean`](../StrataBooleTest/FeatureRequests/overflow_guard.lean) | Overflow guards (#5) | Verus `guide/overflow`, `overflow` | Lower priority |
 | [`opaque_reveal_hide.lean`](../StrataBooleTest/FeatureRequests/opaque_reveal_hide.lean) | `opaque`/`reveal` (#1), `hide` (#2), `closed` (#4) | Verus `generics`, `test_expand_errors`, `debug_expand`, `modules` | Lower priority |
