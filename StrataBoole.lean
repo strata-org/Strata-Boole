@@ -23,9 +23,13 @@ dialect of Strata.
 - **VC generation**: `Strata.Boole.genVCs`
 - **Pretty-printing**: `Strata.Boole.formatProgram`
 
-### `import StrataBoole.Nat`
+### `import StrataBoole.Nat` (specification only)
 
-- **Binary nat library**: `Strata.BooleNat.natLibrary`, `Strata.BooleNat.prepend`
+- **Binary nat library, as a readable Core-syntax spec**: `Strata.BooleNat.natLibrary`,
+  `Strata.BooleNat.prepend`.  Not part of the implementation: `Strata.Boole.verify`
+  injects its own copy (`natCorePreamble` in `StrataBoole/Verify.lean`) whenever a
+  program uses `nat`/`pos`, and nothing imports this module.  Build it with
+  `lake build StrataBoole.Nat` to check the spec still parses.
 
 ### `import StrataBoole.MetaVerifier`
 
