@@ -13,8 +13,13 @@ path = "../Strata"
 
 [[require]]
 name = "smt"
-git = "https://github.com/ufmg-smite/lean-smt"
-rev = "7d1d823"
+# Fork of ufmg-smite/lean-smt at the v4.29 pin `7d1d823`, plus the upstream fix
+# for `reconstructSumUB` (ufmg-smite/lean-smt@76b4eea): an all-equality sum step
+# proves `=`, not `≤`, and the kernel rejects whatever consumes it. Upstream has
+# the fix on a branch that moved to Lean v4.33; drop this pin for the upstream
+# one when Strata and Strata-Boole move too.
+git = "https://github.com/kondylidou/lean-smt"
+rev = "704d0f4"
 
 
 [[lean_lib]]

@@ -30,7 +30,9 @@ open StrataDDM (GlobalContext Program)
 
 def genVCs (program : Strata.Boole.Program) (gctx : GlobalContext) (options : Core.VerifyOptions := .default) : Option Core.coreVCs := do
   let program ← (Strata.Boole.toCoreProgram program gctx).toOption
-  Core.genVCs program options
+  -- Same nat-library injection as `Boole.verify`, so the tactic path sees the
+  -- program the verifier sees.
+  Core.genVCs (Strata.Boole.withNatPreamble gctx program) options
 
 end Strata.Boole
 

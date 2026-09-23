@@ -104,20 +104,22 @@ Result: ✅ pass-/
 #eval Strata.Boole.verify "cvc5" mutualRecursionSeed (options := .quiet)
 
 -- Lean backend: since Strata's `Core.genVCs` runs the termination-check and
--- precondition-elimination phases (strata-org/Strata#1471), the
--- termination and selector well-formedness VCs above (`even_terminates_0`,
--- `even_body_calls_MyNat..pred_0`, ...) reach the SMT→Lean bridge, which
--- cannot yet declare datatype sorts (it introduces only uninterpreted sorts and
--- functions; strata-org/Strata#1472).  The tactic must fail rather than drop such
--- a VC; this pins the current failure so it flips when the bridge learns datatypes.
-/--
-error: gen_smt_vcs: cannot translate verification condition 'even_body_calls_MyNat..pred_0' to a Lean goal: Error: variable 'Translate.Var.us
-  { name := "MyNat", arity := 0 }' not found in context
--/
-#guard_msgs in
+-- precondition-elimination phases (strata-org/Strata#1471), the termination and
+-- selector well-formedness VCs above (`even_terminates_0`,
+-- `even_body_calls_MyNat..pred_0`, ...) reach the SMT→Lean bridge.  The bridge
+-- now declares each datatype the query uses as a Lean inductive with its
+-- testers and selectors (`Strata.SMT.DT.MyNat`), so those VCs become goals
+-- about `MyNat` itself: its two constructors are exhaustive, and a selector's
+-- result ranks below the constructor it came from.  Case analysis settles them;
+-- `grind` does not, since to it the testers and selectors are opaque.
 example : Strata.smtVCsCorrectBoole mutualRecursionSeed := by
   gen_smt_vcs_boole
   all_goals (try grind)
+  all_goals
+    (intro n; intros
+     cases n <;>
+       simp_all [Strata.SMT.DT.MyNat.is_Zero, Strata.SMT.DT.MyNat.is_Succ,
+                 Strata.SMT.DT.MyNat.pred])
 
 /-
 Mutual recursion over int (#1167):
