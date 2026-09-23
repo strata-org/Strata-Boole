@@ -50,10 +50,6 @@ Obligation: pos.toInt_terminates_1
 Property: assert
 Result: ✅ pass
 
-Obligation: nat.toInt_body_calls_nat..val_0
-Property: assert
-Result: ✅ pass
-
 Obligation: pos.fromInt_terminates_0
 Property: assert
 Result: ✅ pass
@@ -76,8 +72,7 @@ Result: ❌ fail
 
 Obligation: test_false_lt_ensures_0_947
 Property: assert
-Result: ❌ fail
--/
+Result: ❌ fail-/
 #guard_msgs in
 #eval Strata.Boole.verify "cvc5" nat_false_lt_prog (options := .quiet)
 
@@ -121,10 +116,6 @@ Obligation: pos.toInt_terminates_1
 Property: assert
 Result: ✅ pass
 
-Obligation: nat.toInt_body_calls_nat..val_0
-Property: assert
-Result: ✅ pass
-
 Obligation: pos.fromInt_terminates_0
 Property: assert
 Result: ✅ pass
@@ -141,13 +132,12 @@ Obligation: pos.fromInt_terminates_3
 Property: assert
 Result: ✅ pass
 
-Obligation: assert_3_2784
+Obligation: assert_3_2704
 Property: assert
 Result: ❓ unknown
 
-Obligation: test_sum_counterexample_ensures_2_2753
+Obligation: test_sum_counterexample_ensures_2_2673
 Property: assert
-Result: ❓ unknown
--/
+Result: ❓ unknown-/
 #guard_msgs in
 #eval Strata.Boole.verify "cvc5" nat_sum_prog (options := .quiet)
