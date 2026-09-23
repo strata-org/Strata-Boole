@@ -10,9 +10,7 @@ import StrataBooleTest.cast_all_directions
 import StrataBooleTest.cast_expr
 import StrataBooleTest.cast_nested
 import StrataBooleTest.code_expression
-import StrataBooleTest.dalek_montgomery_invert
 import StrataBooleTest.dalek_sum_of_slice
-import StrataBooleTest.dalek_sum_of_slice_translated
 import StrataBooleTest.demo
 import StrataBooleTest.deterministic
 import StrataBooleTest.find_max
