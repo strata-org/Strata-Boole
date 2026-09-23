@@ -8,7 +8,10 @@ weakLeanArgs = ["--tstack=32768"]
 [[require]]
 name = "Strata"
 git = "https://github.com/strata-org/Strata"
-rev = "main"
+# A fixed commit, not `main`: with a branch name any `lake update` silently
+# moves Strata under us, and the break surfaces later as an unrelated CI
+# failure.  Bump this deliberately, with the migration it needs.
+rev = "62d26d945c8c6507cea0df967198554acc5bf43a"
 
 [[lean_lib]]
 name = "StrataBoole"
