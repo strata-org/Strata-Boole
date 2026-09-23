@@ -59,10 +59,6 @@ Obligation: pos.toInt_terminates_1
 Property: assert
 Result: ✅ pass
 
-Obligation: nat.toInt_body_calls_nat..val_0
-Property: assert
-Result: ✅ pass
-
 Obligation: pos.fromInt_terminates_0
 Property: assert
 Result: ✅ pass
@@ -168,10 +164,6 @@ Obligation: pos.toInt_terminates_1
 Property: assert
 Result: ✅ pass
 
-Obligation: nat.toInt_body_calls_nat..val_0
-Property: assert
-Result: ✅ pass
-
 Obligation: pos.fromInt_terminates_0
 Property: assert
 Result: ✅ pass
@@ -188,59 +180,59 @@ Obligation: pos.fromInt_terminates_3
 Property: assert
 Result: ✅ pass
 
-Obligation: assert_1_2749
+Obligation: assert_1_2670
 Property: assert
 Result: ✅ pass
 
-Obligation: test_roundtrip2_ensures_0_2705
+Obligation: test_roundtrip2_ensures_0_2626
 Property: assert
 Result: ✅ pass
 
-Obligation: assert_3_2925
+Obligation: assert_3_2846
 Property: assert
 Result: ✅ pass
 
-Obligation: test_add_correct_ensures_2_2856
+Obligation: test_add_correct_ensures_2_2777
 Property: assert
 Result: ✅ pass
 
-Obligation: test_sub_correct_post_test_sub_correct_ensures_5_3100_calls_nat.sub_0
+Obligation: test_sub_correct_post_test_sub_correct_ensures_5_3021_calls_nat.sub_0
 Property: assert
 Result: ✅ pass
 
-Obligation: assert_assert_6_3169_calls_nat.sub_0
+Obligation: assert_assert_6_3090_calls_nat.sub_0
 Property: assert
 Result: ✅ pass
 
-Obligation: assert_6_3169
+Obligation: assert_6_3090
 Property: assert
 Result: ✅ pass
 
-Obligation: test_sub_correct_ensures_5_3100
+Obligation: test_sub_correct_ensures_5_3021
 Property: assert
 Result: ✅ pass
 
-Obligation: assert_8_3335
+Obligation: assert_8_3256
 Property: assert
 Result: ✅ pass
 
-Obligation: test_literal_ensures_7_3281
+Obligation: test_literal_ensures_7_3202
 Property: assert
 Result: ✅ pass
 
-Obligation: assert_11_3571
+Obligation: assert_11_3492
 Property: assert
 Result: ✅ pass
 
-Obligation: test_monotonicity_ensures_10_3505
+Obligation: test_monotonicity_ensures_10_3426
 Property: assert
 Result: ✅ pass
 
-Obligation: assert_14_3763
+Obligation: assert_14_3684
 Property: assert
 Result: ✅ pass
 
-Obligation: test_injectivity_ensures_13_3743
+Obligation: test_injectivity_ensures_13_3664
 Property: assert
 Result: ✅ pass-/
 #guard_msgs in
