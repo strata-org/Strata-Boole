@@ -22,6 +22,15 @@ git = "https://github.com/kondylidou/lean-smt"
 rev = "704d0f4"
 
 
+
+# lean-smt requires mathlib at the tag for Lean v4.29.0, but this project (and
+# Strata) are on v4.29.1, and the mathlib cache refuses a toolchain mismatch.
+# The root package's pin wins, so ask for the tag that matches our toolchain.
+[[require]]
+name = "mathlib"
+git = "https://github.com/leanprover-community/mathlib4.git"
+rev = "v4.29.1"
+
 [[lean_lib]]
 name = "StrataBoole"
 
