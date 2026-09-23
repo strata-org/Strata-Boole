@@ -7,10 +7,9 @@ weakLeanArgs = ["--tstack=32768"]
 
 [[require]]
 name = "Strata"
-# TEMPORARY: fork branch with strata-org/Strata#1471 (Core.genVCs runs the termCheck +
-# precondElim phases). Switch back to git/main + `lake update Strata` once #1471 is merged.
-git = "https://github.com/kondylidou/Strata"
-rev = "fix/gen-vcs-precond-termcheck"
+# INTEGRATION (local): ../Strata on branch keynote-pin = Strata main + #1478 + #1471.
+# Replace with git = kondylidou/Strata, rev = keynote-pin once that branch is pushed.
+path = "../Strata"
 
 [[require]]
 name = "smt"
