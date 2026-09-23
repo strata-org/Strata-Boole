@@ -54,7 +54,7 @@ spec
 
 /-! ## Call-site encoding and verification -/
 
-private def fmtCallArg : Core.CallArg Core.Expression → String
+private def fmtCallArg : Imperative.CallArg Core.Expression → String
   | .inArg e => s!"in({Std.format e})"
   | .inoutArg id => s!"inout({id.name})"
   | .outArg id => s!"out({id.name})"
@@ -115,51 +115,49 @@ spec
 /-- info: Except.ok ["call inc(inout(g), inout(z), in(5))"] -/
 #guard_msgs in #eval callHelper callerPgm
 
-/--
-info: [Strata.Core] Type checking succeeded.
+/-- info: [Strata.Core] Type checking succeeded.
 
 
 VCs:
-Label: inc_ensures_1_2587
+Label: inc_ensures_1_2593
 Property: assert
 Assumptions:
-inc_requires_0_2569: int.gt(z@1, 0)
+inc_requires_0_2575: int.gt(z@1, 0)
 Obligation:
 true
 
-Label: callElimAssert_inc_requires_0_2569_6
+Label: callElimAssert_inc_requires_0_2575_6
 Property: assert
 Assumptions:
-main_caller_requires_2_2703: z@3 == 10
-main_caller_requires_3_2723: g@3 == 0
+main_caller_requires_2_2709: z@3 == 10
+main_caller_requires_3_2729: g@3 == 0
 Obligation:
 int.gt(z@3, 0)
 
-Label: main_caller_ensures_4_2742
+Label: main_caller_ensures_4_2748
 Property: assert
 Assumptions:
-main_caller_requires_2_2703: z@3 == 10
-main_caller_requires_3_2723: g@3 == 0
-callElimAssume_inc_ensures_1_2587_7: g@5 == int.add(int.add(g@3, 5), z@5)
+main_caller_requires_2_2709: z@3 == 10
+main_caller_requires_3_2729: g@3 == 0
+callElimAssume_inc_ensures_1_2593_7: g@5 == int.add(int.add(g@3, 5), z@5)
 Obligation:
 g@5 == 15
 
 ---
 info:
-Obligation: inc_ensures_1_2587
+Obligation: inc_ensures_1_2593
 Property: assert
 Result: ✅ pass
 
-Obligation: callElimAssert_inc_requires_0_2569_6
+Obligation: callElimAssert_inc_requires_0_2575_6
 Property: assert
 Result: ✅ pass
 
-Obligation: main_caller_ensures_4_2742
+Obligation: main_caller_ensures_4_2748
 Property: assert
 Result: ❓ unknown
 Model:
-(g@5, 5) (g@3, 0) (z@3, 10) (z@5, 0)
--/
+(g@5, 5) (g@3, 0) (z@3, 10) (z@5, 0)-/
 #guard_msgs in
 #eval Strata.Boole.verify "cvc5" callerPgm
 
