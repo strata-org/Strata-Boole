@@ -67,10 +67,6 @@ Obligation: pos.toInt_terminates_1
 Property: assert
 Result: ✅ pass
 
-Obligation: nat.toInt_body_calls_nat..val_0
-Property: assert
-Result: ✅ pass
-
 Obligation: pos.fromInt_terminates_0
 Property: assert
 Result: ✅ pass
@@ -128,10 +124,6 @@ Property: assert
 Result: ✅ pass
 
 Obligation: pos.toInt_terminates_1
-Property: assert
-Result: ✅ pass
-
-Obligation: nat.toInt_body_calls_nat..val_0
 Property: assert
 Result: ✅ pass
 
@@ -196,10 +188,6 @@ Obligation: pos.toInt_terminates_1
 Property: assert
 Result: ✅ pass
 
-Obligation: nat.toInt_body_calls_nat..val_0
-Property: assert
-Result: ✅ pass
-
 Obligation: pos.fromInt_terminates_0
 Property: assert
 Result: ✅ pass
@@ -216,7 +204,7 @@ Obligation: pos.fromInt_terminates_3
 Property: assert
 Result: ✅ pass
 
-Obligation: test_spec_quant_ensures_0_4581
+Obligation: test_spec_quant_ensures_0_4423
 Property: assert
 Result: ✅ pass-/
 #guard_msgs in
