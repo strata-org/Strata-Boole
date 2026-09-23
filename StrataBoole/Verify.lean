@@ -481,6 +481,12 @@ private partial def toCoreExpr (e : Boole.Expr) : TranslateM Core.Expression.Exp
   | .seq_append  _ _ s1 s2  => return mkCoreApp Core.seqAppendOp  [← toCoreExpr s1, ← toCoreExpr s2]
   | .seq_build   _ _ s v    => return mkCoreApp Core.seqBuildOp   [← toCoreExpr s, ← toCoreExpr v]
   | .seq_update  _ _ s i v  => return mkCoreApp Core.seqUpdateOp  [← toCoreExpr s, ← toCoreExpr i, ← toCoreExpr v]
+  -- Total (unsafe) variants: no bounds precondition, unconstrained out of range.
+  -- Useful in spec functions over fixed-size arrays whose length is a typing fact.
+  | .seq_select_unsafe _ _ s i   => return mkCoreApp Core.seqSelectUnsafeOp [← toCoreExpr s, ← toCoreExpr i]
+  | .seq_update_unsafe _ _ s i v => return mkCoreApp Core.seqUpdateUnsafeOp [← toCoreExpr s, ← toCoreExpr i, ← toCoreExpr v]
+  | .seq_take_unsafe   _ _ s n   => return mkCoreApp Core.seqTakeUnsafeOp   [← toCoreExpr s, ← toCoreExpr n]
+  | .seq_drop_unsafe   _ _ s n   => return mkCoreApp Core.seqDropUnsafeOp   [← toCoreExpr s, ← toCoreExpr n]
   | .seq_contains _ _ s v   => return mkCoreApp Core.seqContainsOp [← toCoreExpr s, ← toCoreExpr v]
   -- Sequence operations (Boole Verus-style additions — not in Core Grammar)
   -- Sequence.skip(s, n)      = drop first n elements
@@ -500,6 +506,8 @@ private partial def toCoreExpr (e : Boole.Expr) : TranslateM Core.Expression.Exp
   | .seq_empty_bv32 _ => return Core.seqEmptyOp (some (.bitvec 32))
   | .seq_empty_bv64 _ => return Core.seqEmptyOp (some (.bitvec 64))
   | .seq_empty_int _  => return Core.seqEmptyOp (some .int)
+  -- Polymorphic form `Sequence.empty<T>()`: the element type is explicit in the syntax.
+  | .seq_empty _ ty   => return Core.seqEmptyOp (some (← toCoreMonoType ty))
   -- Sequence literals: Sequence.of_<ty>[v0, v1, ..., vn]
   -- Lowers to a left-fold of seq_build over a typed seq_empty seed. The
   -- element type must be threaded onto the seed: for vs = [] it is the only
