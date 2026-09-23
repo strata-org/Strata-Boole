@@ -7,8 +7,16 @@ weakLeanArgs = ["--tstack=32768"]
 
 [[require]]
 name = "Strata"
-git = "https://github.com/strata-org/Strata"
-rev = "main"
+# TEMPORARY: fork branch with strata-org/Strata#1471 (Core.genVCs runs the termCheck +
+# precondElim phases). Switch back to git/main + `lake update Strata` once #1471 is merged.
+git = "https://github.com/kondylidou/Strata"
+rev = "fix/gen-vcs-precond-termcheck"
+
+[[require]]
+name = "smt"
+git = "https://github.com/ufmg-smite/lean-smt"
+rev = "7d1d823"
+
 
 [[lean_lib]]
 name = "StrataBoole"
