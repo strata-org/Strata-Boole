@@ -1508,7 +1508,6 @@ private def natCorePreambleWith (computable : Bool) : List Core.Decl :=
   , mkFuncNoBody "nat.mod" ab natTy
   , axAdd, axSub, axMul, axDiv, axMod
   ] ++ cmpOps
-<<<<<<< HEAD
 
 private def natCorePreamble : List Core.Decl := natCorePreambleWith false
 private def natCorePreambleComputable : List Core.Decl := natCorePreambleWith true
@@ -1522,11 +1521,7 @@ def withNatPreamble (gctx : StrataDDM.GlobalContext) (cp : Core.Program) : Core.
   if hasUserNatDecl || !coreProgUsesNatOrPos cp then cp
   else { cp with decls := natCorePreamble ++ cp.decls }
 
-=======
->>>>>>> feat/nat-requery
 
-private def natCorePreamble : List Core.Decl := natCorePreambleWith false
-private def natCorePreambleComputable : List Core.Decl := natCorePreambleWith true
 
 /-- Prepend the nat library to a Core program that uses grammar-level `nat`/`pos`
     and did not declare them itself (a user declaration in `gctx` takes
@@ -1810,12 +1805,7 @@ def verify
                          || (env.globalContext.findIndex? "pos").isSome
       let userCp := cp
       let usesNatOrPos := coreProgUsesNatOrPos userCp
-<<<<<<< HEAD
       let cp := withNatPreamble env.globalContext userCp
-=======
-      let cp := if hasUserNatDecl || !usesNatOrPos then userCp
-                else { userCp with decls := natCorePreamble ++ userCp.decls }
->>>>>>> feat/nat-requery
       -- Wire the nat candidate-validation phase whenever nat/pos types are in use.
       -- Intentionally NOT conditioned on !hasUserNatDecl: `prepend`-based programs put
       -- nat/pos into globalContext (triggering hasUserNatDecl=true) but still need
