@@ -13,6 +13,20 @@ git = "https://github.com/strata-org/Strata"
 # failure.  Bump this deliberately, with the migration it needs.
 rev = "62d26d945c8c6507cea0df967198554acc5bf43a"
 
+[[require]]
+name = "smt"
+git = "https://github.com/ufmg-smite/lean-smt"
+rev = "7d1d823"
+
+
+# lean-smt requires mathlib at the tag for Lean v4.29.0, but this project (and
+# Strata) are on v4.29.1, and the mathlib cache refuses a toolchain mismatch.
+# The root package's pin wins, so ask for the tag that matches our toolchain.
+[[require]]
+name = "mathlib"
+git = "https://github.com/leanprover-community/mathlib4.git"
+rev = "v4.29.1"
+
 [[lean_lib]]
 name = "StrataBoole"
 
