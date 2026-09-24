@@ -75,7 +75,7 @@ private def seqEmptyTysIn (p : StrataDDM.Program) : Except String (List String) 
   for d in cp.decls do
     match d with
     | .proc proc _ =>
-      for stmt in proc.body do
+      for stmt in (← proc.body.getStructured) do
         out := out ++ (collectFromStmt stmt).map fmtSeqEmptyTy
     | _ => pure ()
   return out
@@ -93,7 +93,7 @@ spec { }
 };
 #end
 
-/-- info: Except.ok ["Sequence (bv W32)"] -/
+/-- info: Except.ok ["Sequence bv32"] -/
 #guard_msgs in #eval seqEmptyTysIn emptyBv32LiteralPgm
 
 /-! ## Empty literal: `Sequence.of_int[]` must lower to a typed `Sequence.empty`. -/
@@ -125,7 +125,7 @@ spec { }
 };
 #end
 
-/-- info: Except.ok ["Sequence (bv W32)"] -/
+/-- info: Except.ok ["Sequence bv32"] -/
 #guard_msgs in #eval seqEmptyTysIn nonEmptyBv32LiteralPgm
 
 end Strata
