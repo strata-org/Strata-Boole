@@ -1,11 +1,11 @@
 # Native `nat` in the Rust → Boole → cvc5 → Lean pipeline
 
 > **About this branch.** `keynote-integration` is an integration branch, not a PR:
-> it combines the Strata-Boole changes below with three Strata PRs that are still
-> open, so it does not build on its own. `lakefile.toml` points `Strata` at a local
-> path and `smt` at a private fork carrying one backported fix. The work is being
-> landed as the separate PRs listed here; this branch exists to show the result
-> end to end.
+> it combines the Strata-Boole changes below with two Strata PRs that are still
+> open. It pins `Strata` at `kondylidou/Strata@keynote-pin` (upstream main plus
+> those two PRs) and `smt` at a fork carrying one backported fix. The work is
+> being landed as the separate PRs listed here; this branch exists to show the
+> result end to end.
 
 ## Goal
 

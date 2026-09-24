@@ -7,9 +7,10 @@ weakLeanArgs = ["--tstack=32768"]
 
 [[require]]
 name = "Strata"
-# INTEGRATION (local): ../Strata on branch keynote-pin = Strata main + #1478 + #1471.
-# Replace with git = kondylidou/Strata, rev = keynote-pin once that branch is pushed.
-path = "../Strata"
+# The keynote state of Strata: main plus strata-org/Strata#1478 (opt-in
+# define-fun-rec) and #1480 (SMT datatypes as Lean inductives), both open.
+git = "https://github.com/kondylidou/Strata"
+rev = "dbda7f33f83b5052ee74ec14c2984f1e409173b1"
 
 [[require]]
 name = "smt"
