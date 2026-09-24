@@ -142,9 +142,10 @@ example : Strata.smtVCsCorrectBoole prog := by
 `gen_smt_vcs_boole` turns the program into one Lean goal per obligation. From
 there they are ordinary Lean goals, closed by `grind`, by `omega`, or by hand.
 
-A second route is in review. With the lean-smt dependency, `smt` sends a goal to
-cvc5 and replays the returned proof in the kernel, and `inline_boole_defs`
-exposes a spec function's body in a goal, the analogue of Verus's `reveal`.
+Two more tools exist for these goals. `smt` sends one to cvc5 and replays the
+returned proof in the kernel, so the solver is checked rather than trusted. And
+`inline_boole_defs` exposes a spec function's body in a goal, the analogue of
+Verus's `reveal`, for the goals that need one.
 
 ## The files that matter
 
@@ -153,7 +154,7 @@ exposes a spec function's body in a goal, the analogue of Verus's `reveal`.
 | `StrataBoole/Grammar.lean` | Boole's surface syntax, as a DDM dialect. Adding syntax starts here. |
 | `StrataBoole/Boole.lean` | The AST, *generated* from the grammar by `#strata_gen`. Never edit by hand; rebuild after changing the grammar. |
 | `StrataBoole/Verify.lean` | Boole → Core: `toCoreExpr`, `toCoreStmt`, `toCoreProgram`. Most work happens here. Also `Boole.verify`, which runs the solver. |
-| `StrataBoole/MetaVerifier.lean` | The Lean side: `gen_smt_vcs_boole`, which turns a program into Lean goals. |
+| `StrataBoole/MetaVerifier.lean` | The Lean side: `gen_smt_vcs_boole`, which turns a program into Lean goals, and `inline_boole_defs`. |
 | `StrataBooleTest/` | One file per feature. `FeatureRequests/` holds tests for things not implemented yet. |
 | `docs/BooleFeatureRequests.md` | What Boole supports, what it doesn't, and which test pins each. Read before picking work. |
 | `AGENTS.md` | Conventions and pitfalls. Worth reading properly. |
@@ -189,7 +190,8 @@ say so and stop. That is a real result, and it belongs in
 * **`Boole.lean` is expensive to rebuild** (`maxHeartbeats 400000`). Avoid
   touching `Grammar.lean` casually.
 * **Spec functions reach the solver as opaque names.** That is deliberate; it
-  keeps queries small. A goal that needs a body has to ask for it.
+  keeps queries small. A goal that needs a body asks for it with
+  `inline_boole_defs`.
 
 ## Further reading
 
