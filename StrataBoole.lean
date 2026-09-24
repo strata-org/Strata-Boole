@@ -23,9 +23,11 @@ dialect of Strata.
 - **VC generation**: `Strata.Boole.genVCs`
 - **Pretty-printing**: `Strata.Boole.formatProgram`
 
-### `import StrataBoole.Nat`
+### `import StrataBoole.Nat` (specification only)
 
-- **Binary nat library**: `Strata.BooleNat.natLibrary`, `Strata.BooleNat.prepend`
+- **Binary nat library as a Core-syntax spec**: `Strata.BooleNat.natLibrary`,
+  `Strata.BooleNat.prepend`.  The implementation is `natCorePreamble` in
+  `StrataBoole/Verify.lean`; nothing imports this module.  `lake build StrataBoole.Nat`.
 
 ### `import StrataBoole.MetaVerifier`
 

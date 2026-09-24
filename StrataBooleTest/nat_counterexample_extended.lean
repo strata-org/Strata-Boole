@@ -53,10 +53,6 @@ Obligation: pos.toInt_terminates_1
 Property: assert
 Result: ✅ pass
 
-Obligation: nat.toInt_body_calls_nat..val_0
-Property: assert
-Result: ✅ pass
-
 Obligation: pos.fromInt_terminates_0
 Property: assert
 Result: ✅ pass
@@ -79,8 +75,7 @@ Result: ❌ fail
 
 Obligation: test_nat_range_ensures_1_1011
 Property: assert
-Result: ❌ fail
--/
+Result: ❌ fail-/
 #guard_msgs in
 #eval Strata.Boole.verify "cvc5" nat_range_prog (options := .quiet)
 
@@ -111,26 +106,25 @@ spec {
 #end
 
 /-- info:
-Obligation: test_intlist_head_pre_test_intlist_head_requires_1_2670_calls_IntList..head_0
+Obligation: test_intlist_head_pre_test_intlist_head_requires_1_2590_calls_IntList..head_0
 Property: assert
 Result: ✅ pass
 
-Obligation: test_intlist_head_post_test_intlist_head_ensures_2_2703_calls_IntList..head_0
+Obligation: test_intlist_head_post_test_intlist_head_ensures_2_2623_calls_IntList..head_0
 Property: assert
 Result: ✅ pass
 
-Obligation: assert_assert_3_2738_calls_IntList..head_0
+Obligation: assert_assert_3_2658_calls_IntList..head_0
 Property: assert
 Result: ✅ pass
 
-Obligation: assert_3_2738
+Obligation: assert_3_2658
 Property: assert
 Result: ❌ fail
 
-Obligation: test_intlist_head_ensures_2_2703
+Obligation: test_intlist_head_ensures_2_2623
 Property: assert
-Result: ❌ fail
--/
+Result: ❌ fail-/
 #guard_msgs in
 #eval Strata.Boole.verify "cvc5" int_list_prog (options := .quiet)
 
@@ -167,10 +161,6 @@ Obligation: pos.toInt_terminates_1
 Property: assert
 Result: ✅ pass
 
-Obligation: nat.toInt_body_calls_nat..val_0
-Property: assert
-Result: ✅ pass
-
 Obligation: pos.fromInt_terminates_0
 Property: assert
 Result: ✅ pass
@@ -187,14 +177,13 @@ Obligation: pos.fromInt_terminates_3
 Property: assert
 Result: ✅ pass
 
-Obligation: assert_1_3826
+Obligation: assert_1_3745
 Property: assert
 Result: ❌ fail
 
-Obligation: test_nat_square_ensures_0_3784
+Obligation: test_nat_square_ensures_0_3703
 Property: assert
-Result: ❌ fail
--/
+Result: ❌ fail-/
 #guard_msgs in
 #eval Strata.Boole.verify "cvc5" nat_square_prog (options := .quiet)
 
@@ -241,10 +230,6 @@ Obligation: pos.toInt_terminates_1
 Property: assert
 Result: ✅ pass
 
-Obligation: nat.toInt_body_calls_nat..val_0
-Property: assert
-Result: ✅ pass
-
 Obligation: pos.fromInt_terminates_0
 Property: assert
 Result: ✅ pass
@@ -261,21 +246,20 @@ Obligation: pos.fromInt_terminates_3
 Property: assert
 Result: ✅ pass
 
-Obligation: test_natlist_nonneg_post_test_natlist_nonneg_ensures_1_5536_calls_NatList..head_0
+Obligation: test_natlist_nonneg_post_test_natlist_nonneg_ensures_1_5375_calls_NatList..head_0
 Property: assert
 Result: ✅ pass
 
-Obligation: assert_assert_2_5582_calls_NatList..head_0
+Obligation: assert_assert_2_5421_calls_NatList..head_0
 Property: assert
 Result: ✅ pass
 
-Obligation: assert_2_5582
+Obligation: assert_2_5421
 Property: assert
 Result: ✅ pass
 
-Obligation: test_natlist_nonneg_ensures_1_5536
+Obligation: test_natlist_nonneg_ensures_1_5375
 Property: assert
-Result: ✅ pass
--/
+Result: ✅ pass-/
 #guard_msgs in
 #eval Strata.Boole.verify "cvc5" nat_list_prog (options := .quiet)

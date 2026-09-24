@@ -481,6 +481,12 @@ private partial def toCoreExpr (e : Boole.Expr) : TranslateM Core.Expression.Exp
   | .seq_append  _ _ s1 s2  => return mkCoreApp Core.seqAppendOp  [← toCoreExpr s1, ← toCoreExpr s2]
   | .seq_build   _ _ s v    => return mkCoreApp Core.seqBuildOp   [← toCoreExpr s, ← toCoreExpr v]
   | .seq_update  _ _ s i v  => return mkCoreApp Core.seqUpdateOp  [← toCoreExpr s, ← toCoreExpr i, ← toCoreExpr v]
+  -- Total (unsafe) variants: no bounds precondition, unconstrained out of range.
+  -- Useful in spec functions over fixed-size arrays whose length is a typing fact.
+  | .seq_select_unsafe _ _ s i   => return mkCoreApp Core.seqSelectUnsafeOp [← toCoreExpr s, ← toCoreExpr i]
+  | .seq_update_unsafe _ _ s i v => return mkCoreApp Core.seqUpdateUnsafeOp [← toCoreExpr s, ← toCoreExpr i, ← toCoreExpr v]
+  | .seq_take_unsafe   _ _ s n   => return mkCoreApp Core.seqTakeUnsafeOp   [← toCoreExpr s, ← toCoreExpr n]
+  | .seq_drop_unsafe   _ _ s n   => return mkCoreApp Core.seqDropUnsafeOp   [← toCoreExpr s, ← toCoreExpr n]
   | .seq_contains _ _ s v   => return mkCoreApp Core.seqContainsOp [← toCoreExpr s, ← toCoreExpr v]
   -- Sequence operations (Boole Verus-style additions — not in Core Grammar)
   -- Sequence.skip(s, n)      = drop first n elements
@@ -500,6 +506,8 @@ private partial def toCoreExpr (e : Boole.Expr) : TranslateM Core.Expression.Exp
   | .seq_empty_bv32 _ => return Core.seqEmptyOp (some (.bitvec 32))
   | .seq_empty_bv64 _ => return Core.seqEmptyOp (some (.bitvec 64))
   | .seq_empty_int _  => return Core.seqEmptyOp (some .int)
+  -- Polymorphic form `Sequence.empty<T>()`: the element type is explicit in the syntax.
+  | .seq_empty _ ty   => return Core.seqEmptyOp (some (← toCoreMonoType ty))
   -- Sequence literals: Sequence.of_<ty>[v0, v1, ..., vn]
   -- Lowers to a left-fold of seq_build over a typed seq_empty seed. The
   -- element type must be threaded onto the seed: for vs = [] it is the only
@@ -645,11 +653,11 @@ private def getGlobalParamPrefix (n : String)
 /-- Build `CallArg` prefix for a call site from `getGlobalParamPrefix`.
     Modified globals become `inoutArg`; read-only globals become `inArg`. -/
 private def constructProcArgsPrefix (n : String)
-    : TranslateM (List (Core.CallArg Core.Expression)) := do
+    : TranslateM (List (Imperative.CallArg Core.Expression)) := do
   let (modifiesTyped, readOnlyGlobals) ← getGlobalParamPrefix n
-  let modifiesArgs := modifiesTyped.map fun (id, _) => Core.CallArg.inoutArg id
+  let modifiesArgs := modifiesTyped.map fun (id, _) => Imperative.CallArg.inoutArg id
   let readOnlyArgs := readOnlyGlobals.map
-    fun (id, _) => Core.CallArg.inArg (Lambda.LExpr.fvar () id none : Core.Expression.Expr)
+    fun (id, _) => Imperative.CallArg.inArg (Lambda.LExpr.fvar () id none : Core.Expression.Expr)
   return modifiesArgs ++ readOnlyArgs
 
 /-- Returns `true` when the annotation contains a bare `@[reachCheck]` flag,
@@ -736,8 +744,8 @@ private def toCoreStmt (s : BooleDDM.Statement SourceRange) : TranslateM Core.St
     return .loop guard measureExpr (← toCoreInvariants invs) (← withBVars [] (toCoreBlock b)) (← toCoreMetaData m)
   | .boole_call_statement m ⟨_, lhs⟩ ⟨_, n⟩ ⟨_, args⟩ => do
     let globalsPrefix ← constructProcArgsPrefix n
-    let userIn := (← args.toList.mapM toCoreExpr).map Core.CallArg.inArg
-    let userOut := (lhs.toList.map (mkIdent ·.val)).map Core.CallArg.outArg
+    let userIn := (← args.toList.mapM toCoreExpr).map Imperative.CallArg.inArg
+    let userOut := (lhs.toList.map (mkIdent ·.val)).map Imperative.CallArg.outArg
     return Core.Statement.call n (globalsPrefix ++ userIn ++ userOut) (← toCoreMetaData m)
   | .call_statement m _ ⟨_, n⟩ ⟨_, callArgs⟩ => do
     -- Reject Core-only out/inout call argument syntax in Boole.
@@ -752,7 +760,7 @@ private def toCoreStmt (s : BooleDDM.Statement SourceRange) : TranslateM Core.St
     let globalsPrefix ← constructProcArgsPrefix n
     let userIn ← callArgs.toList.filterMapM fun ca =>
       match ca with
-      | .callArgExpr _ e => return some (Core.CallArg.inArg (← toCoreExpr e))
+      | .callArgExpr _ e => return some (Imperative.CallArg.inArg (← toCoreExpr e))
       | _ => return none  -- unreachable: out/inout rejected above
     return Core.Statement.call n (globalsPrefix ++ userIn) (← toCoreMetaData m)
   | .block_statement m _ ⟨_, l⟩ b =>
@@ -1294,11 +1302,13 @@ private def natCorePreamble : List Core.Decl :=
             body := some body, attr := #[], axioms := [],
             preconditions := [], measure := none }
            .empty
-  let mkFuncPre (name : String) (inputs : List (Core.Expression.Ident × LMonoTy))
-      (output : LMonoTy) (body : Core.Expression.Expr)
-      (pres : List (DL.Util.FuncPrecondition Core.Expression.Expr Unit)) : Core.Decl :=
+  -- Uninterpreted function: no body, so the SMT encoder emits `declare-fun`
+  -- instead of a `define-fun` macro.  Meaning comes from separate axioms.
+  let mkFuncNoBody (name : String) (inputs : List (Core.Expression.Ident × LMonoTy))
+      (output : LMonoTy)
+      (pres : List (DL.Util.FuncPrecondition Core.Expression.Expr Unit) := []) : Core.Decl :=
     .func { name := ⟨name, ()⟩, typeArgs := [], inputs := inputs, output := output,
-            body := some body, attr := #[], axioms := [],
+            body := none, attr := #[], axioms := [],
             preconditions := pres, measure := none }
            .empty
   let mkRec (name : String) (inputs : List (Core.Expression.Ident × LMonoTy))
@@ -1338,11 +1348,10 @@ private def natCorePreamble : List Core.Decl :=
       #[Strata.DL.Util.FuncAttr.inlineIfConstr 0] none
 
   -- nat.toInt: n : nat → int
-  let n := fv' "n"
-  let natToInt :=
-    mkFunc "nat.toInt" [(⟨"n", ()⟩, natTy)] intTy
-      (ite' (app1 (op' "nat..isN0") n) (int' 0)
-        (app1 (op' "pos.toInt") (app1 (op' "nat..val") n)))
+  -- Uninterpreted; defined constructor-wise below (`nat_toInt_N0`/`nat_toInt_Npos`),
+  -- like `pos.toInt`.  A body would be inlined as an SMT macro applying `nat..val`
+  -- to opaque nats, forcing a constructor split at every use (Strata-Boole #14).
+  let natToInt := mkFuncNoBody "nat.toInt" [(⟨"n", ()⟩, natTy)] intTy
 
   -- pos.fromInt: x : int → pos, decreases x
   let x := fv' "x"
@@ -1356,11 +1365,9 @@ private def natCorePreamble : List Core.Decl :=
       #[] (some x)
 
   -- nat.fromInt: x : int → nat
-  let natFromInt :=
-    mkFunc "nat.fromInt" [(⟨"x", ()⟩, intTy)] natTy
-      (ite' (app2 (op' "Int.Le") x (int' 0))
-        (op' "N0")
-        (app1 (op' "Npos") (app1 (op' "pos.fromInt") x)))
+  -- Uninterpreted; defined below.  Must stay a symbol: inlined, the bridge
+  -- axiom `nat_fromInt_toInt` no longer matches `nat.toInt(nat.fromInt(x))`.
+  let natFromInt := mkFuncNoBody "nat.fromInt" [(⟨"x", ()⟩, intTy)] natTy
 
   -- Bridge axioms
   let axNonneg : Core.Decl := .ax
@@ -1381,23 +1388,73 @@ private def natCorePreamble : List Core.Decl :=
              (eq' (app1 (op' "nat.fromInt") (app1 (op' "nat.toInt") bv0)) bv0) }
     .empty
 
+  -- Defining axioms for nat.toInt / nat.fromInt (constructor-wise: they fire
+  -- on `N0()`/`Npos(p)` or on a known sign, never forcing a constructor split).
+  let axToIntN0 : Core.Decl := .ax
+    { name := "nat_toInt_N0"
+      e := eq' (app1 (op' "nat.toInt") (op' "N0")) (int' 0) }
+    .empty
+  let axToIntNpos : Core.Decl := .ax
+    { name := "nat_toInt_Npos"
+      e := .quant () .all "" (some posTy) bv0
+             (eq' (app1 (op' "nat.toInt") (app1 (op' "Npos") bv0))
+                  (app1 (op' "pos.toInt") bv0)) }
+    .empty
+  let axFromIntNonpos : Core.Decl := .ax
+    { name := "nat_fromInt_nonpos"
+      e := .quant () .all "" (some intTy) bv0
+             (mkCoreApp Core.boolImpliesOp
+               [ app2 (op' "Int.Le") bv0 (int' 0)
+               , eq' (app1 (op' "nat.fromInt") bv0) (op' "N0") ]) }
+    .empty
+  let axFromIntPos : Core.Decl := .ax
+    { name := "nat_fromInt_pos"
+      e := .quant () .all "" (some intTy) bv0
+             (mkCoreApp Core.boolImpliesOp
+               [ app2 (op' "Int.Lt") (int' 0) bv0
+               , eq' (app1 (op' "nat.fromInt") bv0)
+                     (app1 (op' "Npos") (app1 (op' "pos.fromInt") bv0)) ]) }
+    .empty
+
   -- Arithmetic operators (a : nat, b : nat)
   let a := fv' "a"; let b := fv' "b"
   let toIntA := app1 (op' "nat.toInt") a
   let toIntB := app1 (op' "nat.toInt") b
-  let fromInt (expr : Core.Expression.Expr) : Core.Expression.Expr := app1 (op' "nat.fromInt") expr
   let ab : List (Core.Expression.Ident × LMonoTy) := [(⟨"a", ()⟩, natTy), (⟨"b", ()⟩, natTy)]
+
+  -- The operators are uninterpreted, one distribution axiom each:
+  -- `nat.toInt(op(a,b)) == nat.toInt(a) <op> nat.toInt(b)`, guarded where the
+  -- int result could be negative or the divisor zero.  As bodies they were
+  -- `fromInt(toInt a <op> toInt b)` macros: a bridge round trip per arithmetic
+  -- node, which E-matching does not find on large terms (Strata-Boole #14).
+  -- `bvar 1` is the outer binder (a), `bvar 0` the inner (b).
+  let bv1 : Core.Expression.Expr := .bvar () 1
+  let tA := app1 (op' "nat.toInt") bv1
+  let tB := app1 (op' "nat.toInt") bv0
+  let distrib (nm op intOp : String) (guard : Option Core.Expression.Expr) : Core.Decl :=
+    let body := eq' (app1 (op' "nat.toInt") (app2 (op' op) bv1 bv0)) (app2 (op' intOp) tA tB)
+    let body := match guard with
+      | some g => mkCoreApp Core.boolImpliesOp [g, body]
+      | none => body
+    .ax { name := nm, e := .quant () .all "" (some natTy) bv0 (.quant () .all "" (some natTy) bv0 body) }
+        .empty
+  let axAdd := distrib "nat_toInt_add" "nat.add" "Int.Add" none
+  let axSub := distrib "nat_toInt_sub" "nat.sub" "Int.Sub" (some (app2 (op' "Int.Le") tB tA))
+  let axMul := distrib "nat_toInt_mul" "nat.mul" "Int.Mul" none
+  let axDiv := distrib "nat_toInt_div" "nat.div" "Int.Div" (some (app2 (op' "Int.Lt") (int' 0) tB))
+  let axMod := distrib "nat_toInt_mod" "nat.mod" "Int.Mod" (some (app2 (op' "Int.Lt") (int' 0) tB))
 
   [ .type (.data [posDecl]) .empty
   , .type (.data [natDecl]) .empty
   , posToInt, natToInt, posFromInt, natFromInt
+  , axToIntN0, axToIntNpos, axFromIntNonpos, axFromIntPos
   , axNonneg, axFromIntToInt, axToIntFromInt
-  , mkFunc    "nat.add" ab natTy  (fromInt (app2 (op' "Int.Add") toIntA toIntB))
-  , mkFuncPre "nat.sub" ab natTy  (fromInt (app2 (op' "Int.Sub") toIntA toIntB))
-      [⟨app2 (op' "Int.Le") toIntB toIntA, ()⟩]
-  , mkFunc    "nat.mul" ab natTy  (fromInt (app2 (op' "Int.Mul") toIntA toIntB))
-  , mkFunc    "nat.div" ab natTy  (fromInt (app2 (op' "Int.Div") toIntA toIntB))
-  , mkFunc    "nat.mod" ab natTy  (fromInt (app2 (op' "Int.Mod") toIntA toIntB))
+  , mkFuncNoBody "nat.add" ab natTy
+  , mkFuncNoBody "nat.sub" ab natTy [⟨app2 (op' "Int.Le") toIntB toIntA, ()⟩]
+  , mkFuncNoBody "nat.mul" ab natTy
+  , mkFuncNoBody "nat.div" ab natTy
+  , mkFuncNoBody "nat.mod" ab natTy
+  , axAdd, axSub, axMul, axDiv, axMod
   , mkFunc    "nat.lt"  ab boolTy (app2 (op' "Int.Lt") toIntA toIntB)
   , mkFunc    "nat.le"  ab boolTy (app2 (op' "Int.Le") toIntA toIntB)
   , mkFunc    "nat.gt"  ab boolTy (app2 (op' "Int.Gt") toIntA toIntB)
@@ -1688,10 +1745,13 @@ def verify
       let usesGrammarNat := usesNatOrPos
       let externalPhases : List Core.AbstractedPhase :=
         if usesGrammarNat then [natCandidatePhase] else []
+      -- `Core.verify` takes the procedure filter through `VerifyOptions`; a
+      -- filter passed to this function takes precedence over one in `options`.
+      let options := { options with
+        proceduresToVerify := proceduresToVerify <|> options.proceduresToVerify }
       let runner tempPath :=
         EIO.toIO (fun dm => IO.Error.userError (toString (dm.format (some ictx.fileMap))))
-          (Core.verify cp tempPath proceduresToVerify options
-            (externalPhases := externalPhases))
+          (Core.verify cp tempPath options (externalPhases := externalPhases))
       -- Decode nat/pos constructor model values to integers for display.
       -- Replaces e.g. Npos(xO(xH)) with 2 in the counterexample model.
       let decodeEntry (id : Core.Expression.Ident)
