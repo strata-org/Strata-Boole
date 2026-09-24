@@ -9,7 +9,8 @@ several that are now fully implemented; a few have moved to
 
 - **Extensional equality** (#684)
   - `a =~= b` lowers to `∀ i : k . a[i] == b[i]`.
-  - Remaining gaps: named map synonyms, sequences, higher-order extensionality.
+  - Remaining gaps: named map synonyms, sequences (strata-org/Strata-Boole#18),
+    higher-order extensionality.
 - **Array axiomatization as standalone SMT-IR pass** (#795)
   - Post-encoding pass rewrites Array-theory SMT-IR to `Map` sorts with read-over-write axioms (generated only for type pairs used); fixes type-mismatch bug for datatypes with `Map` fields.
   - Remaining Boole-syntax gaps for `[T; N]`: see Gap #15.
@@ -39,7 +40,7 @@ several that are now fully implemented; a few have moved to
   - Statement form: `w := ε z : T . pred(z)` desugars to `assert ∃ z : T . pred(z); havoc w; assume pred[z/w]`.
   - The existence assertion guards soundness: without it, an unsatisfiable `pred` silently becomes `assume false`, making every downstream obligation a false positive.
   - Function form (Strata-Boole #4): `function f(params) : R := ε z . pred(z, params)` declares an uninterpreted `f` with the axiom `∀ params, ∀ z, z = f(params) → pred(z, params)`.
-  - Remaining gap: the function form has no existence guard. Its axiom is sound only if `pred` is satisfiable for every parameter value; otherwise the context becomes inconsistent. Callers must supply that guarantee, e.g. with `requires ∃ z . pred(z, params)`.
+  - Remaining gap (strata-org/Strata-Boole#19): the function form has no existence guard. Its axiom is sound only if `pred` is satisfiable for every parameter value; otherwise the context becomes inconsistent. Callers must supply that guarantee, e.g. with `requires ∃ z . pred(z, params)`.
   - Benchmark: [`choose_operator.lean`](../StrataBooleTest/FeatureRequests/choose_operator.lean).
 - **`decreases` annotation on functions, procedures, and `for` loops**
   - Parsing/forwarding implemented (#1075): accepted in function preconds, `spec {}` blocks, procedure headers, and `for v := init to/downto limit` loops; the `for`-loop measure is forwarded to the Core while-loop measure field and actively verified.
@@ -100,10 +101,12 @@ several that are now fully implemented; a few have moved to
     - Confirmed in sha256: `[u32; 64]`, `[u32; 16]`, `[u8; 64]`, `[0u32; 16]`, `K32: [u32; 64] = [...]`.
 16. **Slice types and slice indexing**: `&[T]` and `&[T; N]` — length, indexing, sub-slicing. Distinct from sequence slicing (#11): slices are runtime-sized Rust borrows. Confirmed in sha256: `blocks: &[[u8; 64]]`, `blocks[k]`, `to_u32s(&blocks[k])`.
 
+29. **`Set T` is reserved but unusable**: `Set` is one of Strata's known type names, so a Boole program cannot declare a `Set` of its own (`type Set (T : Type);` is rejected as reserved), and `Grammar.lean` provides no `Set` type former to use instead. A program needing sets must declare an abstract type under a different name; [`sha256_compact_indexed.lean`](../StrataBooleTest/FeatureRequests/sha256_compact_indexed.lean) uses `AbstractSet` for this reason. Either expose `Set` in the grammar, or stop reserving the name.
+
 ## Expressiveness requests
 
 17. **Higher-order / lambda / closure support**: Implemented. Remaining gap: first-class function values as procedure parameters or local variables.
-18. **`choose`**: Implemented, as a statement and as a function declaration. Remaining gap: the function form has no existence guard.
+18. **`choose`**: Implemented, as a statement and as a function declaration. Remaining gap: the function form has no existence guard (strata-org/Strata-Boole#19).
 19. **Mutual recursion / forward references**: Implemented for datatypes (#599) and `int` (#1167). Remaining gap: functional reasoning about int-recursive functions blocked by Gap #1 (unfolding axioms).
 20. **Trait-spec symbol resolution**: Preserve trait-spec symbols across module boundaries.
 21. **Trait / interface with spec and proof methods**: `interface` declarations bundling `spec function` and `lemma` members, with `matches` pattern syntax in `ensures` and `external_body`-style trusted bodies. Confirmed as the backbone of Vest combinators.
