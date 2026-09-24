@@ -1281,7 +1281,23 @@ private def coreProgUsesNatOrPos (cp : Core.Program) : Bool :=
 -- Builds the binary-nat library (pos/nat datatypes + arithmetic functions +
 -- bridge axioms) as Core.Decl values directly without DDM/Boole parsing.
 
-private def natCorePreamble : List Core.Decl :=
+/-- The binary-nat library as `Core.Decl`s.
+
+`computable := false` (the form injected for verification): `nat.toInt`,
+`nat.fromInt` and the arithmetic operators are uninterpreted symbols
+characterised by axioms — the encoding under which E-matching proves things
+(see the comments inside).
+
+`computable := true` (the form used to *re-query* an obligation the first pass
+left `unknown`): the same functions with their defining bodies and no axioms
+at all, so that — together with `VerifyOptions.recursiveFnsAsDefineFunRec`
+(`pos.toInt`/`pos.fromInt` emitted as `define-fun-rec`) and cvc5's `fmf-fun`
+— the solver can *evaluate* them while searching for a model and return a
+certified `sat` with concrete constructor terms.  Axioms are omitted because
+`fmf-fun` cannot certify universally quantified assertions over the infinite
+term algebra; every axiom of the other form is a theorem of these bodies, so
+any model found here satisfies them. -/
+private def natCorePreambleWith (computable : Bool) : List Core.Decl :=
   let posTy  : LMonoTy := .tcons "pos"  []
   let natTy  : LMonoTy := .tcons "nat"  []
   let intTy  : LMonoTy := .tcons "int"  []
@@ -1304,6 +1320,13 @@ private def natCorePreamble : List Core.Decl :=
            .empty
   -- Uninterpreted function: no body, so the SMT encoder emits `declare-fun`
   -- instead of a `define-fun` macro.  Meaning comes from separate axioms.
+  let mkFuncPre (name : String) (inputs : List (Core.Expression.Ident × LMonoTy))
+      (output : LMonoTy) (body : Core.Expression.Expr)
+      (pres : List (DL.Util.FuncPrecondition Core.Expression.Expr Unit)) : Core.Decl :=
+    .func { name := ⟨name, ()⟩, typeArgs := [], inputs := inputs, output := output,
+            body := some body, attr := #[], axioms := [],
+            preconditions := pres, measure := none }
+           .empty
   let mkFuncNoBody (name : String) (inputs : List (Core.Expression.Ident × LMonoTy))
       (output : LMonoTy)
       (pres : List (DL.Util.FuncPrecondition Core.Expression.Expr Unit) := []) : Core.Decl :=
@@ -1352,6 +1375,11 @@ private def natCorePreamble : List Core.Decl :=
   -- like `pos.toInt`.  A body would be inlined as an SMT macro applying `nat..val`
   -- to opaque nats, forcing a constructor split at every use (Strata-Boole #14).
   let natToInt := mkFuncNoBody "nat.toInt" [(⟨"n", ()⟩, natTy)] intTy
+  let n := fv' "n"
+  let natToIntBody :=
+    mkFunc "nat.toInt" [(⟨"n", ()⟩, natTy)] intTy
+      (ite' (app1 (op' "nat..isN0") n) (int' 0)
+        (app1 (op' "pos.toInt") (app1 (op' "nat..val") n)))
 
   -- pos.fromInt: x : int → pos, decreases x
   let x := fv' "x"
@@ -1368,6 +1396,11 @@ private def natCorePreamble : List Core.Decl :=
   -- Uninterpreted; defined below.  Must stay a symbol: inlined, the bridge
   -- axiom `nat_fromInt_toInt` no longer matches `nat.toInt(nat.fromInt(x))`.
   let natFromInt := mkFuncNoBody "nat.fromInt" [(⟨"x", ()⟩, intTy)] natTy
+  let natFromIntBody :=
+    mkFunc "nat.fromInt" [(⟨"x", ()⟩, intTy)] natTy
+      (ite' (app2 (op' "Int.Le") x (int' 0))
+        (op' "N0")
+        (app1 (op' "Npos") (app1 (op' "pos.fromInt") x)))
 
   -- Bridge axioms
   let axNonneg : Core.Decl := .ax
@@ -1444,6 +1477,25 @@ private def natCorePreamble : List Core.Decl :=
   let axDiv := distrib "nat_toInt_div" "nat.div" "Int.Div" (some (app2 (op' "Int.Lt") (int' 0) tB))
   let axMod := distrib "nat_toInt_mod" "nat.mod" "Int.Mod" (some (app2 (op' "Int.Lt") (int' 0) tB))
 
+  let fromInt (expr : Core.Expression.Expr) : Core.Expression.Expr := app1 (op' "nat.fromInt") expr
+  let cmpOps :=
+  [ mkFunc    "nat.lt"  ab boolTy (app2 (op' "Int.Lt") toIntA toIntB)
+  , mkFunc    "nat.le"  ab boolTy (app2 (op' "Int.Le") toIntA toIntB)
+  , mkFunc    "nat.gt"  ab boolTy (app2 (op' "Int.Gt") toIntA toIntB)
+  , mkFunc    "nat.ge"  ab boolTy (app2 (op' "Int.Ge") toIntA toIntB)
+  ]
+  if computable then
+  [ .type (.data [posDecl]) .empty
+  , .type (.data [natDecl]) .empty
+  , posToInt, natToIntBody, posFromInt, natFromIntBody
+  , mkFunc    "nat.add" ab natTy  (fromInt (app2 (op' "Int.Add") toIntA toIntB))
+  , mkFuncPre "nat.sub" ab natTy  (fromInt (app2 (op' "Int.Sub") toIntA toIntB))
+      [⟨app2 (op' "Int.Le") toIntB toIntA, ()⟩]
+  , mkFunc    "nat.mul" ab natTy  (fromInt (app2 (op' "Int.Mul") toIntA toIntB))
+  , mkFunc    "nat.div" ab natTy  (fromInt (app2 (op' "Int.Div") toIntA toIntB))
+  , mkFunc    "nat.mod" ab natTy  (fromInt (app2 (op' "Int.Mod") toIntA toIntB))
+  ] ++ cmpOps
+  else
   [ .type (.data [posDecl]) .empty
   , .type (.data [natDecl]) .empty
   , posToInt, natToInt, posFromInt, natFromInt
@@ -1455,12 +1507,15 @@ private def natCorePreamble : List Core.Decl :=
   , mkFuncNoBody "nat.div" ab natTy
   , mkFuncNoBody "nat.mod" ab natTy
   , axAdd, axSub, axMul, axDiv, axMod
-  , mkFunc    "nat.lt"  ab boolTy (app2 (op' "Int.Lt") toIntA toIntB)
-  , mkFunc    "nat.le"  ab boolTy (app2 (op' "Int.Le") toIntA toIntB)
-  , mkFunc    "nat.gt"  ab boolTy (app2 (op' "Int.Gt") toIntA toIntB)
-  , mkFunc    "nat.ge"  ab boolTy (app2 (op' "Int.Ge") toIntA toIntB)
-  ]
+  ] ++ cmpOps
 
+private def natCorePreamble : List Core.Decl := natCorePreambleWith false
+private def natCorePreambleComputable : List Core.Decl := natCorePreambleWith true
+
+/-- Prepend the nat library to a Core program that uses grammar-level `nat`/`pos`
+    and did not declare them itself (a user declaration in `gctx` takes
+    precedence).  Shared by `Boole.verify` and the `gen_smt_vcs_boole` tactic path
+    (`MetaVerifier.genVCs`) so both see the same program. -/
 -- ── Validate-Candidate: pure-Lean nat arithmetic ─────────────────────────────
 -- When the incremental SMT solver returns `unknown (some m)` for a nat-using
 -- obligation, we attempt to evaluate the obligation expression against the
@@ -1717,6 +1772,10 @@ def verify
     (proceduresToVerify : Option (List String) := none)
     (options : Core.VerifyOptions := .default)
     (tempDir : Option String := .none)
+    -- Re-query nat obligations the primary pass leaves `unknown` with the
+    -- computable library (model search; cvc5 only), and its solver budget.
+    (natRequery : Bool := true)
+    (natRequeryTimeout : Nat := 60)
     : IO Core.VCResults := do
   let options := { options with solver := smtsolver }
   match getProgram env with
@@ -1735,8 +1794,8 @@ def verify
                          || (env.globalContext.findIndex? "pos").isSome
       let userCp := cp
       let usesNatOrPos := coreProgUsesNatOrPos userCp
-      let cp ← if hasUserNatDecl || !usesNatOrPos then pure userCp else
-        pure { userCp with decls := natCorePreamble ++ userCp.decls }
+      let cp := if hasUserNatDecl || !usesNatOrPos then userCp
+                else { userCp with decls := natCorePreamble ++ userCp.decls }
       -- Wire the nat candidate-validation phase whenever nat/pos types are in use.
       -- Intentionally NOT conditioned on !hasUserNatDecl: `prepend`-based programs put
       -- nat/pos into globalContext (triggering hasUserNatDecl=true) but still need
@@ -1749,9 +1808,44 @@ def verify
       -- filter passed to this function takes precedence over one in `options`.
       let options := { options with
         proceduresToVerify := proceduresToVerify <|> options.proceduresToVerify }
-      let runner tempPath :=
-        EIO.toIO (fun dm => IO.Error.userError (toString (dm.format (some ictx.fileMap))))
+      -- The library was injected (not declared by the user), so its computable
+      -- form can be substituted for a re-query.
+      let natPreambleInjected := !hasUserNatDecl && usesNatOrPos
+      let runner tempPath := do
+        let primary ← EIO.toIO
+          (fun dm => IO.Error.userError (toString (dm.format (some ictx.fileMap))))
           (Core.verify cp tempPath options (externalPhases := externalPhases))
+        -- Re-query obligations the first pass left `unknown`.  The axiom form
+        -- of the nat library is what proves things but cannot yield a certified
+        -- model; the computable form with `pos.toInt`/`pos.fromInt` as
+        -- `define-fun-rec` and cvc5's `fmf-fun` finds concrete constructor
+        -- terms (e.g. `toInt(a) == 73` gives `a = Npos(xI(xO(...)))`).
+        -- `fmf-fun` weakens proving, so it is used only here, never on the
+        -- primary pass; only a certified failure replaces an `unknown`.
+        -- (cvc5 only: `fmf-fun` is a cvc5 option; the solver name is matched the
+        -- way Strata's own `getSolverFlags` does.)
+        if !natRequery || !natPreambleInjected || options.solver != "cvc5"
+           || !primary.any (·.isUnknown) then
+          return primary
+        let cpModel := { userCp with decls := natCorePreambleComputable ++ userCp.decls }
+        -- Model search is slower than proving and only runs for obligations
+        -- already `unknown`, so it gets its own budget.
+        -- Only the obligations that came back `unknown` are re-queried
+        -- (`obligationsToVerify`); the weaker proving mode never touches the rest.
+        let unknownLabels := (primary.filter (·.isUnknown)).map (·.obligation.label) |>.toList
+        let optionsModel := { options with
+          recursiveFnsAsDefineFunRec := true,
+          solverOptions := options.solverOptions.push ("fmf-fun", "true"),
+          solverTimeout := max options.solverTimeout natRequeryTimeout,
+          obligationsToVerify := some unknownLabels }
+        let reQuery ← EIO.toIO
+          (fun dm => IO.Error.userError (toString (dm.format (some ictx.fileMap))))
+          (Core.verify cpModel tempPath optionsModel (externalPhases := externalPhases))
+        return primary.map fun r =>
+          if !r.isUnknown then r
+          else match reQuery.find? (·.obligation.label == r.obligation.label) with
+            | some r2 => if r2.isFailure then r2 else r
+            | none    => r
       -- Decode nat/pos constructor model values to integers for display.
       -- Replaces e.g. Npos(xO(xH)) with 2 in the counterexample model.
       let decodeEntry (id : Core.Expression.Ident)
