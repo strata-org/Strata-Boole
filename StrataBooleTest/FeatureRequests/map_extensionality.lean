@@ -18,7 +18,7 @@ Near-upstream anchors from `differential_status.md`:
 - Original gap: extensional equality lowered to ordinary equality
 - Current status: implemented for direct `Map` types via Boole `=~=`
 - Lowering: `a =~= b` becomes `∀ i . a[i] == b[i]`
-- Remaining gap: named map synonyms and non-map extensional equality
+- Remaining gap: named map synonyms and higher-order extensional equality
 -/
 
 private def mapExtensionalitySeed : StrataDDM.Program :=
@@ -39,11 +39,11 @@ spec {
 #end
 
 /-- info:
-Obligation: assert_2_983
+Obligation: assert_2_988
 Property: assert
 Result: ✅ pass
 
-Obligation: map_extensionality_seed_ensures_1_960
+Obligation: map_extensionality_seed_ensures_1_965
 Property: assert
 Result: ✅ pass-/
 #guard_msgs in
@@ -116,3 +116,30 @@ private def expectedQuantifiedMapExtensionalityCapture : Core.Expression.Expr :=
       (.quant () .all "" (some .int) lhs (.eq () lhs rhs)))
 
 #guard loweredQuantifiedMapExtensionalityCapture? == some expectedQuantifiedMapExtensionalityCapture
+
+/-
+For any element type `T` and any sequences `a` and `b`, `a =~= b` exactly when
+they have equal length and in-bounds pointwise equality via `Sequence.select!`.
+-/
+
+private def seqExtensionalitySeed : StrataDDM.Program :=
+#strata
+program Boole;
+
+procedure seq_ext_spec<T>(a: Sequence T, b: Sequence T) returns ()
+spec {
+  ensures (a =~= b) <==>
+    (Sequence.length(a) == Sequence.length(b) &&
+     (∀ i: int . 0 <= i && i < Sequence.length(a) ==>
+        Sequence.select!(a, i) == Sequence.select!(b, i)));
+}
+{
+};
+#end
+
+/-- info:
+Obligation: seq_ext_spec_ensures_0_3992
+Property: assert
+Result: ✅ pass-/
+#guard_msgs in
+#eval Strata.Boole.verify "cvc5" seqExtensionalitySeed (options := .quiet)

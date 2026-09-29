@@ -348,8 +348,21 @@ private def toCoreExtensionalEq
       let rhs := mkCoreApp Core.mapSelectOp [b, idx]
       let trigger := lhs
       return .quant () .all "" (some keyTy') trigger (.eq () lhs rhs)
+  | .Sequence _ _ =>
+      let lenEq := .eq () (mkCoreApp Core.seqLengthOp [a]) (mkCoreApp Core.seqLengthOp [b])
+      let idx : Core.Expression.Expr := .bvar () 0
+      let a := Lambda.LExpr.liftBVars 1 a
+      let b := Lambda.LExpr.liftBVars 1 b
+      let lhs := mkCoreApp Core.seqSelectUnsafeOp [a, idx]
+      let rhs := mkCoreApp Core.seqSelectUnsafeOp [b, idx]
+      let inBounds := mkCoreApp Core.boolAndOp [
+        mkCoreApp Core.intLeOp [.intConst () 0, idx],
+        mkCoreApp Core.intLtOp [idx, mkCoreApp Core.seqLengthOp [a]]]
+      let body := mkCoreApp Core.boolImpliesOp [inBounds, .eq () lhs rhs]
+      let trigger := lhs
+      return mkCoreApp Core.boolAndOp [lenEq, .quant () .all "" (some .int) trigger body]
   | _ =>
-      throwAt m s!"Extensional equality is currently only supported for Map types, got: {repr ty}"
+      throwAt m s!"Extensional equality is currently only supported for Map and Sequence types, got: {repr ty}"
 
 private def oldifyExpr (inoutNames : List String) : Core.Expression.Expr → Core.Expression.Expr
   | .fvar m ident ty =>
