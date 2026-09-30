@@ -92,7 +92,8 @@ op choose_assign (lhs : Ident, v : MonoBind, @[scope(v)] pred : bool) : Statemen
   lhs " := ε " v " :: " pred ";";
 
 // choose function declaration: `function f(params) : R := ε z . pred(z, params);`
-// Lowers to: uninterpreted function f + axiom ∀ params, ∀ z, z = f(params) → pred(z, params).
+// Lowers to: uninterpreted f + axiom ∀ params, (∃ z, pred(z, params)) →
+// (∀ z, z = f(params) → pred(z, params)). Without a witness, the result is unconstrained.
 // `@[scope(b)] v` makes b's parameter names available in v's type and (via the scope chain
 // @[scope(v)]) in pred, so pred can reference both z (bvar 0) and all params (bvars 1..n).
 @[declareFn(name, b, r)]

@@ -138,7 +138,7 @@ spec {
 #end
 
 /-- info:
-Obligation: seq_ext_spec_ensures_0_3992
+Obligation: seq_ext_spec_ensures_0_4004
 Property: assert
 Result: ✅ pass-/
 #guard_msgs in
