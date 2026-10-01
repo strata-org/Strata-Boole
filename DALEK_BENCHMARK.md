@@ -56,8 +56,7 @@ cvc5: 36/36 obligations pass
 Lean: StrataBooleTest.dalek_sum_of_slice builds: every obligation checked by the Lean kernel
 ```
 
-Building and the first run take about 30 minutes in total. After that, a run takes
-under two minutes.
+Building and the first run take a while. After that, a run is much faster.
 
 ## What you get
 
