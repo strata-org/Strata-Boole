@@ -50,7 +50,7 @@ indices, the loop counter, literals).
 | **#15** migrate to current Strata | Mechanical (`CallArg` namespace, `proceduresToVerify` moved into options). | Prerequisite for the three Strata PRs. |
 | **#3** re-query unknown obligations *(after #15)* | On "unknown", re-run just those obligations with bodied `nat`, `define-fun-rec` and `fmf-fun`; keep the answer only if it is a certified failure with a model. | Turns "unknown" into real counterexamples without weakening the main pass. |
 
-### Translator (`verus-boogie`, branch `boole`)
+### Translator (`verus-boole`, branch `boole`)
 
 One commit: `--nat-as-int` and its code paths removed; `nat` rendered as Boole's `nat`
 at output time. Test harness fixed (an awk pattern crash) and re-run: 68 pass, 0 fail.

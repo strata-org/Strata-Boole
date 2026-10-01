@@ -32,7 +32,7 @@ mkdir workspace && cd workspace
 
 git clone --branch boogie               https://github.com/ccodel/verus.git
 git clone --branch lean-export-path-fix https://github.com/kondylidou/dalek-lite.git
-git clone --branch boole                https://github.com/kondylidou/verus-boogie.git
+git clone --branch boole                https://github.com/kondylidou/verus-boole.git
 git clone --branch keynote-integration  https://github.com/strata-org/Strata-Boole.git
 ```
 
@@ -53,7 +53,7 @@ lake exe cache get
 lake build StrataBoole smt
 cd ..
 
-cd verus-boogie
+cd verus-boole
 lake build
 cd ..
 ```
@@ -67,7 +67,7 @@ the translator, because each keeps its own copy of its dependencies.
 ## 3. Run
 
 ```
-cd verus-boogie
+cd verus-boole
 sh dalek/rust_to_boole.sh dalek/input/scalar_helpers.rs --only sum_of_slice \
     --dalek-lite ../dalek-lite \
     --strata-boole ../Strata-Boole \
@@ -78,7 +78,7 @@ Expected output:
 
 ```
 exported: curve25519_dalek_scalar.json curve25519_dalek_scalar_helpers.json ...
-wrote .../verus-boogie/dalek/out/sum_of_slice.boole.st (82 lines)
+wrote .../verus-boole/dalek/out/sum_of_slice.boole.st (83 lines)
 cvc5: 36/36 obligations pass
 wrote .../Strata-Boole/StrataBooleTest/dalek_sum_of_slice.lean
 Lean: StrataBooleTest.dalek_sum_of_slice builds: every obligation checked by the Lean kernel
@@ -111,8 +111,8 @@ the replay in Lean failed. Level 2 is what separates those two cases.
 
 ## If something fails
 
-- `the Verus export produced no JSON`: see `verus-boogie/dalek/export_json/export.log`.
+- `the Verus export produced no JSON`: see `verus-boole/dalek/export_json/export.log`.
   The usual cause is that `verus` and `dalek-lite` are not siblings.
 - `cvc5: N/36 obligations pass  <-- NOT ALL PASS`: see
-  `verus-boogie/dalek/out/sum_of_slice.cvc5.log`.
-- `Lean: ... FAILED`: see `verus-boogie/dalek/out/sum_of_slice.lean.log`.
+  `verus-boole/dalek/out/sum_of_slice.cvc5.log`.
+- `Lean: ... FAILED`: see `verus-boole/dalek/out/sum_of_slice.lean.log`.
