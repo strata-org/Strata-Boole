@@ -28,7 +28,7 @@ executable; Level 3 uses the copy bundled with lean-smt.
 ## 1. Clone four repositories as siblings
 
 ```
-mkdir workspace && cd workspace
+mkdir dalek-demo && cd dalek-demo
 
 git clone --branch boogie               https://github.com/ccodel/verus.git
 git clone --branch lean-export-path-fix https://github.com/kondylidou/dalek-lite.git
@@ -36,8 +36,11 @@ git clone --branch boole                https://github.com/kondylidou/verus-bool
 git clone --branch keynote-integration  https://github.com/strata-org/Strata-Boole.git
 ```
 
-The directory names matter. dalek-lite finds the Verus fork at `../verus`, and the
-translator finds Strata-Boole at `../Strata-Boole`.
+Use a new, empty directory. If `mkdir` reports that it already exists, pick another
+name: otherwise the `cd` is skipped and the clones land in the current directory.
+
+The names of the four clones matter. dalek-lite finds the Verus fork at `../verus`, and
+the translator finds Strata-Boole at `../Strata-Boole`.
 
 ## 2. Build
 
