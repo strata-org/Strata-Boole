@@ -327,7 +327,8 @@ Property: assert
 Result: ✅ pass
 -/
 #guard_msgs in
-#eval Strata.Boole.verify "cvc5" sumofsliceTranslatedSeed (options := .quiet)
+#eval Strata.Boole.verify "cvc5" sumofsliceTranslatedSeed
+  (options := { Core.VerifyOptions.quiet with solverTimeout := 30 })
 
 -- Level 3: the same obligations, checked by the Lean kernel.
 set_option maxHeartbeats 2000000 in
