@@ -69,8 +69,7 @@ parts:
    trusted.
 
 The translation keeps the Rust types (`u8` as an 8-bit value, `nat` as a natural number)
-and the contract of `sum_of_slice` has the same clauses as in the source. The file is
-already in the repository; the run regenerates it identically.
+and the contract of `sum_of_slice` has the same clauses as in the source.
 
 ## If something fails
 
