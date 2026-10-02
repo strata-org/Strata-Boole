@@ -1062,14 +1062,12 @@ private def toCoreDecls (cmd : BooleDDM.Command SourceRange) : TranslateM (List 
   | .command_choosefndef _ ⟨_, n⟩ ⟨_, targs?⟩ bs ret v pred =>
     -- `function f(params) : R := ε z :: pred(z, params)`
     -- Emits: uninterpreted function declaration + axiom
-    --   ∀ p1:T1,...,pn:Tn, ∀ z:Tz, (z = f(p1,...,pn)) → pred(z, p1,...,pn)
-    -- Note: unlike `w := ε z . pred` (which guards soundness by asserting ∃ z . pred(z)
-    -- before havocing), this form emits the axiom unconditionally. The axiom is sound only
-    -- when pred is satisfiable for all parameter values; callers must supply that guarantee
-    -- (e.g. via a `requires ∃ z . pred(z, params)` precondition).
+    --   ∀ params, (∃ z, pred(z, params)) → (∀ z, z = f(params) → pred(z, params))
+    -- The function is total; its result satisfies pred only when a witness exists.
+    -- An unsatisfiable predicate imposes no guarantee on the result.
     -- De Bruijn context for pred (from @[scope(b)] v + @[scope(v)] pred):
     --   bvar 0 = z, bvar 1 = pn (innermost param), ..., bvar n = p1 (outermost param)
-    -- This matches the 3-forall wrapping (z innermost, params outer) exactly.
+    -- Both the existential and universal bind z innermost, with params outermost.
     let tys := match targs? with | none => [] | some ts => typeArgsToList ts
     withTypeBVars tys do
       let bsList := bindingsToList bs
@@ -1082,7 +1080,7 @@ private def toCoreDecls (cmd : BooleDDM.Command SourceRange) : TranslateM (List 
                 body := none, attr := #[], axioms := [] } .empty
       -- Push n+1 passthrough bvar entries (for z=bvar0, pn=bvar1, ..., p1=bvar n) so that
       -- getBVarExpr doesn't throw. Passthrough entries return the original index unchanged,
-      -- so pred's natural de Bruijn indices are preserved exactly as needed by the 3-forall.
+      -- so pred's natural de Bruijn indices are preserved in both branches of the guard.
       let bvarPassthroughs := Array.range (numParams + 1) |>.map (.bvar () ·)
       let predCore ← withBVarExprs bvarPassthroughs (toCoreExpr pred)
       -- f(p1,...,pn): p1 = bvar n (outermost), p2 = bvar n-1, ..., pn = bvar 1 (innermost param)
@@ -1092,10 +1090,14 @@ private def toCoreDecls (cmd : BooleDDM.Command SourceRange) : TranslateM (List 
           (.op () (mkIdent n) none)
       let zEqF : Core.Expression.Expr := .eq () (.bvar () 0) funcCallBvar
       let axiomInner := mkCoreApp Core.boolImpliesOp [zEqF, predCore]
-      -- Wrap ∀ p1:T1,...,∀ pn:Tn, ∀ z:Tz using foldr (z innermost = processed first by foldr)
-      let allTys := (inputs.map Prod.snd) ++ [vTy]
-      let axiomExpr := allTys.foldr (fun ty acc =>
-        .quant () .all "" (some ty) (.bvar () 0) acc) axiomInner
+      -- Both branches bind their own z; parameter indices stay unchanged.
+      let existsExpr : Core.Expression.Expr :=
+        .quant () .exist "" (some vTy) (.bvar () 0) predCore
+      let choiceExpr : Core.Expression.Expr :=
+        .quant () .all "" (some vTy) (.bvar () 0) axiomInner
+      let guardedChoice := mkCoreApp Core.boolImpliesOp [existsExpr, choiceExpr]
+      let axiomExpr := (inputs.map Prod.snd).foldr (fun ty acc =>
+        .quant () .all "" (some ty) (.bvar () 0) acc) guardedChoice
       let axiomDecl : Core.Decl :=
         .ax { name := s!"{n}_choose_axiom", e := axiomExpr } .empty
       return [funcDecl, axiomDecl]
