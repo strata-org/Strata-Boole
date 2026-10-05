@@ -7,30 +7,20 @@ weakLeanArgs = ["--tstack=32768"]
 
 [[require]]
 name = "Strata"
-# The keynote state of Strata: main plus strata-org/Strata#1478 (opt-in
-# define-fun-rec) and #1480 (SMT datatypes as Lean inductives), both open.
+# The keynote state of Strata: main (Lean 4.31) plus strata-org/Strata#1478
+# (opt-in define-fun-rec), #1480 (SMT datatypes as Lean inductives) and the fix
+# for #1482 (checked and total sequence operations as one symbol), all open.
 git = "https://github.com/kondylidou/Strata"
-rev = "dbda7f33f83b5052ee74ec14c2984f1e409173b1"
+rev = "c77f116c5a5f537d65f36d08889df561a0df4636"
 
 [[require]]
 name = "smt"
-# Fork of ufmg-smite/lean-smt at the v4.29 pin `7d1d823`, plus the upstream fix
+# Fork of ufmg-smite/lean-smt at its v4.31 commit `9aedcbf`, plus the upstream fix
 # for `reconstructSumUB` (ufmg-smite/lean-smt@76b4eea): an all-equality sum step
 # proves `=`, not `≤`, and the kernel rejects whatever consumes it. Upstream has
-# the fix on a branch that moved to Lean v4.33; drop this pin for the upstream
-# one when Strata and Strata-Boole move too.
+# the fix only on Lean v4.33; drop this pin for the upstream one when we get there.
 git = "https://github.com/kondylidou/lean-smt"
-rev = "704d0f4"
-
-
-
-# lean-smt requires mathlib at the tag for Lean v4.29.0, but this project (and
-# Strata) are on v4.29.1, and the mathlib cache refuses a toolchain mismatch.
-# The root package's pin wins, so ask for the tag that matches our toolchain.
-[[require]]
-name = "mathlib"
-git = "https://github.com/leanprover-community/mathlib4.git"
-rev = "v4.29.1"
+rev = "25e7a41"
 
 [[lean_lib]]
 name = "StrataBoole"
