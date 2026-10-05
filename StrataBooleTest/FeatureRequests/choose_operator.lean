@@ -84,15 +84,13 @@ Result: ✅ pass-/
 
 `function f(params) : R := ε z . pred(z, params);` declares an uninterpreted
 function `f` together with the axiom:
-  ∀ params, ∀ z, z = f(params) → pred(z, params)
+  ∀ params, (∃ z, pred(z, params)) → (∀ z, z = f(params) → pred(z, params))
 
 This lets a specification define a function by its property rather than its
 implementation — similar to Verus choose-based spec functions.
 
-Note: unlike `w := ε z . pred(z)` (which guards soundness with an existence
-assertion), the function form emits the axiom unconditionally. The user must
-ensure `pred` is satisfiable for all inputs (e.g. via a precondition) to avoid
-an unsound axiom.
+The function is total even when no witness exists. To conclude that its result
+satisfies `pred`, establish existence, for example with a precondition.
 -/
 
 private def chooseFnSeed : StrataDDM.Program :=
@@ -115,15 +113,14 @@ spec {
 #end
 
 /-- info:
-Obligation: test_choose_fn_ensures_1_2749
+Obligation: test_choose_fn_ensures_1_2680
 Property: assert
 Result: ✅ pass-/
 #guard_msgs in
 #eval Strata.Boole.verify "cvc5" chooseFnSeed (options := .quiet)
 
--- Without the ∃ precondition the ensures still passes, because the axiom
--- `∀ z, z = best(x) → good(z, x)` unconditionally asserts good(best(x), x).
--- This demonstrates that soundness relies on the caller supplying the witness.
+-- Without the ∃ precondition, the guarded axiom does not establish good(best(x), x).
+-- The solver must not report a pass without an existence fact.
 private def chooseFnNoPrecondSeed : StrataDDM.Program :=
 #strata
 program Boole;
@@ -143,8 +140,75 @@ spec {
 #end
 
 /-- info:
-Obligation: test_no_precond_ensures_0_3444
+Obligation: test_no_precond_ensures_0_3290
+Property: assert
+Result: ❓ unknown-/
+#guard_msgs in
+#eval Strata.Boole.verify "cvc5" chooseFnNoPrecondSeed (options := .quiet)
+
+/-!
+The guarded choice law holds for an arbitrary predicate.
+-/
+private def chooseGuardedAxiomSpec : StrataDDM.Program :=
+#strata
+program Boole;
+
+type R;
+type P;
+
+function pred(z: R, params: P) : bool;
+
+function f(params: P) : R :=
+  ε z: R . pred(z, params);
+
+procedure choice_guarded_axiom() returns ()
+spec {
+  ensures ∀ params: P .
+    ((∃ z: R . pred(z, params)) ==>
+     (∀ z: R . z == f(params) ==> pred(z, params)));
+}
+{
+};
+#end
+
+/-- info:
+Obligation: choice_guarded_axiom_ensures_0_3837
 Property: assert
 Result: ✅ pass-/
 #guard_msgs in
-#eval Strata.Boole.verify "cvc5" chooseFnNoPrecondSeed (options := .quiet)
+#eval Strata.Boole.verify "cvc5" chooseGuardedAxiomSpec
+  (options := .quiet)
+
+/-!
+The old unconditional choice law admits a countermodel.
+
+The constant-false predicate supplies the witness, on abstract types.
+The cover checks that the exact negation of the old law is satisfiable
+under the generated axioms. An inconsistent axiom cannot pass it.
+-/
+private def chooseOldAxiomCountermodelSpec : StrataDDM.Program :=
+#strata
+program Boole;
+
+type R;
+type P;
+
+function unsat_pred(z: R, params: P) : bool { false }
+
+function f(params: P) : R :=
+  ε z: R . unsat_pred(z, params);
+
+procedure choice_old_axiom_has_countermodel() returns ()
+{
+  cover !(∀ params: P . ∀ z: R .
+    z == f(params) ==> unsat_pred(z, params));
+};
+#end
+
+/-- info:
+Obligation: cover_0_4714
+Property: cover
+Result: ✅ pass-/
+#guard_msgs in
+#eval Strata.Boole.verify "cvc5" chooseOldAxiomCountermodelSpec
+  (options := .quiet)
