@@ -54,3 +54,7 @@ import StrataBooleTest.FeatureRequests.trait_spec_methods
 import StrataBooleTest.widening_casts
 import StrataBooleTest.inline_boole_defs
 import StrataBooleTest.seq_unsafe_ops
+import StrataBooleTest.FeatureRequests.montgomery_loop_invariant
+import StrataBooleTest.FeatureRequests.scalar_reduce
+import StrataBooleTest.FeatureRequests.seq_empty_literal
+import StrataBooleTest.FeatureRequests.sha256_compact_indexed

@@ -22,6 +22,8 @@ unknown VCs for loop invariants that mix the counter with `Sequence.length`.
 All 17 VCs in this seed pass. It remains in FeatureRequests because the
 original Rust source uses three features not yet supported in Boole:
 - Gap #23: iterator protocol (`for x in iter.iter()` style loops)
+- Gap #29: `Set` is reserved but has no Boole syntax, so the abstract set type
+  here is named `AbstractSet`
 - Gap #15: fixed-size array syntax (`[u8; 64]`)
 - Gap #16: slice types
 
@@ -35,7 +37,6 @@ program Boole;
 
  type nat;
  function int_to_nat (i : int) : nat;
- type Set (T : Type);
  function Seq_len_bv32 (s : Sequence (bv W32)) : nat {
   int_to_nat(Sequence.length(s))
 }
@@ -47,10 +48,11 @@ program Boole;
  function Seq_new_bv32 (len : nat, f : int -> bv W32) : Sequence (bv W32);
  function Seq_lib_map_bv32 (s : Sequence (bv W32), f : int -> bv W32 -> bv W32) : Sequence (bv W32);
  function Seq_lib_map_values_bv32 (s : Sequence (bv W32), f : bv W32 -> bv W32) : Sequence (bv W32);
+ type AbstractSet (T : Type);
  function Seq_lib_filter_bv32 (s : Sequence (bv W32), p : bv W32 -> bool) : Sequence (bv W32);
  function Seq_lib_sort_by_bv32 (s : Sequence (bv W32), less : bv W32 -> bv W32 -> bool) : Sequence (bv W32);
- function Seq_lib_to_set_bv32 (s : Sequence (bv W32)) : Set bv W32;
- function Set_finite_bv32 (s : Set bv W32) : bool;
+ function Seq_lib_to_set_bv32 (s : Sequence (bv W32)) : AbstractSet (bv W32);
+ function Set_finite_bv32 (s : AbstractSet (bv W32)) : bool;
  function bv8_to_bv32_u (x : bv W8) : bv W32;
  function k32 () : Sequence (bv W32) {
   Sequence.of_bv32[bv{32}(1116352408), bv{32}(1899447441), bv{32}(3049323471), bv{32}(3921009573), bv{32}(961987163), bv{32}(1508970993), bv{32}(2453635748), bv{32}(2870763221), bv{32}(3624381080), bv{32}(310598401), bv{32}(607225278), bv{32}(1426881987), bv{32}(1925078388), bv{32}(2162078206), bv{32}(2614888103), bv{32}(3248222580), bv{32}(3835390401), bv{32}(4022224774), bv{32}(264347078), bv{32}(604807628), bv{32}(770255983), bv{32}(1249150122), bv{32}(1555081692), bv{32}(1996064986), bv{32}(2554220882), bv{32}(2821834349), bv{32}(2952996808), bv{32}(3210313671), bv{32}(3336571891), bv{32}(3584528711), bv{32}(113926993), bv{32}(338241895), bv{32}(666307205), bv{32}(773529912), bv{32}(1294757372), bv{32}(1396182291), bv{32}(1695183700), bv{32}(1986661051), bv{32}(2177026350), bv{32}(2456956037), bv{32}(2730485921), bv{32}(2820302411), bv{32}(3259730800), bv{32}(3345764771), bv{32}(3516065817), bv{32}(3600352804), bv{32}(4094571909), bv{32}(275423344), bv{32}(430227734), bv{32}(506948616), bv{32}(659060556), bv{32}(883997877), bv{32}(958139571), bv{32}(1322822218), bv{32}(1537002063), bv{32}(1747873779), bv{32}(1955562222), bv{32}(2024104815), bv{32}(2227730452), bv{32}(2361852424), bv{32}(2428436474), bv{32}(2756734187), bv{32}(3204031479), bv{32}(3329325298)]
@@ -230,31 +232,31 @@ Obligation: Seq_lib_insert_bv32_body_calls_Sequence.drop_1
 Property: out-of-bounds access check
 Result: ✅ pass
 
-Obligation: assert_2_3583
+Obligation: assert_2_3824
 Property: assert
 Result: ✅ pass
 
-Obligation: assert_3_3626
+Obligation: assert_3_3867
 Property: assert
 Result: ✅ pass
 
-Obligation: entry_invariant_0_0
+Obligation: insertLoopInvAssert_entry_invariant_loop_49_0
 Property: assert
 Result: ✅ pass
 
-Obligation: entry_invariant_0_1
+Obligation: insertLoopInvAssert_entry_invariant_loop_49_1
 Property: assert
 Result: ✅ pass
 
-Obligation: assert_6_4306
+Obligation: assert_6_4559
 Property: assert
 Result: ✅ pass
 
-Obligation: assert_7_4337
+Obligation: assert_7_4590
 Property: assert
 Result: ✅ pass
 
-Obligation: assert_8_4368
+Obligation: assert_8_4621
 Property: assert
 Result: ✅ pass
 
@@ -278,15 +280,15 @@ Obligation: set_res_calls_Sequence.update_4
 Property: out-of-bounds access check
 Result: ✅ pass
 
-Obligation: arbitrary_iter_maintain_invariant_0_0
+Obligation: insertLoopInvAssert_arbitrary_iter_maintain_invariant_loop_49_0
 Property: assert
 Result: ✅ pass
 
-Obligation: arbitrary_iter_maintain_invariant_0_1
+Obligation: insertLoopInvAssert_arbitrary_iter_maintain_invariant_loop_49_1
 Property: assert
 Result: ✅ pass
 
-Obligation: to_u32s_ensures_5_3898
+Obligation: to_u32s_ensures_5_4147
 Property: assert
 Result: ✅ pass
 
@@ -322,15 +324,15 @@ Obligation: set_h_calls_Sequence.select_0
 Property: out-of-bounds access check
 Result: ✅ pass
 
-Obligation: entry_invariant_0_0
+Obligation: insertLoopInvAssert_entry_invariant_loop_50_0
 Property: assert
 Result: ✅ pass
 
-Obligation: entry_invariant_0_1
+Obligation: insertLoopInvAssert_entry_invariant_loop_50_1
 Property: assert
 Result: ✅ pass
 
-Obligation: entry_invariant_0_2
+Obligation: insertLoopInvAssert_entry_invariant_loop_50_2
 Property: assert
 Result: ✅ pass
 
@@ -342,15 +344,15 @@ Obligation: set_w15_calls_Sequence.select_0
 Property: out-of-bounds access check
 Result: ✅ pass
 
-Obligation: callElimAssert_rotate_right_requires_1_3532_39
+Obligation: callElimAssert_rotate_right_requires_1_3773_3
 Property: assert
 Result: ✅ pass
 
-Obligation: callElimAssert_rotate_right_requires_1_3532_35
+Obligation: callElimAssert_rotate_right_requires_1_3773_7
 Property: assert
 Result: ✅ pass
 
-Obligation: assert_12_6291
+Obligation: assert_12_6622
 Property: assert
 Result: ✅ pass
 
@@ -358,15 +360,15 @@ Obligation: set_w2_calls_Sequence.select_0
 Property: out-of-bounds access check
 Result: ✅ pass
 
-Obligation: callElimAssert_rotate_right_requires_1_3532_31
+Obligation: callElimAssert_rotate_right_requires_1_3773_11
 Property: assert
 Result: ✅ pass
 
-Obligation: callElimAssert_rotate_right_requires_1_3532_27
+Obligation: callElimAssert_rotate_right_requires_1_3773_15
 Property: assert
 Result: ✅ pass
 
-Obligation: assert_13_6530
+Obligation: assert_13_6861
 Property: assert
 Result: ✅ pass
 
@@ -382,15 +384,15 @@ Obligation: set_block_local_calls_Sequence.update_0
 Property: out-of-bounds access check
 Result: ✅ pass
 
-Obligation: callElimAssert_rotate_right_requires_1_3532_23
+Obligation: callElimAssert_rotate_right_requires_1_3773_19
 Property: assert
 Result: ✅ pass
 
-Obligation: callElimAssert_rotate_right_requires_1_3532_19
+Obligation: callElimAssert_rotate_right_requires_1_3773_23
 Property: assert
 Result: ✅ pass
 
-Obligation: callElimAssert_rotate_right_requires_1_3532_15
+Obligation: callElimAssert_rotate_right_requires_1_3773_27
 Property: assert
 Result: ✅ pass
 
@@ -398,27 +400,27 @@ Obligation: set_t1_calls_Sequence.select_0
 Property: out-of-bounds access check
 Result: ✅ pass
 
-Obligation: callElimAssert_rotate_right_requires_1_3532_11
+Obligation: callElimAssert_rotate_right_requires_1_3773_31
 Property: assert
 Result: ✅ pass
 
-Obligation: callElimAssert_rotate_right_requires_1_3532_7
+Obligation: callElimAssert_rotate_right_requires_1_3773_35
 Property: assert
 Result: ✅ pass
 
-Obligation: callElimAssert_rotate_right_requires_1_3532_3
+Obligation: callElimAssert_rotate_right_requires_1_3773_39
 Property: assert
 Result: ✅ pass
 
-Obligation: arbitrary_iter_maintain_invariant_0_0
+Obligation: insertLoopInvAssert_arbitrary_iter_maintain_invariant_loop_50_0
 Property: assert
 Result: ✅ pass
 
-Obligation: arbitrary_iter_maintain_invariant_0_1
+Obligation: insertLoopInvAssert_arbitrary_iter_maintain_invariant_loop_50_1
 Property: assert
 Result: ✅ pass
 
-Obligation: arbitrary_iter_maintain_invariant_0_2
+Obligation: insertLoopInvAssert_arbitrary_iter_maintain_invariant_loop_50_2
 Property: assert
 Result: ✅ pass
 
@@ -486,19 +488,19 @@ Obligation: set_state_out_calls_Sequence.update_1
 Property: out-of-bounds access check
 Result: ✅ pass
 
-Obligation: compress_u32_ensures_11_4892
+Obligation: compress_u32_ensures_11_5157
 Property: assert
 Result: ✅ pass
 
-Obligation: compress_pre_compress_requires_16_8295_calls_Sequence.select_0
+Obligation: compress_pre_compress_requires_16_8638_calls_Sequence.select_0
 Property: out-of-bounds access check
 Result: ✅ pass
 
-Obligation: entry_invariant_0_0
+Obligation: insertLoopInvAssert_entry_invariant_loop_51_0
 Property: assert
 Result: ✅ pass
 
-Obligation: entry_invariant_0_1
+Obligation: insertLoopInvAssert_entry_invariant_loop_51_1
 Property: assert
 Result: ✅ pass
 
@@ -506,19 +508,19 @@ Obligation: init_calls_Sequence.select_0
 Property: out-of-bounds access check
 Result: ✅ pass
 
-Obligation: callElimAssert_to_u32s_requires_4_3857_47
+Obligation: callElimAssert_to_u32s_requires_4_4106_42
 Property: assert
 Result: ✅ pass
 
-Obligation: callElimAssert_compress_u32_requires_10_4820_43
+Obligation: callElimAssert_compress_u32_requires_10_5085_47
 Property: assert
 Result: ✅ pass
 
-Obligation: arbitrary_iter_maintain_invariant_0_0
+Obligation: insertLoopInvAssert_arbitrary_iter_maintain_invariant_loop_51_0
 Property: assert
 Result: ✅ pass
 
-Obligation: arbitrary_iter_maintain_invariant_0_1
+Obligation: insertLoopInvAssert_arbitrary_iter_maintain_invariant_loop_51_1
 Property: assert
 Result: ✅ pass-/
 #guard_msgs in
