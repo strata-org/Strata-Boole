@@ -232,6 +232,8 @@ private def typeRange : Boole.Type → SourceRange
   | .Map m _ _ => m
   | .Sequence m _ => m
   | .nat m => m
+  | .Pair m _ _ => m
+  | .option m _ => m
 
 private def toCoreMonoType (t : Boole.Type) : TranslateM Lambda.LMonoTy := do
   match t with
@@ -256,6 +258,8 @@ private def toCoreMonoType (t : Boole.Type) : TranslateM Lambda.LMonoTy := do
   | .Sequence _ elem => return .tcons "Sequence" [← toCoreMonoType elem]
   -- Grammar-level binary nat types (injected into SMT by verify when no user decl exists)
   | .nat _ => return .tcons "nat" []
+  | .Pair _ a b => return .tcons "Pair" [← toCoreMonoType b, ← toCoreMonoType a]
+  | .option _ t => return .tcons "option" [← toCoreMonoType t]
   | _ => throwAt (typeRange t) s!"Unsupported Boole type: {repr t}"
 
 private def toCoreType (t : Boole.Type) : TranslateM Core.Expression.Ty := do
@@ -557,6 +561,16 @@ private partial def toCoreExpr (e : Boole.Expr) : TranslateM Core.Expression.Exp
   | .nat_le  _ a b => return mkCoreApp (.op () (mkIdent "nat.le")  none) [← toCoreExpr a, ← toCoreExpr b]
   | .nat_gt  _ a b => return mkCoreApp (.op () (mkIdent "nat.gt")  none) [← toCoreExpr a, ← toCoreExpr b]
   | .nat_ge  _ a b => return mkCoreApp (.op () (mkIdent "nat.ge")  none) [← toCoreExpr a, ← toCoreExpr b]
+  | .pair_mk _ _ _ a b   => return mkCoreApp (.op () (mkIdent "MkPair") none) [← toCoreExpr a, ← toCoreExpr b]
+  | .pair_fst _ _ _ t    => return mkCoreApp (.op () (mkIdent "Pair..fst") none) [← toCoreExpr t]
+  | .pair_snd _ _ _ t    => return mkCoreApp (.op () (mkIdent "Pair..snd") none) [← toCoreExpr t]
+  | .pair_isPair _ _ _ p => return mkCoreApp (.op () (mkIdent "Pair..isMkPair") none) [← toCoreExpr p]
+  | .option_some _ _ e   => return mkCoreApp (.op () (mkIdent "some") none) [← toCoreExpr e]
+  | .option_none _ t     => return mkCoreApp (.op () (mkIdent "none") (some (.tcons "option" [← toCoreMonoType t]))) []
+  | .option_isSome _ _ o => return mkCoreApp (.op () (mkIdent "option..isSome") none) [← toCoreExpr o]
+  | .option_isNone _ _ o => return mkCoreApp (.op () (mkIdent "option..isNone") none) [← toCoreExpr o]
+  | .option_get _ _ o    => return mkCoreApp (.op () (mkIdent "option.get") none) [← toCoreExpr o]
+  | .option_getOrElse _ _ o d => return mkCoreApp (.op () (mkIdent "option.getOrElse") none) [← toCoreExpr o, ← toCoreExpr d]
   | _ => throw (Message.fromString s!"Unsupported expression: {repr e}")
 
 end
@@ -1463,6 +1477,139 @@ private def natCorePreamble : List Core.Decl :=
   , mkFunc    "nat.ge"  ab boolTy (app2 (op' "Int.Ge") toIntA toIntB)
   ]
 
+private def pairCorePreamble : List Core.Decl :=
+  let a : LMonoTy := .ftvar "a"
+  let b : LMonoTy := .ftvar "b"
+  let decl : LDatatype Unit :=
+    { name := "Pair",
+      typeArgs := ["a", "b"],
+      constrs := [{ name := ⟨"MkPair", ()⟩,
+                    args := [(⟨"fst", ()⟩, a), (⟨"snd", ()⟩, b)],
+                    testerName := "Pair..isMkPair" }],
+      constrs_ne := by simp }
+  [.type (.data [decl]) .empty]
+
+private def pairOpNames : List String :=
+  [ "MkPair", "Pair..isMkPair", "Pair..fst", "Pair..snd"]
+
+
+
+private def optionCorePreamble : List Core.Decl :=
+  let T : LMonoTy := .ftvar "T"
+  let op' (n : String) : Core.Expression.Expr := .op () ⟨n, ()⟩ none
+  let fvar' (n : String) : Core.Expression.Expr := .fvar () ⟨n, ()⟩ none
+  let getFunc : Core.Decl := .func {
+    name := ⟨"option.get", ()⟩,
+    typeArgs := ["T"],
+    inputs := [(⟨"o", ()⟩, (.tcons "option" [T]))],
+    output := T,
+    body := some (.app () (op' "option..val") (fvar' "o")),
+    attr := #[],
+    axioms := [],
+    preconditions := [⟨.app () (op' "option..isSome") (fvar' "o"), ()⟩],
+    measure := none
+  } .empty
+
+  let getOrElseFunc : Core.Decl := .func {
+    name := ⟨"option.getOrElse", ()⟩,
+    typeArgs := ["T"],
+    inputs := [(⟨"o", ()⟩, (.tcons "option" [T])), (⟨"default", ()⟩, T)],
+    output := T,
+    body := some (.ite () (.app () (op' "option..isSome") (fvar' "o"))
+      (.app () (op' "option..val") (fvar' "o")) (fvar' "default")),
+    attr := #[], axioms := [], preconditions := [], measure := none
+  } .empty
+
+  let decl : LDatatype Unit := {
+    name := "option",
+    typeArgs := ["T"],
+    constrs := [{
+      name := ⟨"none", ()⟩,
+      args := [],
+      testerName := "option..isNone"
+    },
+    {
+      name := ⟨"some", ()⟩,
+      args := [(⟨"val", () ⟩, T)],
+      testerName := "option..isSome"
+    }],
+    constrs_ne := by simp
+  }
+
+  [.type (.data [decl]) .empty, getFunc, getOrElseFunc]
+
+private def optionOpNames : List String :=
+  [ "some", "none", "option..isSome", "option..isNone", "option..val"]
+
+
+-- Returns true if `ty` mentions a sort with name `name` (including nested)
+private partial def lMonoTyHasDt (name : String)  : Lambda.LMonoTy → Bool
+  | .tcons n args => n == name || args.any (lMonoTyHasDt name)
+  | _ => false
+
+-- Returns true if `expr` contains any operator call in `ops` of the type checked in `tyTest`.
+-- Used to catch datatype usage in spec (requires/ensures) expressions and function bodies
+private def lExprUsesDt (tyTest : Lambda.LMonoTy → Bool) (ops : List String) : Core.Expression.Expr → Bool
+  | .op _ id ty           => ops.contains id.name || ty.any tyTest
+  | .app _ f x           => lExprUsesDt tyTest ops f || lExprUsesDt tyTest ops x
+  | .ite _ c t e         => lExprUsesDt tyTest ops c || lExprUsesDt tyTest ops t || lExprUsesDt tyTest ops e
+  | .eq _ a b            => lExprUsesDt tyTest ops a || lExprUsesDt tyTest ops b
+  | .abs _ _ ty body      => lExprUsesDt tyTest ops body || ty.any tyTest
+  | .quant _ _ _ ty tr b  => lExprUsesDt tyTest ops tr || lExprUsesDt tyTest ops b || ty.any tyTest
+  | _                    => false
+
+-- Recursively scan a statement list for local variable declarations for the datatype with a tester function.
+-- This catches `var z : datatype := ...` inside procedure bodies that wouldn't appear
+-- in the procedure's header input/output types.
+private partial def stmtUsesDt (tyTest : Lambda.LMonoTy → Bool) (ops : List String) : Core.Statement → Bool
+    | .cmd (.cmd (.init _ ty (.det e) _))  => (match ty with | .forAll _ ty => tyTest ty) || lExprUsesDt tyTest ops e
+    | .cmd (.cmd (.init _ ty .nondet _))  => match ty with | .forAll _ ty => tyTest ty
+    | .cmd (.cmd (.assert _ b _))     => lExprUsesDt tyTest ops b
+    | .cmd (.cmd (.assume _ b _))     => lExprUsesDt tyTest ops b
+    | .cmd (.cmd (.cover _ b _))      => lExprUsesDt tyTest ops b
+    | .cmd (.cmd (.set _ (.det e) _)) => lExprUsesDt tyTest ops e
+    | .block _ inner _                =>  inner.any (stmtUsesDt tyTest ops)
+    | .ite (.det c) thenb elseb _     =>
+        lExprUsesDt tyTest ops c || thenb.any (stmtUsesDt tyTest ops)  || elseb.any (stmtUsesDt tyTest ops)
+    | .ite .nondet thenb elseb _      =>
+      thenb.any (stmtUsesDt tyTest ops)  || elseb.any  (stmtUsesDt tyTest ops)
+    | .loop (.det g) meas invs body _ =>
+        lExprUsesDt tyTest ops g
+        || meas.any (lExprUsesDt tyTest ops)
+        || invs.any (fun (_, e) => lExprUsesDt tyTest ops e)
+        || body.any (stmtUsesDt tyTest ops)
+    | .loop .nondet _ invs body _     =>
+        invs.any (fun (_, e) => lExprUsesDt tyTest ops e) || body.any (stmtUsesDt tyTest ops)
+    | .funcDecl f _                   =>
+        f.body.any (lExprUsesDt tyTest ops)
+        || f.axioms.any (lExprUsesDt tyTest ops)
+        || f.measure.any (lExprUsesDt tyTest ops)
+    | _                               => false
+
+-- Returns true if any function, procedure, or datatype in `cp` references the datatype checked in `tyTest`.
+-- Scans: input/output types, local variable types (body), spec expressions
+-- (requires/ensures), and function body expressions — so `ensures nat.toInt(n) >= 0`
+-- on any procedure in `ops` correctly triggers natLibrary injection.
+private def coreProgUsesDt (cp : Core.Program) (tyTest : Lambda.LMonoTy → Bool) (ops : List String): Bool :=
+  cp.decls.any fun decl => match decl with
+  | .func f _ => f.inputs.values.any tyTest
+              || tyTest f.output
+              || f.body.any (lExprUsesDt tyTest ops)
+  | .recFuncBlock fs _ => fs.any fun f =>
+              f.inputs.values.any tyTest
+              || tyTest f.output
+              || f.body.any (lExprUsesDt tyTest ops)
+  | .proc p _ => p.header.inputs.values.any tyTest
+              || p.header.outputs.values.any tyTest
+              || (match p.body with
+                  | .structured ss => ss.any (stmtUsesDt tyTest ops)
+                  | .cfg _ => false)
+              || p.spec.preconditions.values.any  (fun c => (lExprUsesDt tyTest ops) c.expr)
+              || p.spec.postconditions.values.any (fun c => (lExprUsesDt tyTest ops) c.expr)
+  | .type (.data block) _ => block.any fun dt => dt.constrs.any fun c => c.args.any fun(_, ty) => tyTest ty
+  | _ => false
+
+
 -- ── Validate-Candidate: pure-Lean nat arithmetic ─────────────────────────────
 -- When the incremental SMT solver returns `unknown (some m)` for a nat-using
 -- obligation, we attempt to evaluate the obligation expression against the
@@ -1739,6 +1886,15 @@ def verify
       let usesNatOrPos := coreProgUsesNatOrPos userCp
       let cp ← if hasUserNatDecl || !usesNatOrPos then pure userCp else
         pure { userCp with decls := natCorePreamble ++ userCp.decls }
+
+      let usesPair := coreProgUsesDt userCp (lMonoTyHasDt "Pair") pairOpNames
+      let hasUserPairDecl := (env.globalContext.findIndex? "Pair").isSome
+      let cp ← if hasUserPairDecl || !usesPair then pure cp else pure { cp with decls := pairCorePreamble ++ cp.decls }
+
+      let usesOption := coreProgUsesDt userCp (lMonoTyHasDt "option") optionOpNames
+      let hasUserOptionDecl := (env.globalContext.findIndex? "option").isSome
+      let cp ← if hasUserOptionDecl || !usesOption then pure cp else pure { cp with decls := optionCorePreamble ++ cp.decls }
+
       -- Wire the nat candidate-validation phase whenever nat/pos types are in use.
       -- Intentionally NOT conditioned on !hasUserNatDecl: `prepend`-based programs put
       -- nat/pos into globalContext (triggering hasUserNatDecl=true) but still need

@@ -38,6 +38,8 @@ dialect Boole;
 // The binary nat encoding is automatically injected into the SMT query by
 // `Strata.Boole.verify` when grammar-level nat is detected.
 type nat;
+type Pair (a: Type, b : Type);
+type option (T : Type);
 
 import Core;
 
@@ -209,6 +211,20 @@ fn seq_drop_first (A : Type, s : Sequence A) : Sequence A =>
   "Sequence.dropFirst" "(" s ")";
 fn seq_subrange (A : Type, s : Sequence A, lo : int, hi : int) : Sequence A =>
   "Sequence.subrange" "(" s ", " lo ", " hi ")";
+
+// -- Option + Pair
+fn option_some   (T: Type, elem: T)   : option T => "some(" elem ")";
+fn option_none   (T: Type)            : option T => "none<" T ">";
+fn option_isSome (T: Type, o : option T) : bool  => "isSome(" o ")";
+fn option_isNone (T: Type, o : option T) : bool  => "isNone(" o")";
+fn option_get    (T: Type, o : option T) : T     => "get(" o ")";
+fn option_getOrElse (T: Type, o : option T, d : T) : T => "getOrElse(" o ", " d ")";
+
+
+fn pair_mk  (A: Type, B: Type, a: A, b: B)   : Pair A B => "(" a ", " b ")";
+fn pair_isPair (A: Type, B : Type, p : Pair A B ) : bool => "isPair(" p ")";
+fn pair_fst (A: Type, B: Type, p: Pair A B ) : A => "fst(" p ")";
+fn pair_snd (A: Type, B: Type, p: Pair A B ) : B => "snd(" p ")";
 
 
 category Step;
