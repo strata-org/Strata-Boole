@@ -227,6 +227,24 @@ fn pair_fst (A: Type, B: Type, p: Pair A B ) : A => "fst(" p ")";
 fn pair_snd (A: Type, B: Type, p: Pair A B ) : B => "snd(" p ")";
 
 
+category Pattern;
+op pattern_wild : Pattern => "_";
+@[declare(x, tp)]
+op pattern_var(x : Ident, tp: Type) : Pattern => x ":" tp;
+@[scope(b)]
+op pattern_pair(a : Pattern, @[scope(a)] b : Pattern) : Pattern => "(" a ", " b ")";
+@[scope(val)]
+op pattern_some(val : Pattern) : Pattern => "some(" val ")";
+@[scope(args)]
+op pattern_ctor(name: Ident, args: CommaSepBy Pattern) : Pattern => name "(" args ")";
+
+fn matches_expr_and(T: Type, expr: T, pattern : Pattern, @[scope(pattern)] cond : bool) : bool =>
+  expr " matches " pattern " && " cond:0;
+//fn matches_expr_impl(T: Type, expr: T, pattern : Pattern, @[scope(pattern)] cond : bool) : bool =>
+//  expr " matches " pattern " ==> " cond:0;
+//fn matches_expr(T: Type, expr: T, pattern : Pattern) : bool =>
+//  expr " matches " pattern;
+
 category Step;
 op step(e: Expr) : Step =>
   " by " e;

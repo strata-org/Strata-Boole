@@ -367,6 +367,68 @@ private def oldifyExpr (inoutNames : List String) : Core.Expression.Expr → Cor
   | .abs m n ty body => .abs m n ty (oldifyExpr inoutNames body)
   | e => e
 
+
+private inductive Pattern where
+  | wild (ty : Lambda.LMonoTy)
+  | var (ty : Lambda.LMonoTy)
+  | pair (a : Pattern) (b : Pattern)
+  | some (v : Pattern)
+  | ctor (name : String) (args: List Pattern)
+  deriving Inhabited
+
+private partial def patOfAst(exTy : LMonoTy) : BooleDDM.Pattern SourceRange → TranslateM Pattern
+  | .pattern_wild _ => return .wild exTy
+  | .pattern_var m _ decTy => do
+    let actualCore ← toCoreMonoType decTy
+    if exTy != actualCore then
+      throwAt m s!"Pattern variable type mismatch: expected {repr exTy}, got {repr decTy}"
+    else
+      return .var (← toCoreMonoType decTy)
+  | .pattern_pair m a b =>
+    match exTy with
+      | .tcons "Pair" [leftTy, rightTy] =>
+      return .pair (← patOfAst leftTy a) (← patOfAst rightTy b)
+      | _ =>
+        throwAt m s!"Pair pattern expects a matching Pair type, got {repr exTy}"
+  | .pattern_some m v   =>
+    match exTy with
+      | .tcons "option" [ty] => return .some (← patOfAst ty v)
+      | _ => throwAt m s!"Option pattern expects a matching Option type, got {repr exTy}"
+  | .pattern_ctor _ ⟨_, c⟩ ⟨_, args⟩ =>
+      return .ctor c (← args.toList.mapM (patOfAst exTy))
+
+private partial def Pattern.tys : Pattern → List Lambda.LMonoTy
+  | .wild _ => []
+  | .var t => [t]
+  | .pair a b => a.tys ++ b.tys
+  | .some v => Pattern.tys v
+  | .ctor _ args => args.flatMap Pattern.tys
+
+private partial def Pattern.wildTys : Pattern → List Lambda.LMonoTy
+  | .wild t => [t]
+  | .var _ => []
+  | .pair a b => a.wildTys ++ b.wildTys
+  | .some v => Pattern.wildTys v
+  | .ctor _ args => args.flatMap Pattern.wildTys
+
+-- n = number of named vars, w = number of wildcars. k, j = named so far, wildcards so far
+private partial def Pattern.toExpr (n w: Nat) : Pattern → Nat → Nat → Core.Expression.Expr × Nat × Nat
+  | .var _, k, j => (.bvar () ( w + (n - 1 - k)), k + 1, j )
+  | .wild _, k, j => (.bvar () (w - 1 - j), k , j + 1)
+  | .pair a b, k, j =>
+    let (a', k', j') := a.toExpr n w k j
+    let (b', k'', j'') := b.toExpr n w k' j'
+    (mkCoreApp (.op () (mkIdent "MkPair") none) [a', b'], k'', j'')
+  | .some v, k, j =>
+    let (v', k', j') := v.toExpr n w k j
+    (mkCoreApp (.op () (mkIdent "some") none) [v'], k', j')
+  | .ctor name args, k, j =>
+    let (args', k', j') := args.foldl
+        (fun (acc, k, j) p => let (e, k', j') := p.toExpr n w k j; (acc ++ [e], k', j'))
+        ([], k, j)
+    (mkCoreApp (.op () (mkIdent name) none) args', k', j')
+
+
 mutual
 
 private partial def toCoreQuant
@@ -571,6 +633,24 @@ private partial def toCoreExpr (e : Boole.Expr) : TranslateM Core.Expression.Exp
   | .option_isNone _ _ o => return mkCoreApp (.op () (mkIdent "option..isNone") none) [← toCoreExpr o]
   | .option_get _ _ o    => return mkCoreApp (.op () (mkIdent "option.get") none) [← toCoreExpr o]
   | .option_getOrElse _ _ o d => return mkCoreApp (.op () (mkIdent "option.getOrElse") none) [← toCoreExpr o, ← toCoreExpr d]
+  | .matches_expr_and _ matchTy e p body => do
+    let mkEx (ty : Lambda.LMonoTy) (acc : Core.Expression.Expr) : Core.Expression.Expr :=
+      Lambda.LExpr.quant () Lambda.QuantifierKind.exist "" (some ty) (.bvar () 0) acc
+    let pat ← patOfAst (← toCoreMonoType matchTy) p
+    let namedTys := pat.tys
+    let wildTys := pat.wildTys
+    let n := namedTys.length
+    let w := wildTys.length
+
+    let namedVars := (Array.range n).map (.bvar () ·)
+    let body' ← withBVarExprs namedVars (toCoreExpr body)
+
+    let e' := Lambda.LExpr.liftBVars (n + w) (← toCoreExpr e)
+    let equation := Lambda.LExpr.eq () e' (pat.toExpr n w 0 0).1
+
+    let equation' := wildTys.foldr mkEx equation
+    let result := namedTys.foldr mkEx (mkCoreApp Core.boolAndOp [equation', body'])
+    return result
   | _ => throw (Message.fromString s!"Unsupported expression: {repr e}")
 
 end
