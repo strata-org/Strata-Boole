@@ -232,7 +232,7 @@ private def typeRange : Boole.Type → SourceRange
   | .Map m _ _ => m
   | .Sequence m _ => m
   | .nat m => m
-  | .Pair m _ _ => m
+  | .pair m _ _ => m
   | .option m _ => m
 
 private def toCoreMonoType (t : Boole.Type) : TranslateM Lambda.LMonoTy := do
@@ -258,7 +258,7 @@ private def toCoreMonoType (t : Boole.Type) : TranslateM Lambda.LMonoTy := do
   | .Sequence _ elem => return .tcons "Sequence" [← toCoreMonoType elem]
   -- Grammar-level binary nat types (injected into SMT by verify when no user decl exists)
   | .nat _ => return .tcons "nat" []
-  | .Pair _ a b => return .tcons "Pair" [← toCoreMonoType b, ← toCoreMonoType a]
+  | .pair _ a b => return .tcons "pair" [← toCoreMonoType b, ← toCoreMonoType a]
   | .option _ t => return .tcons "option" [← toCoreMonoType t]
   | _ => throwAt (typeRange t) s!"Unsupported Boole type: {repr t}"
 
@@ -386,7 +386,7 @@ private partial def patOfAst(exTy : LMonoTy) : BooleDDM.Pattern SourceRange → 
       return .var (← toCoreMonoType decTy)
   | .pattern_pair m a b =>
     match exTy with
-      | .tcons "Pair" [leftTy, rightTy] =>
+      | .tcons "pair" [leftTy, rightTy] =>
       return .pair (← patOfAst leftTy a) (← patOfAst rightTy b)
       | _ =>
         throwAt m s!"Pair pattern expects a matching Pair type, got {repr exTy}"
@@ -624,9 +624,9 @@ private partial def toCoreExpr (e : Boole.Expr) : TranslateM Core.Expression.Exp
   | .nat_gt  _ a b => return mkCoreApp (.op () (mkIdent "nat.gt")  none) [← toCoreExpr a, ← toCoreExpr b]
   | .nat_ge  _ a b => return mkCoreApp (.op () (mkIdent "nat.ge")  none) [← toCoreExpr a, ← toCoreExpr b]
   | .pair_mk _ _ _ a b   => return mkCoreApp (.op () (mkIdent "MkPair") none) [← toCoreExpr a, ← toCoreExpr b]
-  | .pair_fst _ _ _ t    => return mkCoreApp (.op () (mkIdent "Pair..fst") none) [← toCoreExpr t]
-  | .pair_snd _ _ _ t    => return mkCoreApp (.op () (mkIdent "Pair..snd") none) [← toCoreExpr t]
-  | .pair_isPair _ _ _ p => return mkCoreApp (.op () (mkIdent "Pair..isMkPair") none) [← toCoreExpr p]
+  | .pair_fst _ _ _ t    => return mkCoreApp (.op () (mkIdent "pair..fst") none) [← toCoreExpr t]
+  | .pair_snd _ _ _ t    => return mkCoreApp (.op () (mkIdent "pair..snd") none) [← toCoreExpr t]
+  | .pair_isPair _ _ _ p => return mkCoreApp (.op () (mkIdent "pair..isMkPair") none) [← toCoreExpr p]
   | .option_some _ _ e   => return mkCoreApp (.op () (mkIdent "some") none) [← toCoreExpr e]
   | .option_none _ t     => return mkCoreApp (.op () (mkIdent "none") (some (.tcons "option" [← toCoreMonoType t]))) []
   | .option_isSome _ _ o => return mkCoreApp (.op () (mkIdent "option..isSome") none) [← toCoreExpr o]
@@ -1561,16 +1561,16 @@ private def pairCorePreamble : List Core.Decl :=
   let a : LMonoTy := .ftvar "a"
   let b : LMonoTy := .ftvar "b"
   let decl : LDatatype Unit :=
-    { name := "Pair",
+    { name := "pair",
       typeArgs := ["a", "b"],
       constrs := [{ name := ⟨"MkPair", ()⟩,
                     args := [(⟨"fst", ()⟩, a), (⟨"snd", ()⟩, b)],
-                    testerName := "Pair..isMkPair" }],
+                    testerName := "pair..isMkPair" }],
       constrs_ne := by simp }
   [.type (.data [decl]) .empty]
 
 private def pairOpNames : List String :=
-  [ "MkPair", "Pair..isMkPair", "Pair..fst", "Pair..snd"]
+  [ "MkPair", "pair..isMkPair", "pair..fst", "pair..snd"]
 
 
 
@@ -1967,8 +1967,8 @@ def verify
       let cp ← if hasUserNatDecl || !usesNatOrPos then pure userCp else
         pure { userCp with decls := natCorePreamble ++ userCp.decls }
 
-      let usesPair := coreProgUsesDt userCp (lMonoTyHasDt "Pair") pairOpNames
-      let hasUserPairDecl := (env.globalContext.findIndex? "Pair").isSome
+      let usesPair := coreProgUsesDt userCp (lMonoTyHasDt "pair") pairOpNames
+      let hasUserPairDecl := (env.globalContext.findIndex? "pair").isSome
       let cp ← if hasUserPairDecl || !usesPair then pure cp else pure { cp with decls := pairCorePreamble ++ cp.decls }
 
       let usesOption := coreProgUsesDt userCp (lMonoTyHasDt "option") optionOpNames

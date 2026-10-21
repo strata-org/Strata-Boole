@@ -166,7 +166,7 @@ private def pair_quant_binder_prog : StrataDDM.Program :=
 program Boole;
 
 procedure pair_quant_binder () returns ()
-spec { ensures ∀ o:Pair int int . true; }
+spec { ensures ∀ o: pair int int . true; }
 {};
 
 #end
