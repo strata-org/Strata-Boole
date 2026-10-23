@@ -229,6 +229,7 @@ fn pair_snd (A: Type, B: Type, p: pair A B ) : B => "snd(" p ")";
 
 category Pattern;
 op pattern_wild : Pattern => "_";
+op pattern_none : Pattern => "none";
 @[declare(x, tp)]
 op pattern_var(x : Ident, tp: Type) : Pattern => x ":" tp;
 @[scope(b)]

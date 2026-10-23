@@ -370,6 +370,7 @@ private def oldifyExpr (inoutNames : List String) : Core.Expression.Expr → Cor
 
 private inductive Pattern where
   | wild (ty : Lambda.LMonoTy)
+  | none (ty : Lambda.LMonoTy)
   | var (ty : Lambda.LMonoTy)
   | pair (a : Pattern) (b : Pattern)
   | some (v : Pattern)
@@ -378,6 +379,10 @@ private inductive Pattern where
 
 private partial def patOfAst(exTy : LMonoTy) : BooleDDM.Pattern SourceRange → TranslateM Pattern
   | .pattern_wild _ => return .wild exTy
+  | .pattern_none m =>
+    match exTy with
+      | .tcons "option" [ty] => return .none ty
+      | _ => throwAt m s!"Pattern variable type mismatch: expected {repr exTy}"
   | .pattern_var m _ decTy => do
     let actualCore ← toCoreMonoType decTy
     if exTy != actualCore then
@@ -387,7 +392,7 @@ private partial def patOfAst(exTy : LMonoTy) : BooleDDM.Pattern SourceRange → 
   | .pattern_pair m a b =>
     match exTy with
       | .tcons "pair" [leftTy, rightTy] =>
-      return .pair (← patOfAst leftTy a) (← patOfAst rightTy b)
+        return .pair (← patOfAst leftTy a) (← patOfAst rightTy b)
       | _ =>
         throwAt m s!"Pair pattern expects a matching Pair type, got {repr exTy}"
   | .pattern_some m v   =>
@@ -399,6 +404,7 @@ private partial def patOfAst(exTy : LMonoTy) : BooleDDM.Pattern SourceRange → 
 
 private partial def Pattern.tys : Pattern → List Lambda.LMonoTy
   | .wild _ => []
+  | .none _ => []
   | .var t => [t]
   | .pair a b => a.tys ++ b.tys
   | .some v => Pattern.tys v
@@ -406,22 +412,34 @@ private partial def Pattern.tys : Pattern → List Lambda.LMonoTy
 
 private partial def Pattern.wildTys : Pattern → List Lambda.LMonoTy
   | .wild t => [t]
+  | .none _ => []
   | .var _ => []
   | .pair a b => a.wildTys ++ b.wildTys
   | .some v => Pattern.wildTys v
   | .ctor _ args => args.flatMap Pattern.wildTys
 
--- n = number of named vars, w = number of wildcars. k, j = named so far, wildcards so far
+/--
+  Convert Pattern to Core Expression
+  `n` = number of named vars, `w` = number of wildcars. `k` = named so far, `j` = wildcards so far
+  term sits under n + w existential binders
+
+  De Brujin Index
+    variable has index (w + (n - k - 1))
+    wildcard has index (w -  j - i)
+-/
 private partial def Pattern.toExpr (n w: Nat) : Pattern → Nat → Nat → Core.Expression.Expr × Nat × Nat
-  | .var _, k, j => (.bvar () ( w + (n - 1 - k)), k + 1, j )
+  | .var _, k, j => (.bvar ()  (w + (n - 1 - k)), k + 1, j)
   | .wild _, k, j => (.bvar () (w - 1 - j), k , j + 1)
+  | .none t, k, j =>
+    (mkCoreApp (.op () (mkIdent "none")
+      (Option.some (Lambda.LMonoTy.tcons "option" [t]))) [], k, j)
   | .pair a b, k, j =>
-    let (a', k', j') := a.toExpr n w k j
+    let (a', k', j')   := a.toExpr n w k j
     let (b', k'', j'') := b.toExpr n w k' j'
-    (mkCoreApp (.op () (mkIdent "MkPair") none) [a', b'], k'', j'')
+    (mkCoreApp (.op () (mkIdent "MkPair") Option.none) [a', b'], k'', j'')
   | .some v, k, j =>
     let (v', k', j') := v.toExpr n w k j
-    (mkCoreApp (.op () (mkIdent "some") none) [v'], k', j')
+    (mkCoreApp (.op () (mkIdent "some") Option.none) [v'], k', j')
   | .ctor name args, k, j =>
     let (args', k', j') := args.foldl
         (fun (acc, k, j) p => let (e, k', j') := p.toExpr n w k j; (acc ++ [e], k', j'))
