@@ -52,6 +52,7 @@ structure TranslateState where
       `getFVarIsOp` as the `command_var` carve-out for op-vs-var
       classification. -/
   globalVarTypes : Std.HashMap String Lambda.LMonoTy := {}
+  ctorTypes : Std.HashMap String (Lambda.LDatatype Unit) := {}
 
 abbrev TranslateM := StateT TranslateState (Except Message)
 
@@ -377,6 +378,20 @@ private inductive Pattern where
   | ctor (name : String) (args: List Pattern)
   deriving Inhabited
 
+/-- Instantiate type parameters in a type -/
+private partial def substTy (m : List (String × Lambda.LMonoTy)) : Lambda.LMonoTy → Lambda.LMonoTy
+  | .ftvar n    => (m.lookup n).getD (.ftvar n)
+  | .tcons c as => .tcons c (as.map (substTy m))
+  | t           => t
+
+/--
+  Elaborate surface pattern into a `Pattern`
+  recursively checks the pattern against the exprected Core Type `exTy`
+  throws error on mismatch
+
+    .pattern_ctor looks up the constructor name `c` in `ctorTypes`
+    TODO: add constructor types for option, pair, nat?
+-/
 private partial def patOfAst(exTy : LMonoTy) : BooleDDM.Pattern SourceRange → TranslateM Pattern
   | .pattern_wild _ => return .wild exTy
   | .pattern_none m =>
@@ -399,8 +414,22 @@ private partial def patOfAst(exTy : LMonoTy) : BooleDDM.Pattern SourceRange → 
     match exTy with
       | .tcons "option" [ty] => return .some (← patOfAst ty v)
       | _ => throwAt m s!"Option pattern expects a matching Option type, got {repr exTy}"
-  | .pattern_ctor _ ⟨_, c⟩ ⟨_, args⟩ =>
-      return .ctor c (← args.toList.mapM (patOfAst exTy))
+  | .pattern_ctor m ⟨_, c⟩ ⟨_, args⟩ => do
+    -- get type of pattern from existing constructor types
+    let some dt := (← get).ctorTypes[c]?
+      | throwAt m s!"Unknown constructor '{c}' in pattern"
+    let some ctor := dt.constrs.find? (·.name.name == c)
+      | throwAt m s!""
+    -- get type of expr
+    let .tcons tyName tyArgs := exTy
+      | throwAt m s!""
+    unless tyName == dt.name do throwAt m s!"Constructor '{c}' belongs to '{dt.name}' but the expected type is '{tyName}'"
+    unless dt.typeArgs.length == tyArgs.length && ctor.args.length == args.size do throwAt m s!"Constructor '{c}' expects '{ctor.args.length}' arguments"
+
+    let sub := dt.typeArgs.zip tyArgs
+    let patternType := args.toList.zip (ctor.args.map (·.2))
+    let pats ← patternType.mapM fun (p, fty) => patOfAst (substTy sub fty) p
+    return .ctor c pats
 
 private partial def Pattern.tys : Pattern → List Lambda.LMonoTy
   | .wild _ => []
@@ -441,10 +470,10 @@ private partial def Pattern.toExpr (n w: Nat) : Pattern → Nat → Nat → Core
     let (v', k', j') := v.toExpr n w k j
     (mkCoreApp (.op () (mkIdent "some") Option.none) [v'], k', j')
   | .ctor name args, k, j =>
-    let (args', k', j') := args.foldl
-        (fun (acc, k, j) p => let (e, k', j') := p.toExpr n w k j; (acc ++ [e], k', j'))
-        ([], k, j)
-    (mkCoreApp (.op () (mkIdent name) none) args', k', j')
+    let (args', k', j') :=
+      args.foldl (fun (acc, k, j) p =>
+        let (e, k', j') := p.toExpr n w k j; (acc ++ [e], k', j')) ([], k, j)
+    (mkCoreApp (.op () (mkIdent name) Option.none) args', k', j')
 
 
 mutual
@@ -651,6 +680,7 @@ private partial def toCoreExpr (e : Boole.Expr) : TranslateM Core.Expression.Exp
   | .option_isNone _ _ o => return mkCoreApp (.op () (mkIdent "option..isNone") none) [← toCoreExpr o]
   | .option_get _ _ o    => return mkCoreApp (.op () (mkIdent "option.get") none) [← toCoreExpr o]
   | .option_getOrElse _ _ o d => return mkCoreApp (.op () (mkIdent "option.getOrElse") none) [← toCoreExpr o, ← toCoreExpr d]
+    -- lower `e matches p && body` to `∃ named . (∃ wilds . e == p') && body`
   | .matches_expr_and _ matchTy e p body => do
     let mkEx (ty : Lambda.LMonoTy) (acc : Core.Expression.Expr) : Core.Expression.Expr :=
       Lambda.LExpr.quant () Lambda.QuantifierKind.exist "" (some ty) (.bvar () 0) acc
@@ -663,6 +693,7 @@ private partial def toCoreExpr (e : Boole.Expr) : TranslateM Core.Expression.Exp
     let namedVars := (Array.range n).map (.bvar () ·)
     let body' ← withBVarExprs namedVars (toCoreExpr body)
 
+    -- e elaborated outside binders -> lifted by n + w to sit inside equation
     let e' := Lambda.LExpr.liftBVars (n + w) (← toCoreExpr e)
     let equation := Lambda.LExpr.eq () e' (pat.toExpr n w 0 0).1
 
@@ -1266,8 +1297,9 @@ def formatProgram (prog : Boole.Program) (gctx : GlobalContext) (dialects : Dial
 def toCoreProgram (p : Boole.Program) (gctx : GlobalContext := {}) (fileName : String := "") : Except Message Core.Program := do
   match p with
   | .prog _ ⟨_, cmds⟩ =>
-    -- Pre-pass: collect global variable types and modifies info.
+    -- Pre-pass: collect global variable types, constructor types and modifies info.
     let mut varTypes : Std.HashMap String Lambda.LMonoTy := {}
+    let mut ctorTypes : Std.HashMap String (Lambda.LDatatype Unit) := {}
     let mut modMap : Std.HashMap String (List (Core.Expression.Ident × Lambda.LMonoTy)) := {}
     for cmd in cmds do
       match cmd with
@@ -1283,12 +1315,18 @@ def toCoreProgram (p : Boole.Program) (gctx : GlobalContext := {}) (fileName : S
       | .command_procedure _ _ nameAnn _ _ specAnn _ =>
         let mods ← collectModifiesFromSpec fileName nameAnn.val specAnn.val varTypes
         if !mods.isEmpty then modMap := modMap.insert nameAnn.val mods
+      | .command_datatypes _ _ ⟨_, decls⟩ =>
+        ctorTypes := decls.foldl (init := ctorTypes) fun acc d =>
+        match (toCoreDatatypeDecl d).run' { gctx := gctx } with
+        | .ok dt => dt.constrs.foldl (init := acc) fun acc c => acc.insert c.name.name dt
+        | .error _ => acc
       | _ => pure ()
     let init : TranslateState := {
       fileName := fileName
       gctx := gctx
       modifiesMap := modMap
       globalVarTypes := varTypes
+      ctorTypes := ctorTypes
     }
     let act : TranslateM Core.Program := do
       let decls := (← cmds.mapM toCoreDecls).toList.flatten
