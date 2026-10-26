@@ -375,7 +375,7 @@ private inductive Pattern where
   | var (ty : Lambda.LMonoTy)
   | pair (a : Pattern) (b : Pattern)
   | some (v : Pattern)
-  | ctor (name : String) (args: List Pattern)
+  | ctor (tester: String) (accs : List String) (args: List Pattern)
   deriving Inhabited
 
 /-- Instantiate type parameters in a type -/
@@ -429,51 +429,38 @@ private partial def patOfAst(exTy : LMonoTy) : BooleDDM.Pattern SourceRange → 
     let sub := dt.typeArgs.zip tyArgs
     let patternType := args.toList.zip (ctor.args.map (·.2))
     let pats ← patternType.mapM fun (p, fty) => patOfAst (substTy sub fty) p
-    return .ctor c pats
-
-private partial def Pattern.tys : Pattern → List Lambda.LMonoTy
-  | .wild _ => []
-  | .none _ => []
-  | .var t => [t]
-  | .pair a b => a.tys ++ b.tys
-  | .some v => Pattern.tys v
-  | .ctor _ args => args.flatMap Pattern.tys
-
-private partial def Pattern.wildTys : Pattern → List Lambda.LMonoTy
-  | .wild t => [t]
-  | .none _ => []
-  | .var _ => []
-  | .pair a b => a.wildTys ++ b.wildTys
-  | .some v => Pattern.wildTys v
-  | .ctor _ args => args.flatMap Pattern.wildTys
+    let accs := ctor.args.map fun (id, _) => s!"{dt.name}..{id.name}"
+    return .ctor ctor.testerName accs pats
 
 /--
-  Convert Pattern to Core Expression
-  `n` = number of named vars, `w` = number of wildcars. `k` = named so far, `j` = wildcards so far
-  term sits under n + w existential binders
-
-  De Brujin Index
-    variable has index (w + (n - k - 1))
-    wildcard has index (w -  j - i)
+  `p.lower s` matches the pattern `p` against the target expression `e` and
+  returns a list of testers and variable bindings per Pattern
+  `tests` : constructor testers recursively applied to e
+  `binds` : selector paths of named variables in `p`
 -/
-private partial def Pattern.toExpr (n w: Nat) : Pattern → Nat → Nat → Core.Expression.Expr × Nat × Nat
-  | .var _, k, j => (.bvar ()  (w + (n - 1 - k)), k + 1, j)
-  | .wild _, k, j => (.bvar () (w - 1 - j), k , j + 1)
-  | .none t, k, j =>
-    (mkCoreApp (.op () (mkIdent "none")
-      (Option.some (Lambda.LMonoTy.tcons "option" [t]))) [], k, j)
-  | .pair a b, k, j =>
-    let (a', k', j')   := a.toExpr n w k j
-    let (b', k'', j'') := b.toExpr n w k' j'
-    (mkCoreApp (.op () (mkIdent "MkPair") Option.none) [a', b'], k'', j'')
-  | .some v, k, j =>
-    let (v', k', j') := v.toExpr n w k j
-    (mkCoreApp (.op () (mkIdent "some") Option.none) [v'], k', j')
-  | .ctor name args, k, j =>
-    let (args', k', j') :=
-      args.foldl (fun (acc, k, j) p =>
-        let (e, k', j') := p.toExpr n w k j; (acc ++ [e], k', j')) ([], k, j)
-    (mkCoreApp (.op () (mkIdent name) Option.none) args', k', j')
+private partial def Pattern.lower (e: Core.Expression.Expr) :
+  Pattern → List Core.Expression.Expr × List Core.Expression.Expr
+  | .wild _ => ([], [])
+  | .var _  => ([], [e])
+  | .none _ => ([mkCoreApp (.op () (mkIdent "option..isNone") Option.none) [e]], [])
+  | .some v =>
+    let (tests, binds) := v.lower (mkCoreApp (.op () (mkIdent "option..val") Option.none) [e])
+    (mkCoreApp (.op () (mkIdent "option..isSome") Option.none) [e] :: tests, binds)
+  | .pair a b =>
+    let (tests1, binds1) := a.lower (mkCoreApp (.op () (mkIdent "pair..fst") Option.none) [e])
+    let (tests2, binds2) := b.lower (mkCoreApp (.op () (mkIdent "pair..snd") Option.none) [e])
+    (tests1 ++ tests2, binds1 ++ binds2)
+  | .ctor tester accs args =>
+    let rs  := (accs.zip args).map fun (acc, p) =>
+      p.lower (mkCoreApp (.op () (mkIdent acc) Option.none) [e])
+    (mkCoreApp (.op () (mkIdent tester) Option.none) [e] :: rs.flatMap (·.1), rs.flatMap (·.2))
+
+
+
+private def conj : List Core.Expression.Expr → Core.Expression.Expr
+  | [] => .true ()
+  | [e] => e
+  | e :: es => mkCoreApp Core.boolAndOp [e, conj es]
 
 
 mutual
@@ -680,26 +667,22 @@ private partial def toCoreExpr (e : Boole.Expr) : TranslateM Core.Expression.Exp
   | .option_isNone _ _ o => return mkCoreApp (.op () (mkIdent "option..isNone") none) [← toCoreExpr o]
   | .option_get _ _ o    => return mkCoreApp (.op () (mkIdent "option.get") none) [← toCoreExpr o]
   | .option_getOrElse _ _ o d => return mkCoreApp (.op () (mkIdent "option.getOrElse") none) [← toCoreExpr o, ← toCoreExpr d]
-    -- lower `e matches p && body` to `∃ named . (∃ wilds . e == p') && body`
+    -- lower `e matches P(x) && body` to `isP(e) ∧ x == sel_P(e) ∧ body`
   | .matches_expr_and _ matchTy e p body => do
-    let mkEx (ty : Lambda.LMonoTy) (acc : Core.Expression.Expr) : Core.Expression.Expr :=
-      Lambda.LExpr.quant () Lambda.QuantifierKind.exist "" (some ty) (.bvar () 0) acc
     let pat ← patOfAst (← toCoreMonoType matchTy) p
-    let namedTys := pat.tys
-    let wildTys := pat.wildTys
-    let n := namedTys.length
-    let w := wildTys.length
-
-    let namedVars := (Array.range n).map (.bvar () ·)
-    let body' ← withBVarExprs namedVars (toCoreExpr body)
-
-    -- e elaborated outside binders -> lifted by n + w to sit inside equation
-    let e' := Lambda.LExpr.liftBVars (n + w) (← toCoreExpr e)
-    let equation := Lambda.LExpr.eq () e' (pat.toExpr n w 0 0).1
-
-    let equation' := wildTys.foldr mkEx equation
-    let result := namedTys.foldr mkEx (mkCoreApp Core.boolAndOp [equation', body'])
-    return result
+    let (tests, binds) := pat.lower (← toCoreExpr e)
+    let body' ←  withBVarExprs binds.toArray (toCoreExpr body)
+    return conj (tests ++ [body'])
+  | .matches_expr_impl _ matchTy e p body => do
+    let pat ← patOfAst (← toCoreMonoType matchTy) p
+    let (tests, binds) := pat.lower (← toCoreExpr e)
+    let body' ←  withBVarExprs binds.toArray (toCoreExpr body)
+      return mkCoreApp Core.boolImpliesOp [conj tests, body']
+   -- lower `e matches P(x)` to `isP(e) ∧ x == sel_P(e)`
+  | .matches_expr _ matchTy e p => do
+    let pat ← patOfAst (← toCoreMonoType matchTy) p
+    let (tests, _) := pat.lower (← toCoreExpr e)
+    return conj tests
   | _ => throw (Message.fromString s!"Unsupported expression: {repr e}")
 
 end
