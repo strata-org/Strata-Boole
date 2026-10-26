@@ -372,7 +372,7 @@ private def oldifyExpr (inoutNames : List String) : Core.Expression.Expr → Cor
 
 mutual
 
-private partial def toCoreQuant
+private def toCoreQuant
     (isForall : Bool)
     (ds : BooleDDM.DeclList SourceRange)
     (body : Boole.Expr) : TranslateM Core.Expression.Expr := do
@@ -382,6 +382,7 @@ private partial def toCoreQuant
   let body' ← withBVarExprs qBVars (toCoreExpr body)
   let q := if isForall then Lambda.QuantifierKind.all else Lambda.QuantifierKind.exist
   return tys.foldr (fun ty acc => .quant () q "" (some ty) (.bvar () 0) acc) body'
+termination_by (sizeOf body, 4)
 
 /--
 Normalize Boole quantifier surface-syntax variants to a single lowering path.
@@ -393,7 +394,7 @@ lowering into Core. Legacy dotted Unicode separators are normalized earlier in
 `Strata.DDM.Elab`, so this helper only needs to collapse the remaining AST
 constructor variants.
 -/
-private partial def toCoreQuantExpr? (e : Boole.Expr) : Option (TranslateM Core.Expression.Expr) :=
+private def toCoreQuantExpr? (e : Boole.Expr) : Option (TranslateM Core.Expression.Expr) :=
   match e with
   | .forall _ ds body
   | .forall_unicode _ ds body
@@ -406,18 +407,20 @@ private partial def toCoreQuantExpr? (e : Boole.Expr) : Option (TranslateM Core.
   | .exists_unicodeT _ ds _ body =>
       some (toCoreQuant false ds body)
   | _ => none
+termination_by (sizeOf e, 1)
 
 /-- Lower a `Sequence.of_<ty>[v0, ..., vn]` literal to a left-fold of
     `seq_build` over a typed `seq_empty`. The element type is required on
     the seed so that empty literals retain their type and the
     bounds-precondition pass does not emit polymorphic obligations. -/
-partial def seqLitToCore (elemTy : Lambda.LMonoTy) (vs : Array Boole.Expr)
+def seqLitToCore (elemTy : Lambda.LMonoTy) (vs : Array Boole.Expr)
     : TranslateM Core.Expression.Expr := do
-  let vals ← vs.toList.mapM toCoreExpr
+  let vals ← vs.attach.toList.mapM fun ⟨v, _⟩ => toCoreExpr v
   return vals.foldl (fun acc v => mkCoreApp Core.seqBuildOp [acc, v])
                     (Core.seqEmptyOp (some elemTy))
+termination_by (sizeOf vs, 0)
 
-private partial def toCoreExpr (e : Boole.Expr) : TranslateM Core.Expression.Expr := do
+private def toCoreExpr (e : Boole.Expr) : TranslateM Core.Expression.Expr := do
   if let some q := toCoreQuantExpr? e then
     return ← q
   match e with
@@ -565,6 +568,7 @@ private partial def toCoreExpr (e : Boole.Expr) : TranslateM Core.Expression.Exp
   | .nat_gt  _ a b => return mkCoreApp (.op () (mkIdent "nat.gt")  none) [← toCoreExpr a, ← toCoreExpr b]
   | .nat_ge  _ a b => return mkCoreApp (.op () (mkIdent "nat.ge")  none) [← toCoreExpr a, ← toCoreExpr b]
   | _ => throw (Message.fromString s!"Unsupported expression: {repr e}")
+termination_by (sizeOf e, 3)
 
 end
 
