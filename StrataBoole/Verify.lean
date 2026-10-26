@@ -1751,10 +1751,10 @@ def verify
       let usesNatOrPos := coreProgUsesNatOrPos cp
       let cp := withNatPreamble env.globalContext cp
       -- Wire the nat candidate-validation phase whenever nat/pos types are in use.
-      -- Intentionally NOT conditioned on !hasUserNatDecl: `prepend`-based programs put
-      -- nat/pos into globalContext (triggering hasUserNatDecl=true) but still need
-      -- candidate validation. natCandidatePhase is a no-op for opaque/non-algebraic
-      -- nat since termToLeanPos/Nat won't parse those model entries.
+      -- Intentionally NOT conditioned on a user nat/pos declaration (unlike
+      -- `withNatPreamble`): `prepend`-based programs put nat/pos into globalContext
+      -- but still need candidate validation. natCandidatePhase is a no-op for
+      -- opaque/non-algebraic nat since termToLeanPos/Nat won't parse those model entries.
       let usesGrammarNat := usesNatOrPos
       let externalPhases : List Core.AbstractedPhase :=
         if usesGrammarNat then [natCandidatePhase] else []
