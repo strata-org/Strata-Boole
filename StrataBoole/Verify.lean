@@ -370,6 +370,9 @@ private def oldifyExpr (inoutNames : List String) : Core.Expression.Expr → Cor
   | .abs m n ty body => .abs m n ty (oldifyExpr inoutNames body)
   | e => e
 
+-- Termination: the size of the argument, then a rank. The rank only matters for the two
+-- calls on an argument of the same size: `toCoreExpr e` asks `toCoreQuantExpr? e`
+-- (rank 3 to 1), and `toCoreQuant` lowers its `body` with `toCoreExpr` (rank 4 to 3).
 mutual
 
 private def toCoreQuant
@@ -382,7 +385,7 @@ private def toCoreQuant
   let body' ← withBVarExprs qBVars (toCoreExpr body)
   let q := if isForall then Lambda.QuantifierKind.all else Lambda.QuantifierKind.exist
   return tys.foldr (fun ty acc => .quant () q "" (some ty) (.bvar () 0) acc) body'
-termination_by (sizeOf body, 4)
+  termination_by (SizeOf.sizeOf body, 4)
 
 /--
 Normalize Boole quantifier surface-syntax variants to a single lowering path.
@@ -407,7 +410,7 @@ private def toCoreQuantExpr? (e : Boole.Expr) : Option (TranslateM Core.Expressi
   | .exists_unicodeT _ ds _ body =>
       some (toCoreQuant false ds body)
   | _ => none
-termination_by (sizeOf e, 1)
+  termination_by (SizeOf.sizeOf e, 1)
 
 /-- Lower a `Sequence.of_<ty>[v0, ..., vn]` literal to a left-fold of
     `seq_build` over a typed `seq_empty`. The element type is required on
@@ -418,7 +421,7 @@ def seqLitToCore (elemTy : Lambda.LMonoTy) (vs : Array Boole.Expr)
   let vals ← vs.attach.toList.mapM fun ⟨v, _⟩ => toCoreExpr v
   return vals.foldl (fun acc v => mkCoreApp Core.seqBuildOp [acc, v])
                     (Core.seqEmptyOp (some elemTy))
-termination_by (sizeOf vs, 0)
+  termination_by (SizeOf.sizeOf vs, 0)
 
 private def toCoreExpr (e : Boole.Expr) : TranslateM Core.Expression.Expr := do
   if let some q := toCoreQuantExpr? e then
@@ -568,7 +571,7 @@ private def toCoreExpr (e : Boole.Expr) : TranslateM Core.Expression.Expr := do
   | .nat_gt  _ a b => return mkCoreApp (.op () (mkIdent "nat.gt")  none) [← toCoreExpr a, ← toCoreExpr b]
   | .nat_ge  _ a b => return mkCoreApp (.op () (mkIdent "nat.ge")  none) [← toCoreExpr a, ← toCoreExpr b]
   | _ => throw (Message.fromString s!"Unsupported expression: {repr e}")
-termination_by (sizeOf e, 3)
+  termination_by (SizeOf.sizeOf e, 3)
 
 end
 
