@@ -306,6 +306,37 @@ Result: ✅ pass
 #eval Strata.Boole.verify "cvc5" fmt5 (options := .quiet)
 
 
+/--
+  Test for solver timeout and binders fix
+-/
+private def quantified_matches := #strata
+program Boole;
+procedure match_quantified (o : option int)
+spec{
+  requires o == some(1);
+}
+{
+  assert ∃ y : int . (o matches some(x : int) && x == y);
+};
 
+#end
+/--
+info:
+Obligation: option.get_body_calls_option..val_0
+Property: assert
+Result: ✅ pass
+
+Obligation: option.getOrElse_body_calls_option..val_0
+Property: assert
+Result: ✅ pass
+
+Obligation: assert_assert_1_6345_calls_option..val_0
+Property: assert
+Result: ✅ pass
+
+Obligation: assert_1_6345
+Property: assert
+Result: ✅ pass
+-/
 #guard_msgs in
-#eval Strata.Boole.verify "cvc5" simple_matches (options := .quiet)
+#eval Strata.Boole.verify "cvc5" quantified_matches (options := .quiet)

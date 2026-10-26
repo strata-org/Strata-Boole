@@ -175,9 +175,11 @@ private theorem getFVarIsOp_spec (st : TranslateState) (m : SourceRange) (i : Na
 private def getBVarExpr (m : SourceRange) (i : Nat) : TranslateM Core.Expression.Expr := do
   let xs := (← get).bvars
   if i < xs.size then
+    let binders := (xs.extract (xs.size - i) xs.size).foldl
+      (fun n e => match e with | .bvar _ _ => n + 1 | _ => n) 0
     match xs[(xs.size - i - 1)]? with
-    | some (.bvar _ _) => return (.bvar () i)
-    | some e => return e
+    | some (.bvar _ _) => return (.bvar () binders)
+    | some e => return Lambda.LExpr.liftBVars binders e
     | none => throwAt m s!"Unknown bound variable with index {i}"
   else
     throwAt m s!"Unknown bound variable with index {i}"
