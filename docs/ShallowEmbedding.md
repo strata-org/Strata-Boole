@@ -27,17 +27,22 @@ flowchart TD
 The steps, in order. Each one is a theorem or a tool on the branch, not a design choice
 left open.
 
-1. **Interpreter.** One Lean function, `interpProc : Core.Procedure → Store → ND Store`,
-   gives every Core program its meaning in the `ND` monad of `Layer.lean`
-   (`StrataBoole/Shallow/Interpreter/`). It keeps the Core AST as data, evaluates
-   expressions with Strata's own `LExpr.denote`, and has no second evaluator. Unfolding
-   it on a concrete program yields the monadic term that `mvcgen` works on; this is what
-   "shallow" refers to. There is no per-program translator: a generated program would be
-   a second meaning of the source that nothing checks.
+1. **Interpreter.** One Lean function, `interpProc M p σ`, gives every Core procedure `p`
+   its meaning in the `ND` monad of `Layer.lean`, from a store `σ` and parametric in a model
+   `M` of Core's types and operators (`StrataBoole/Shallow/Interpreter/`). It keeps the
+   Core AST as data, evaluates expressions with Strata's own `LExpr.denote`, and has no
+   second evaluator. Unfolding it on a concrete program yields the monadic term that
+   `mvcgen` works on; this is what "shallow" refers to. There is no per-program translator:
+   a generated program would be a second meaning of the source that nothing checks.
 2. **Adequacy.** Prove that the interpreter agrees with Core's operational semantics
-   (`StatementSemantics.lean`): if Core can run `s` from `σ` to `σ'`, then `σ'` is an
-   outcome of `interpStmts s σ`, and a failed check in Core is the failure outcome. This
-   single theorem is what makes the Lean path trustworthy. Everything the interpreter does
+   (`Imperative/StmtSemantics.lean` and `CmdSemantics.lean`, instantiated for Core in
+   `Core/StatementSemantics.lean`): if Core runs `s` from `σ` to `σ'` without a failure,
+   then `some σ'` is an outcome of `interpStmts s σ`, and if a check fails along the way,
+   `none` is. Core records a failed check in a flag and keeps running, while `ND` stops,
+   which the statement accounts for. Core's semantics evaluates expressions with Strata's
+   evaluator `LExpr.eval`, the interpreter with `LExpr.denote`; the two are related by
+   `eval_denote_sound` (`LExprSemanticsConsistent.lean`). This theorem is what makes the
+   Lean path trustworthy. Everything the interpreter does
    not cover must fail, never be vacuous, so that a missing case cannot prove a
    specification.
 3. **Proof rules and tactic.** `Layer.lean` already has the rules (`havoc_spec`,
@@ -53,8 +58,8 @@ left open.
    prototype.
 5. **Boole semantics.** A Boole interpreter proved to agree with the Core one on
    `toCoreProgram p`, so that Boole gets a semantics of its own and the lowering is
-   verified. `toCoreExpr` is total (strata-org/Strata-Boole#25) and the `nat` library is
-   added inside `typeCheck` (strata-org/Strata-Boole#26) so that this statement can be made.
+   verified. This needs `toCoreExpr` total and the `nat` library added inside `typeCheck`,
+   which are strata-org/Strata-Boole#25 and #26.
 
 ## Decisions
 
@@ -67,19 +72,20 @@ left open.
   generator over a second semantics.
 - **No Velvet dependency:** Velvet needs Lean 4.34.
 - **Failure is an outcome.** A failed `assert`, an unsupported statement or an ill-typed
-  expression is the `none` outcome, which no specification admits.
+  expression is the `none` outcome (`ND.fail` in the interpreter), which no specification
+  admits.
 
 ## Mapping
 
 | Core | Lean |
 | --- | --- |
 | assignments, `if`, locals | `do` notation |
-| `exit` from a loop or the procedure | `break`, `return` |
-| other labeled `exit` | to do, e.g. one exception per label |
+| `exit`, labeled or not | to do |
 | `while` without a measure, `havoc`, `assume`, `assert` | `Layer.lean` |
-| `while` with a measure, nondeterministic `init`, `if *`, `while *` | to do |
-| `call` | the callee's proved specification |
-| `in`, `inout`, `out` parameters (Boole's globals and `modifies` become these) | arguments and results |
+| `if *` | a `havoc` of the condition |
+| `while` with a measure, `while *` | to do |
+| `call` | to decide: the callee's specification, or its body |
+| `in`, `inout`, `out` parameters (Boole's globals and `modifies` become these) | store entries; an `out` starts arbitrary, an `inout` keeps its input |
 | `int`, `bool`, `nat`, `bv n`, `Sequence`, `Map` | `Int`, `Bool`, `Nat`, `BitVec n`, `List`/`Array`, functions |
 | datatypes | see step 4 |
 | `cover`, local function and type declarations | to do |
