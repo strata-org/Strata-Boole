@@ -48,13 +48,9 @@ left open.
    follow the program's clauses, `decreases` checks and Core notation in goals go on top
    of `mvcgen`, not into a separate semantics.
 4. **Model.** Results must hold for every interpretation of Core's types and operators
-   that is consistent with Core, not for one concrete model: an unmodelled operator or an
-   out-of-range read must stay unconstrained, as in Core and SMT. A concrete model only
-   shows that such an interpretation exists. Datatypes: a single model (an inductive of
-   constructor applications, prototyped in `shallow_generic_datatypes.lean`) carries over
-   to Core only if every model Core admits is isomorphic to it, which needs
-   exhaustiveness and induction among Core's datatype laws. `nat` is a binary datatype in
-   Core; mapping it to Lean's `Nat` needs a proof that the two agree.
+   that is consistent with Core, not for one concrete model. How datatypes and `nat` fit
+   this is decided when steps 1 to 3 are done; `shallow_generic_datatypes.lean` is a first
+   prototype.
 5. **Boole semantics.** A Boole interpreter proved to agree with the Core one on
    `toCoreProgram p`, so that Boole gets a semantics of its own and the lowering is
    verified. `toCoreExpr` is total (strata-org/Strata-Boole#25) and the `nat` library is
@@ -98,8 +94,7 @@ left open.
   step 1, with reflection of the type-checked Core program into a Lean term
   (`shallow_reflect`). Not yet: calls, `exit`, nondeterministic loops, measures,
   materialization of the unfolded term, and the end-to-end example of step 3.
-- `StrataBooleTest/shallow_generic_datatypes.lean`: the datatype model prototype of
-  step 4, with the datatype laws proved once and `pos.toInt` by structural recursion.
+- `StrataBooleTest/shallow_generic_datatypes.lean`: a first prototype for step 4.
 - Step 2 and step 5 are not started.
 
 ## Open questions
