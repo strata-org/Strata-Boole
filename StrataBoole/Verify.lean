@@ -370,9 +370,12 @@ private def oldifyExpr (inoutNames : List String) : Core.Expression.Expr → Cor
   | .abs m n ty body => .abs m n ty (oldifyExpr inoutNames body)
   | e => e
 
+-- Termination: the size of the argument, then a rank. The rank only matters for the two
+-- calls on an argument of the same size: `toCoreExpr e` asks `toCoreQuantExpr? e`
+-- (rank 3 to 1), and `toCoreQuant` lowers its `body` with `toCoreExpr` (rank 4 to 3).
 mutual
 
-private partial def toCoreQuant
+private def toCoreQuant
     (isForall : Bool)
     (ds : BooleDDM.DeclList SourceRange)
     (body : Boole.Expr) : TranslateM Core.Expression.Expr := do
@@ -382,6 +385,7 @@ private partial def toCoreQuant
   let body' ← withBVarExprs qBVars (toCoreExpr body)
   let q := if isForall then Lambda.QuantifierKind.all else Lambda.QuantifierKind.exist
   return tys.foldr (fun ty acc => .quant () q "" (some ty) (.bvar () 0) acc) body'
+  termination_by (SizeOf.sizeOf body, 4)
 
 /--
 Normalize Boole quantifier surface-syntax variants to a single lowering path.
@@ -393,7 +397,7 @@ lowering into Core. Legacy dotted Unicode separators are normalized earlier in
 `Strata.DDM.Elab`, so this helper only needs to collapse the remaining AST
 constructor variants.
 -/
-private partial def toCoreQuantExpr? (e : Boole.Expr) : Option (TranslateM Core.Expression.Expr) :=
+private def toCoreQuantExpr? (e : Boole.Expr) : Option (TranslateM Core.Expression.Expr) :=
   match e with
   | .forall _ ds body
   | .forall_unicode _ ds body
@@ -406,18 +410,20 @@ private partial def toCoreQuantExpr? (e : Boole.Expr) : Option (TranslateM Core.
   | .exists_unicodeT _ ds _ body =>
       some (toCoreQuant false ds body)
   | _ => none
+  termination_by (SizeOf.sizeOf e, 1)
 
 /-- Lower a `Sequence.of_<ty>[v0, ..., vn]` literal to a left-fold of
     `seq_build` over a typed `seq_empty`. The element type is required on
     the seed so that empty literals retain their type and the
     bounds-precondition pass does not emit polymorphic obligations. -/
-partial def seqLitToCore (elemTy : Lambda.LMonoTy) (vs : Array Boole.Expr)
+def seqLitToCore (elemTy : Lambda.LMonoTy) (vs : Array Boole.Expr)
     : TranslateM Core.Expression.Expr := do
-  let vals ← vs.toList.mapM toCoreExpr
+  let vals ← vs.attach.toList.mapM fun ⟨v, _⟩ => toCoreExpr v
   return vals.foldl (fun acc v => mkCoreApp Core.seqBuildOp [acc, v])
                     (Core.seqEmptyOp (some elemTy))
+  termination_by (SizeOf.sizeOf vs, 0)
 
-private partial def toCoreExpr (e : Boole.Expr) : TranslateM Core.Expression.Expr := do
+private def toCoreExpr (e : Boole.Expr) : TranslateM Core.Expression.Expr := do
   if let some q := toCoreQuantExpr? e then
     return ← q
   match e with
@@ -565,6 +571,7 @@ private partial def toCoreExpr (e : Boole.Expr) : TranslateM Core.Expression.Exp
   | .nat_gt  _ a b => return mkCoreApp (.op () (mkIdent "nat.gt")  none) [← toCoreExpr a, ← toCoreExpr b]
   | .nat_ge  _ a b => return mkCoreApp (.op () (mkIdent "nat.ge")  none) [← toCoreExpr a, ← toCoreExpr b]
   | _ => throw (Message.fromString s!"Unsupported expression: {repr e}")
+  termination_by (SizeOf.sizeOf e, 3)
 
 end
 
@@ -1207,15 +1214,10 @@ def getProgram (p : StrataDDM.Program) : Except Message Boole.Program := do
   | .ok prog => return prog
   | .error e => throw (Message.fromString e)
 
-def typeCheck (p : StrataDDM.Program) (options : Core.VerifyOptions := .default) : Except Message Core.Program := do
-  let prog ← getProgram p
-  let coreProg ← toCoreProgram prog p.globalContext
-  Core.typeCheck options coreProg
-
 -- Returns true if `ty` mentions the `nat` or `pos` sort anywhere (including nested).
-private partial def lMonoTyHasNatOrPos : Lambda.LMonoTy → Bool
+private def lMonoTyHasNatOrPos : Lambda.LMonoTy → Bool
   | .tcons "nat" _ | .tcons "pos" _ => true
-  | .tcons _ args => args.any lMonoTyHasNatOrPos
+  | .tcons _ args => args.attach.any fun ⟨a, _⟩ => lMonoTyHasNatOrPos a
   | _ => false
 
 private def lTyHasNatOrPos : Lambda.LTy → Bool
@@ -1224,7 +1226,7 @@ private def lTyHasNatOrPos : Lambda.LTy → Bool
 -- Returns true if `expr` contains any nat/pos operator call.
 -- Used to catch nat usage in spec (requires/ensures) expressions and function bodies
 -- where the surface types may be int (e.g. `ensures nat.toInt(nat.fromInt(x)) == x`).
-private partial def lExprUsesNatOrPos : Core.Expression.Expr → Bool
+private def lExprUsesNatOrPos : Core.Expression.Expr → Bool
   | .op _ id _           => ["nat.toInt", "nat.fromInt", "nat.add", "nat.sub", "nat.mul",
                               "nat.div",  "nat.mod",     "nat.lt",  "nat.le",  "nat.gt",
                               "nat.ge",   "pos.toInt",   "pos.fromInt"].contains id.name
@@ -1238,7 +1240,7 @@ private partial def lExprUsesNatOrPos : Core.Expression.Expr → Bool
 -- Recursively scan a statement list for nat/pos-typed local variable declarations.
 -- This catches `var z : nat := ...` inside procedure bodies that wouldn't appear
 -- in the procedure's header input/output types.
-private partial def stmtListHasNatOrPos : List Core.Statement → Bool
+private def stmtListHasNatOrPos : List Core.Statement → Bool
   | [] => false
   | s :: rest =>
     let here := match s with
@@ -1470,6 +1472,21 @@ private def natCorePreamble : List Core.Decl :=
   , mkFunc    "nat.gt"  ab boolTy (app2 (op' "Int.Gt") toIntA toIntB)
   , mkFunc    "nat.ge"  ab boolTy (app2 (op' "Int.Ge") toIntA toIntB)
   ]
+
+/-- Prepend the binary nat library to a Core program that uses grammar-level `nat`/`pos`.
+    Skipped when the user declared `nat`/`pos` themselves (the global context takes
+    precedence) and when the program does not mention them, so unrelated programs get no
+    quantified axioms. `typeCheck`, `verify` and the `gen_smt_vcs_boole` path all go through
+    this, so they see the same program. -/
+def withNatPreamble (gctx : StrataDDM.GlobalContext) (cp : Core.Program) : Core.Program :=
+  let hasUserNatDecl := (gctx.findIndex? "nat").isSome || (gctx.findIndex? "pos").isSome
+  if hasUserNatDecl || !coreProgUsesNatOrPos cp then cp
+  else { cp with decls := natCorePreamble ++ cp.decls }
+
+def typeCheck (p : StrataDDM.Program) (options : Core.VerifyOptions := .default) : Except Message Core.Program := do
+  let prog ← getProgram p
+  let coreProg ← toCoreProgram prog p.globalContext
+  Core.typeCheck options (withNatPreamble p.globalContext coreProg)
 
 -- ── Validate-Candidate: pure-Lean nat arithmetic ─────────────────────────────
 -- When the incremental SMT solver returns `unknown (some m)` for a nat-using
@@ -1738,20 +1755,13 @@ def verify
       throw <| IO.Error.userError (toString (e.format (some ictx.fileMap)))
     | .ok cp =>
       -- Auto-inject the binary nat library when grammar-level nat/pos types are used.
-      -- Skip if the user explicitly declared nat/pos datatypes (GlobalContext takes precedence),
-      -- or if the program doesn't reference nat/pos at all (avoid injecting quantified axioms
-      -- into unrelated programs, which hurts SMT performance).
-      let hasUserNatDecl := (env.globalContext.findIndex? "nat").isSome
-                         || (env.globalContext.findIndex? "pos").isSome
-      let userCp := cp
-      let usesNatOrPos := coreProgUsesNatOrPos userCp
-      let cp ← if hasUserNatDecl || !usesNatOrPos then pure userCp else
-        pure { userCp with decls := natCorePreamble ++ userCp.decls }
+      let usesNatOrPos := coreProgUsesNatOrPos cp
+      let cp := withNatPreamble env.globalContext cp
       -- Wire the nat candidate-validation phase whenever nat/pos types are in use.
-      -- Intentionally NOT conditioned on !hasUserNatDecl: `prepend`-based programs put
-      -- nat/pos into globalContext (triggering hasUserNatDecl=true) but still need
-      -- candidate validation. natCandidatePhase is a no-op for opaque/non-algebraic
-      -- nat since termToLeanPos/Nat won't parse those model entries.
+      -- Intentionally NOT conditioned on a user nat/pos declaration (unlike
+      -- `withNatPreamble`): `prepend`-based programs put nat/pos into globalContext
+      -- but still need candidate validation. natCandidatePhase is a no-op for
+      -- opaque/non-algebraic nat since termToLeanPos/Nat won't parse those model entries.
       let usesGrammarNat := usesNatOrPos
       let externalPhases : List Core.AbstractedPhase :=
         if usesGrammarNat then [natCandidatePhase] else []
