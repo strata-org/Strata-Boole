@@ -11,12 +11,12 @@ git = "https://github.com/strata-org/Strata"
 # A fixed commit, not `main`: with a branch name any `lake update` silently
 # moves Strata under us, and the break surfaces later as an unrelated CI
 # failure.  Bump this deliberately, with the migration it needs.
-rev = "8ec62c9d4a48f8a0d32a03850e9a8638227155d4"
+rev = "9f989914b"
 
 [[require]]
 name = "smt"
 git = "https://github.com/ufmg-smite/lean-smt"
-rev = "9aedcbf"
+rev = "db545bebe"
 
 
 [[lean_lib]]
