@@ -69,15 +69,13 @@ for facts about the AST. There is no automation and no lifting: a goal reads
 
 ## Decisions
 
-- Build on `Core.Logic.Hoare`, not on a semantics of our own. `Deep/` defines its own
-  `Exec` and `eval`, which nothing connects to Core's semantics; the interpreter plan
-  needed an adequacy proof that would redo what Strata's rules already prove. Both are
-  replaced by the tactic and lifting over Strata's triple.
+- Build on `Core.Logic.Hoare`, not on a semantics of our own: neither `Deep/`'s `Exec`,
+  which nothing connects to Core's semantics, nor an interpreter with an adequacy proof
+  that would redo what Strata's rules already prove.
 - Core first, then Boole. Starting from Boole directly would leave nothing to prove
   adequacy against.
-- Goals over Lean values are what makes this usable; they come from lifting, not from a
-  monadic encoding. `Std.Do`/`mvcgen` (`StrataBoole/Shallow/Layer.lean`) is no longer on
-  the path; the files stay until the milestone is reached on the new path.
+- Goals over Lean values come from lifting, not from a monadic encoding, so
+  `Std.Do`/`mvcgen` (`StrataBoole/Shallow/Layer.lean`) is off the path.
 - Failure is never vacuous: a construct the tactic cannot handle leaves the goal open
   instead of closing it.
 
@@ -92,13 +90,11 @@ for facts about the AST. There is no automation and no lifting: a goal reads
 
 ## Status
 
-- Nothing of steps 1 and 2 exists yet against Strata's triple. `Deep/` has both pieces
-  against its own semantics, with `max2` and a counting loop proved; the retargeting is
-  the work.
-- `StrataBoole/Shallow/Interpreter/` (interpreter into `ND`) and `Layer.lean` are
-  superseded by the decision above. `shallow_reflect` is kept for step 3.
-- `StrataBooleTest/shallow_generic_datatypes.lean` is a first prototype for the datatype
-  denotation of step 4.
+- Steps 1 and 2: not started against Strata's triple. `Deep/` has both against its own
+  semantics, with `max2` and a counting loop proved.
+- `StrataBoole/Shallow/Interpreter/` and `Layer.lean` are kept until the milestone is
+  reached; `shallow_reflect` stays for step 3.
+- `StrataBooleTest/shallow_generic_datatypes.lean`: first prototype for step 4.
 
 ## Open questions
 
