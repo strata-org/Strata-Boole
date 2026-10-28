@@ -70,9 +70,11 @@ Steps 2 and 3 are independent and proceed in parallel; step 3 is the first miles
   also verifies the Boole to Core lowering. Starting from Boole directly would leave nothing
   to prove adequacy against.
 - Interpreter, not translator (step 1).
-- `Std.Do` and `mvcgen`, available on Lean 4.29 and 4.31. `vcgen` needs 4.33, Velvet
-  4.34. If `mvcgen` misbehaves on a construct, the fix is a minimal example and a
-  workaround, not a replacement VC generator over a second semantics.
+- `Std.Do` and `mvcgen`. Since the move to Lean 4.34, `vcgen` (`Std.Internal.Do`) and
+  Velvet are available too; switching is an option once the end-to-end milestone works
+  on `mvcgen`. If `mvcgen` misbehaves on a construct, the fix is a minimal example and
+  a workaround, not a replacement VC generator over a second semantics. Note that in a
+  `do` block `assert` now names Lean's own gadget, so the layer's is written `ND.assert`.
 - Failure is an outcome. A failed `assert`, an unsupported statement or an ill-typed
   expression is the `none` outcome (`ND.fail`), which no specification admits.
 - `assume` follows Boogie: an impossible `assume` makes the path vacuous. Velvet's choice
