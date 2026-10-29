@@ -60,20 +60,18 @@ So the tactic below is ours to build, and the triple is a stable target.
    branch `exp/deep-embedding`), retargeted from its own `Exec` to Strata's `Triple`.
 2. **Lifting.** Turn each goal into a proposition over Lean values: a store slot of type
    `int` is an `Int` (`inputAsPredicate` gives the literal), `Expression.eval` of an
-   operator on literals is the Lean operation (one lemma per operator; Strata has none
-   yet, `Deep/` has a first set against its own semantics), and a contract clause under
-   `denote` becomes the corresponding proposition. This is the shape of `core_lift`.
-   The interpreter prototype's `Model.lean` and `Sort.lean`, a concrete interpretation of
-   Core's types and operators over `LExpr.denote`, is this layer and carries over.
-   Milestone: `max2`, then `find_max`, proved by the tactic, lifting, and `omega`/`grind`.
-3. **Boole entry.** The interpreter prototype's `shallow_reflect` (fork branch, not merged)
-   already produces the type-checked Core program as a Lean term; it is the input of step 1, so a user writes a `#strata program Boole` block
-   and states `contractTriple` on its procedures.
+   operator on literals is the Lean operation (one lemma per operator, none in Strata yet),
+   and a contract clause under `denote` becomes the corresponding proposition. This is
+   the shape of `core_lift`. The interpreter prototype's `Model.lean` and `Sort.lean`, a
+   concrete interpretation of Core's types and operators over `LExpr.denote`, carry over
+   as this layer. Milestone: `max2`, then `find_max`, proved by the tactic, lifting, and
+   `omega`/`grind`.
+3. **Boole entry.** The prototype's `shallow_reflect` (on its fork branch) already produces
+   the type-checked Core program as a Lean term. It is the input of step 1, so a user
+   writes a `#strata program Boole` block and states `contractTriple` on its procedures.
 4. **Gaps shared with Strata, fixed in Strata.** Rules for nondeterministic `if` and
-   `while` (today only the deterministic forms have rules); user-defined functions in the
-   model (Strata's own TODO); a denotation for datatypes, under review in Strata as its own PR, with their
-   translation to Lean in strata-org/Strata#1480; that is also what makes Boole's `nat`
-   provable.
+   `while`; user-defined functions in the model; the generic datatype carrier wired into
+   the model (decision below), which also covers `nat`.
 5. **Boole semantics, if required.** Running programs is not a reason for an interpreter
    of our own: Strata has an executable small-step evaluator for Core
    (`Strata/Languages/Core/StatementEval.lean`). A Boole interpreter, proved to agree with
@@ -92,23 +90,18 @@ So the tactic below is ours to build, and the triple is a stable target.
   `Std.Do`/`mvcgen` (`StrataBoole/Shallow/Layer.lean`) is off the path.
 - Failure is never vacuous: a construct the tactic cannot handle leaves the goal open
   instead of closing it.
-- Datatypes get one generic model, written once, not one Lean inductive per program. The
-  carrier is a single inductive of constructor applications with a well-sortedness
-  predicate (`DT.Carrier` in `Strata/DL/SMT/DenoteDatatypes.lean`, the SMT denotation under
-  review in Strata); disjointness, injectivity, exhaustiveness and field typing are proved
-  once, and a program's datatypes are declarations the model reads, so the semantics has
-  no per-program step and nothing assumed. In the Hoare route the same carrier is the
-  interpretation of datatype sorts in the model that `Triple` quantifies over, which is
-  what discharges the datatype laws the Lambda denotation leaves as assumptions. `nat`
-  is this model's `pos`/`nat` with `toInt` by structural recursion.
-  strata-org/Strata#1480's per-program inductives (`#strata_datatypes`) serve the SMT-IR
-  Lean path and readability; they are not part of this route's semantics. Readable goals
-  (`pos.xO h` for `mk "xO" [h]`) are a presentation layer, added later with simp lemmas
-  and notation.
-- This is a deep embedding with shallow goals: the program stays data, and the Lean term
-  is the proof about it. The shallow part is what the user sees, goals over Lean values.
-  It was first discussed as a shallow embedding in the Velvet sense; say so when the
-  difference matters.
+- Datatypes get one generic model, not one Lean inductive per program: a single inductive
+  of constructor applications with a well-sortedness predicate (`DT.Carrier` in
+  `Strata/DL/SMT/DenoteDatatypes.lean`, the SMT denotation under review in Strata). Its laws
+  are proved once, a program's datatypes are declarations the model reads, and `nat` is
+  its `pos`/`nat` with `toInt` by structural recursion. The same carrier interprets
+  datatype sorts in the model `Triple` quantifies over, which discharges the laws the
+  Lambda denotation leaves as assumptions. The per-program inductives of
+  strata-org/Strata#1480 serve the SMT-IR path; readable goals (`pos.xO h` for
+  `mk "xO" [h]`) are notation and simp lemmas added later.
+- This is a deep embedding with shallow goals: the program stays data, the Lean term is
+  the proof about it, and what the user sees are goals over Lean values. It started as a
+  shallow embedding in the Velvet sense; say so when the difference matters.
 
 ## Coverage of the rules
 
@@ -124,14 +117,12 @@ So the tactic below is ours to build, and the triple is a stable target.
 
 - Steps 1 and 2: not started against Strata's triple. `Deep/` has both against its own
   semantics, with `max2` and a counting loop proved.
-- `StrataBoole/Shallow/Layer.lean` is kept until the milestone is reached. The interpreter
-  prototype stays on its fork branch; its `shallow_reflect` is what step 3 needs.
-- `StrataBooleTest/shallow_generic_datatypes.lean`: first prototype for step 4.
+- `StrataBoole/Shallow/Layer.lean` is kept until the milestone is reached.
+- `StrataBooleTest/shallow_generic_datatypes.lean`: first prototype of the carrier.
 - Risks. Strata's own hand proof of a two-branch `if` is some twenty-five lines with
-  `native_decide` and explicit store facts, so discharging the well-formedness, frame and
-  typing side conditions automatically is the bulk of step 1, not a detail. Two Strata
-  TODOs gate step 4: the model factory does not yet include user-defined functions, and
-  the typed-contract invariant is not yet a hypothesis of `contractTriple`.
+  `native_decide` and explicit store facts, so discharging the side conditions
+  automatically is the bulk of step 1. Step 4 also waits on Strata carrying the
+  typed-contract invariant as a hypothesis of `contractTriple`.
 
 ## Open questions
 
