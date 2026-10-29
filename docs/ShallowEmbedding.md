@@ -92,6 +92,19 @@ So the tactic below is ours to build, and the triple is a stable target.
   `Std.Do`/`mvcgen` (`StrataBoole/Shallow/Layer.lean`) is off the path.
 - Failure is never vacuous: a construct the tactic cannot handle leaves the goal open
   instead of closing it.
+- Datatypes get one generic model, written once, not one Lean inductive per program. The
+  carrier is a single inductive of constructor applications with a well-sortedness
+  predicate (`DT.Carrier` in `Strata/DL/SMT/DenoteDatatypes.lean`, the SMT denotation under
+  review in Strata); disjointness, injectivity, exhaustiveness and field typing are proved
+  once, and a program's datatypes are declarations the model reads, so the semantics has
+  no per-program step and nothing assumed. In the Hoare route the same carrier is the
+  interpretation of datatype sorts in the model that `Triple` quantifies over, which is
+  what discharges the datatype laws the Lambda denotation leaves as assumptions. `nat`
+  is this model's `pos`/`nat` with `toInt` by structural recursion.
+  strata-org/Strata#1480's per-program inductives (`#strata_datatypes`) serve the SMT-IR
+  Lean path and readability; they are not part of this route's semantics. Readable goals
+  (`pos.xO h` for `mk "xO" [h]`) are a presentation layer, added later with simp lemmas
+  and notation.
 - This is a deep embedding with shallow goals: the program stays data, and the Lean term
   is the proof about it. The shallow part is what the user sees, goals over Lean values.
   It was first discussed as a shallow embedding in the Velvet sense; say so when the
@@ -104,7 +117,8 @@ So the tactic below is ours to build, and the triple is a stable target.
 | assignments, `init`, `assert`, `assume`, `havoc` (as `set x *` through `cmd`), blocks, `exit`, deterministic `if` and `while`, `call` | rules exist |
 | `if *`, `while *`, loop measures, `cover` | to add |
 | `int`, `bool`, `bv n`, `Map`, `Sequence` | denoted; lifting lemmas to add (step 2) |
-| user functions, datatypes, `nat` | step 4 |
+| datatypes, `nat` | generic carrier (decision above); wiring into the model is step 4 |
+| user functions | step 4, Strata's TODO on the model factory |
 
 ## Status
 
