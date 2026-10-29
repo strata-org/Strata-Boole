@@ -7,7 +7,7 @@ weakLeanArgs = ["--tstack=32768"]
 
 [[require]]
 name = "Strata"
-# The keynote state of Strata: main (Lean 4.31) plus strata-org/Strata#1478
+# The pinned state of Strata: main (Lean 4.31) plus strata-org/Strata#1478
 # (opt-in define-fun-rec), #1480 (SMT datatypes as Lean inductives) and the fix
 # for #1482 (checked and total sequence operations as one symbol), all open.
 git = "https://github.com/kondylidou/Strata"

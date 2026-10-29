@@ -14,10 +14,10 @@ these names.
 ```
 mkdir dalek-demo && cd dalek-demo
 
-git clone --branch boogie               https://github.com/ccodel/verus.git
-git clone --branch lean-export-path-fix https://github.com/kondylidou/dalek-lite.git
-git clone --branch boole                https://github.com/kondylidou/verus-boole.git
-git clone --branch keynote-integration  https://github.com/strata-org/Strata-Boole.git
+git clone --branch boogie                  https://github.com/ccodel/verus.git
+git clone --branch lean-export-path-fix    https://github.com/kondylidou/dalek-lite.git
+git clone --branch boole                   https://github.com/kondylidou/verus-boole.git
+git clone --branch demo/dalek-sum-of-slice https://github.com/strata-org/Strata-Boole.git
 ```
 
 ## 2. Build
