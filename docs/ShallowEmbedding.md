@@ -79,7 +79,9 @@ So the tactic below is ours to build, and the triple is a stable target.
    other side. Its prerequisites, `toCoreExpr` total and the `nat` library inside
    `typeCheck`, are merged (strata-org/Strata-Boole#25, #26). Running programs is not
    what it is for: Strata already has an executable evaluator for Core
-   (`Strata/Languages/Core/StatementEval.lean`).
+   (`Strata/Languages/Core/StatementEval.lean`). Open design choice: Velvet's
+   nondeterministic state monad, with its VC generator, is a candidate for the
+   interpreter now that Strata and Velvet share a Lean version.
 
 ## Decisions
 
