@@ -63,6 +63,8 @@ So the tactic below is ours to build, and the triple is a stable target.
    operator on literals is the Lean operation (one lemma per operator; Strata has none
    yet, `Deep/` has a first set against its own semantics), and a contract clause under
    `denote` becomes the corresponding proposition. This is the shape of `core_lift`.
+   The interpreter prototype's `Model.lean` and `Sort.lean`, a concrete interpretation of
+   Core's types and operators over `LExpr.denote`, is this layer and carries over.
    Milestone: `max2`, then `find_max`, proved by the tactic, lifting, and `omega`/`grind`.
 3. **Boole entry.** The interpreter prototype's `shallow_reflect` (fork branch, not merged)
    already produces the type-checked Core program as a Lean term; it is the input of step 1, so a user writes a `#strata program Boole` block
@@ -72,9 +74,12 @@ So the tactic below is ours to build, and the triple is a stable target.
    model (Strata's own TODO); a denotation for datatypes, under review in Strata as its own PR, with their
    translation to Lean in strata-org/Strata#1480; that is also what makes Boole's `nat`
    provable.
-5. **Boole semantics.** A Boole interpreter proved to agree with `toCoreProgram`, so Boole
-   gets a semantics of its own. Needs `toCoreExpr` total and the `nat` library inside
-   `typeCheck`, both merged (strata-org/Strata-Boole#25, #26). Later.
+5. **Boole semantics, if required.** Running programs is not a reason for an interpreter
+   of our own: Strata has an executable small-step evaluator for Core
+   (`Strata/Languages/Core/StatementEval.lean`). A Boole interpreter, proved to agree with
+   `toCoreProgram`, is needed only if Boole must have a semantics stated without Core.
+   Its prerequisites, `toCoreExpr` total and the `nat` library inside `typeCheck`, are
+   merged (strata-org/Strata-Boole#25, #26). Decide when steps 1 to 3 are done.
 
 ## Decisions
 
@@ -87,6 +92,10 @@ So the tactic below is ours to build, and the triple is a stable target.
   `Std.Do`/`mvcgen` (`StrataBoole/Shallow/Layer.lean`) is off the path.
 - Failure is never vacuous: a construct the tactic cannot handle leaves the goal open
   instead of closing it.
+- This is a deep embedding with shallow goals: the program stays data, and the Lean term
+  is the proof about it. The shallow part is what the user sees, goals over Lean values.
+  It was first discussed as a shallow embedding in the Velvet sense; say so when the
+  difference matters.
 
 ## Coverage of the rules
 
@@ -104,6 +113,11 @@ So the tactic below is ours to build, and the triple is a stable target.
 - `StrataBoole/Shallow/Layer.lean` is kept until the milestone is reached. The interpreter
   prototype stays on its fork branch; its `shallow_reflect` is what step 3 needs.
 - `StrataBooleTest/shallow_generic_datatypes.lean`: first prototype for step 4.
+- Risks. Strata's own hand proof of a two-branch `if` is some twenty-five lines with
+  `native_decide` and explicit store facts, so discharging the well-formedness, frame and
+  typing side conditions automatically is the bulk of step 1, not a detail. Two Strata
+  TODOs gate step 4: the model factory does not yet include user-defined functions, and
+  the typed-contract invariant is not yet a hypothesis of `contractTriple`.
 
 ## Open questions
 
