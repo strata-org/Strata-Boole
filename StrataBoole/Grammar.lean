@@ -247,6 +247,13 @@ fn matches_expr(T: Type, expr: T, pattern : Pattern) : bool =>
   @[prec(15)] expr " matches " pattern;
 
 
+category MatchRest;
+op match_tail_arm (pat: Pattern, @[scope(pat)] body : Expr) : MatchRest => ", " pat " => " body:0;
+
+fn match_expr (R: Type, T: Type, expr: T, pat : Pattern, @[scope(pat)] body : R, rest : Seq MatchRest) : R =>
+  @[prec(3)] "match " expr:15 " { " pat " => " body:0 rest " }";
+
+
 category Step;
 op step(e: Expr) : Step =>
   " by " e;

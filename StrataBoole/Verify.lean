@@ -457,12 +457,36 @@ private partial def Pattern.lower (e: Core.Expression.Expr) :
       p.lower (mkCoreApp (.op () (mkIdent acc) Option.none) [e])
     (mkCoreApp (.op () (mkIdent tester) Option.none) [e] :: rs.flatMap (·.1), rs.flatMap (·.2))
 
-
+/--
+  checks whether pattern matches any possible value
+-/
+private def Pattern.isIrrefutable : Pattern → Bool
+| .wild _ => true
+| .var _ => true
+| .pair a b => isIrrefutable a && isIrrefutable b
+--| .ctor _ _ args => args.attach.all (·.isIrrefutable) TODO
+| _ => false
 
 private def conj : List Core.Expression.Expr → Core.Expression.Expr
   | [] => .true ()
   | [e] => e
   | e :: es => mkCoreApp Core.boolAndOp [e, conj es]
+
+private def lowerArms (e: Core.Expression.Expr) : List (Pattern × TranslateM Core.Expression.Expr) → TranslateM Core.Expression.Expr
+  | [] => throw (Message.fromString "match: no arms")
+  | [(p, b)] =>
+    let (_, binds) := p.lower e
+    withBVarExprs binds.toArray b
+  | (p, b) :: rest =>
+    let (tests, binds) := p.lower e
+  return .ite () (conj tests) (← withBVarExprs binds.toArray b) (← lowerArms e rest)
+
+
+private def checkExhaustiveness (m : SourceRange) (pats : List Pattern) : TranslateM Unit := do
+  let irrefutable := pats.any (·.isIrrefutable)
+  let hasSomeAndNone := pats.any (fun | .some v => v.isIrrefutable | _ => false) && pats.any (fun | .none _ => true | _ => false)
+  let isExhaustive := irrefutable || hasSomeAndNone
+  unless isExhaustive do throwAt m "Pattern match was not exhaustive, add a _ => ..."
 
 
 mutual
@@ -685,6 +709,17 @@ private partial def toCoreExpr (e : Boole.Expr) : TranslateM Core.Expression.Exp
     let pat ← patOfAst (← toCoreMonoType matchTy) p
     let (tests, _) := pat.lower (← toCoreExpr e)
     return conj tests
+  | .match_expr m _ matchTy e p b ⟨_, r⟩  => do
+    let arms := (p , b) :: r.toList.map (fun | .match_tail_arm _ p b =>(p, b))
+    let exTy ← toCoreMonoType matchTy
+    let pats ← arms.mapM fun (p, _) => patOfAst exTy p
+    let bodys := arms.map fun (_, b) => toCoreExpr b
+
+    --exhaustiveness check
+    checkExhaustiveness m  pats
+
+    let arms' := pats.zip bodys
+    lowerArms (← toCoreExpr e) arms'
   | _ => throw (Message.fromString s!"Unsupported expression: {repr e}")
 
 end
