@@ -72,20 +72,24 @@ So the tactic below is ours to build, and the triple is a stable target.
 4. **Gaps shared with Strata, fixed in Strata.** Rules for nondeterministic `if` and
    `while`; user-defined functions in the model; the generic datatype carrier wired into
    the model (decision below), which also covers `nat`.
-5. **Boole semantics, if required.** Running programs is not a reason for an interpreter
-   of our own: Strata has an executable small-step evaluator for Core
-   (`Strata/Languages/Core/StatementEval.lean`). A Boole interpreter, proved to agree with
-   `toCoreProgram`, is needed only if Boole must have a semantics stated without Core.
-   Its prerequisites, `toCoreExpr` total and the `nat` library inside `typeCheck`, are
-   merged (strata-org/Strata-Boole#25, #26). Decide when steps 1 to 3 are done.
+5. **Boole semantics.** A Boole interpreter proved to agree with `toCoreProgram`, so that
+   Boole has a meaning stated in its own terms and the lowering to Core is proved correct
+   rather than definitional. This is what makes Boole a language rather than a front end.
+   It comes after steps 1 to 3 because the agreement theorem needs Core's semantics on the
+   other side. Its prerequisites, `toCoreExpr` total and the `nat` library inside
+   `typeCheck`, are merged (strata-org/Strata-Boole#25, #26). Running programs is not
+   what it is for: Strata already has an executable evaluator for Core
+   (`Strata/Languages/Core/StatementEval.lean`).
 
 ## Decisions
 
 - Build on `Core.Logic.Hoare`, not on a semantics of our own: neither `Deep/`'s `Exec`,
   which nothing connects to Core's semantics, nor an interpreter with an adequacy proof
   that would redo what Strata's rules already prove.
-- Core first, then Boole. Starting from Boole directly would leave nothing to prove
-  adequacy against.
+- Core first, then Boole. Boole is the language users write and the one this work is
+  about; Core is where the proved semantics lives today. Starting from Boole directly
+  would leave nothing to prove adequacy against, so the Boole semantics is step 5, not
+  step 1.
 - Goals over Lean values come from lifting, not from a monadic encoding, so
   `Std.Do`/`mvcgen` (`StrataBoole/Shallow/Layer.lean`) is off the path.
 - Failure is never vacuous: a construct the tactic cannot handle leaves the goal open
