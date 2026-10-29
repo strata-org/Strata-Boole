@@ -42,6 +42,12 @@ Its tests prove eleven procedures by applying the rules by hand, with `native_de
 for facts about the AST. There is no automation and no lifting: a goal reads
 `Expression.eval ρ.factory ρ.store e = some v`, not `x ≥ y`.
 
+Its authors confirmed (October 2026) that the triple was written as the specification of
+partial correctness, the invariant a correct program transformation must preserve, and
+that they have no plans to automate it. Generating verification conditions against it is
+open to others, and they see no blocker once the generator's correctness is established.
+So the tactic below is ours to build, and the triple is a stable target.
+
 ## Plan
 
 1. **VC generation tactic over `Core.Logic.Hoare`.** From `Procedure.contractTriple p params
