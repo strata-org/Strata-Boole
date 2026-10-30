@@ -125,17 +125,23 @@ calls cvc5 and replays its proof so that Lean's kernel checks it.
 4. **Encode**: VCs are encoded as SMT-LIB formulas
 5. **Solve**: Either dispatched to an external solver or proved within Lean
 
-### Deep and shallow routes
+### SMT-level and program-level routes
 
-Everything above is a deep embedding: the program is data, and Core's
-verification-condition generator interprets it. The solver route trusts cvc5;
-the Lean route trusts only the kernel and the lifting of SMT terms to Lean.
+Both routes keep the program as data, so both are deep embeddings. They differ
+in the level that Lean gives a meaning to.
 
-A shallow route is being worked out on the `feat/shallow-embedding` branch:
-a Boole program becomes a Lean term, and its contract is proved against Core's
-Hoare logic (`Strata/Languages/Core/Logic/`) by a tactic that generates the
-verification conditions as Lean goals directly. The plan and its status are in
-`docs/ShallowEmbedding.md` on that branch.
+Everything above works at the SMT-LIB level. The verification-condition
+generator and the SMT encoding are trusted translations, and what gets checked
+is the SMT-LIB they produce: the solver route trusts cvc5 to check it, the Lean
+route the kernel and the lifting of SMT terms to Lean.
+
+A program-level route is being worked out on the `feat/hoare-logic` branch. A
+Boole program's contract is proved, through its lowering to Core, against
+Core's Hoare logic (`Strata/Languages/Core/Logic/`), whose rules are theorems
+about Core's operational semantics. A tactic applies the rules and lifts what
+is left to goals over Lean values, so the generator and the encoding leave the
+trusted base. The plan and its status are in `docs/HoareLogic.md` on that
+branch.
 
 ### Boole vs. Core Syntax
 

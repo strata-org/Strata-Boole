@@ -25,20 +25,23 @@ Rust + Verus specs -> trusted translation -> Boole -> Core -> SMT -> cvc5
 ```
 
 * **Core** is Strata's small intermediate language. Boole compiles to it, and
-  the verification-condition generator and SMT encoder work on Core. This is
-  the deep embedding route.
+  the verification-condition generator and SMT encoder work on Core. This is a
+  deep embedding at the SMT-LIB level: the program is data, the generator and
+  encoder are trusted, and what gets checked is the SMT-LIB they emit.
 * Two back ends consume the verification conditions: **cvc5**, which is fast and
-  trusted, and the **Lean kernel** via lean-smt, which is slow and trusts
-  nothing, because cvc5's proof is replayed and re-checked.
+  trusted, and the **Lean kernel** via lean-smt, which is slow and does not
+  trust cvc5, because cvc5's proof is replayed and re-checked.
 
 Three things about that picture are expected to change, and are worth knowing
 before you read the code as though it were the design.
 
 * **Rust is one front end, not the front end.** Python, C and C++, and Java are
   intended to reach Boole the same way.
-* **A shallow embedding is being explored** alongside the deep one, following
-  Velvet and Loom, where a program becomes a Lean term directly rather than
-  data interpreted by a generator.
+* **A program-level route is being explored** alongside this SMT-level one.
+  Rather than checking the SMT-LIB that comes out, it proves contracts against
+  Core's Hoare logic, whose rules are theorems about Core's operational
+  semantics, so the generator and encoder leave the trusted base. The program
+  is still data, so this is a deep embedding too.
 * **cvc5 is one prover among several.** A Lean goal can be closed by `smt`
   (lean-smt, which calls cvc5 and replays its proof), by Lean Hammer, by
   `grind`, or by LLM-based and other AI-based provers.
@@ -204,10 +207,12 @@ say so and stop. That is a real result, and it belongs in
 * [Lean-SMT](https://github.com/ufmg-smite/lean-smt), the tactic behind the
   kernel back end. It hands a goal to cvc5 and reconstructs the returned proof
   in Lean, so the solver does not have to be trusted.
-* Velvet and Loom, for the shallow embedding mentioned above. Loom is
+* Velvet and Loom, for related work on verifiers built in Lean. Loom is
   [*Foundational Multi-Modal Program Verifiers*](https://ilyasergey.net/assets/pdf/papers/loom-preprint.pdf),
   and [Velvet](https://ilyasergey.net/assets/pdf/papers/velvet-cav26.pdf) is the
   Dafny-style verifier built on it.
 * [A tutorial on Lean's `vcgen`](https://github.com/ilyasergey/lean-vcgen-tutorial),
-  which builds a small verifier the deep-embedding way and is the quickest route
-  to understanding how verification conditions are produced.
+  which builds a small verifier the deep-embedding way, in the shape the
+  program-level route takes: a semantics, rules proved against it, and goals
+  lifted to Lean values. It is the quickest way to understand how verification
+  conditions are produced.
