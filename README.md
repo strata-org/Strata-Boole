@@ -1,6 +1,6 @@
 # StrataBoole
 
-StrataBoole is a standalone Lean 4 package implementing the **Boole dialect** for [Strata](../). Boole is a high-level imperative specification language designed for deductive program verification, offering a friendlier surface syntax that compiles down to Strata Core for analysis.
+StrataBoole is a standalone Lean 4 package implementing the **Boole dialect** for [Strata](https://github.com/strata-org/Strata). Boole is a high-level imperative specification language designed for deductive program verification, offering a friendlier surface syntax that compiles down to Strata Core for analysis.
 
 ## Overview
 
@@ -15,6 +15,16 @@ Boole extends Strata Core with:
 
 The analysis pipeline is: **Boole program** → parse via DDM → translate to **Strata Core** → perform analysis
 
+Boole is the target of trusted translations from source languages. For the whole
+pipeline end to end, Rust with Verus specifications through Boole to cvc5 and to a
+proof checked by Lean's kernel, follow
+[DALEK_BENCHMARK.md](https://github.com/strata-org/Strata-Boole/blob/demo/dalek-sum-of-slice/DALEK_BENCHMARK.md)
+on the `demo/dalek-sum-of-slice` branch. It reproduces one real function step by step with
+the [verus-boole](https://github.com/kondylidou/verus-boole) translator; the other
+target programs are listed in [docs/BooleBenchmarks.md](docs/BooleBenchmarks.md).
+New to the repository? Start with [docs/onboarding.md](docs/onboarding.md), a longer
+walk-through that ends with your first verified program.
+
 ## Package Structure
 
 ```
@@ -28,17 +38,18 @@ StrataBoole/
 │   ├── Verify.lean          # Translation to Core + verification pipeline
 │   └── MetaVerifier.lean    # Tactic infrastructure (gen_smt_vcs_boole)
 ├── StrataBooleTest.lean     # Test root module
-└── StrataBooleTest/
-    ├── demo.lean            # Basic loop verification example
-    ├── find_max.lean         # Array search with quantified invariants
-    ├── insertion_sort.lean   # Sorting algorithm verification
-    ├── ...                   # Additional test/example files
-    └── FeatureRequests/      # Tests for planned/experimental features
+├── StrataBooleTest/
+│   ├── demo.lean            # Basic loop verification example
+│   ├── find_max.lean         # Array search with quantified invariants
+│   ├── insertion_sort.lean   # Sorting algorithm verification
+│   ├── ...                   # Additional test/example files
+│   └── FeatureRequests/      # Tests for planned/experimental features
+└── docs/                    # Onboarding guide, benchmarks, feature requests
 ```
 
 ## Building
 
-From the `StrataBoole/` directory:
+From the repository root:
 
 ```bash
 lake build
@@ -50,7 +61,8 @@ To run all tests (builds the test library, which includes `#eval` and `#guard_ms
 lake test
 ```
 
-The package depends on the parent `Strata` package (via `path = ".."`), so ensure the main Strata package builds first.
+Lake fetches the pinned `Strata` commit and `lean-smt`; the Lean version is pinned in
+`lean-toolchain`. Anything that runs the solver needs `cvc5` on your `PATH`.
 
 ## Writing a Boole Program
 
@@ -79,7 +91,7 @@ spec {
 Programs can also be stored in `*.boole.st` source files. However, there is not
 currently a top-level CLI that will process these files. To load external files
 in the Boole dialect from a client of the `StrataBoole` package, use
-`Strata.readStrataFile` to get a `StrataDDM.Program` and
+`StrataDDM.readStrataFile` to get a `StrataDDM.Program` and
 `Strata.Boole.getProgram` to translate it to a `Strata.Boole.Program`.
 
 ## Verifying a Program
@@ -100,7 +112,8 @@ theorem myProgram_correct : Strata.smtVCsCorrectBoole myProgram := by
 
 The `gen_smt_vcs_boole` tactic unfolds the program into individual SMT
 verification conditions as Lean goals. Each goal can then be discharged by
-`grind`, `omega`, `simp`, or other Lean tactics.
+`grind`, `omega`, `simp`, or by lean-smt's `smt` tactic (`import Smt`), which
+calls cvc5 and replays its proof so that Lean's kernel checks it.
 
 ## Key Concepts
 
@@ -112,11 +125,22 @@ verification conditions as Lean goals. Each goal can then be discharged by
 4. **Encode**: VCs are encoded as SMT-LIB formulas
 5. **Solve**: Either dispatched to an external solver or proved within Lean
 
+### Deep and shallow routes
+
+Everything above is a deep embedding: the program is data, and Core's
+verification-condition generator interprets it. The solver route trusts cvc5;
+the Lean route trusts only the kernel and the lifting of SMT terms to Lean.
+
+A shallow route is being worked out on the `feat/shallow-embedding` branch:
+a Boole program becomes a Lean term, and its contract is proved against Core's
+Hoare logic (`Strata/Languages/Core/Logic/`) by a tactic that generates the
+verification conditions as Lean goals directly. The plan and its status are in
+`docs/ShallowEmbedding.md` on that branch.
+
 ### Boole vs. Core Syntax
 
 | Boole | Core equivalent |
 |-------|----------------|
-| `var x : int;` | inout parameter |
 | `var x : int;` (global) | adds `x` as `inout` parameter to procedures whose `modifies` lists it; `in` parameter elsewhere |
 | `modifies x;` (clause) | promotes the corresponding global to `inout` in this procedure's signature |
 | `returns (r: int)` | `out r: int` parameter |
