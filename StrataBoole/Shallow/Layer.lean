@@ -16,7 +16,8 @@ whose invariant is part of the program.  Each construct comes with its proof
 rule (`@[spec]`), so `mvcgen` generates the verification conditions.
 
 The design follows Velvet (verse-lab/velvet); the code is ours and runs on the
-Lean version Strata is on.  See `docs/ShallowEmbedding.md`.
+Lean version Strata is on.  It is a prototype: the Hoare-logic route in
+`docs/HoareLogic.md` does not build on it.
 -/
 
 public section

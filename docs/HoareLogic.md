@@ -107,7 +107,9 @@ So the tactic below is ours to build, and the triple is a stable target.
   `mk "xO" [h]`) are notation and simp lemmas added later.
 - This is a deep embedding with shallow goals: the program stays data, the Lean term is
   the proof about it, and what the user sees are goals over Lean values. It started as a
-  shallow embedding in the Velvet sense; say so when the difference matters.
+  shallow embedding in the Velvet sense; say so when the difference matters. The
+  `Shallow` names left in the tree (`StrataBoole/Shallow/`, `shallow_find_max`) are that
+  prototype's.
 
 ## Coverage of the rules
 
@@ -124,7 +126,7 @@ So the tactic below is ours to build, and the triple is a stable target.
 - Steps 1 and 2: not started against Strata's triple. `Deep/` has both against its own
   semantics, with `max2` and a counting loop proved.
 - `StrataBoole/Shallow/Layer.lean` is kept until the milestone is reached.
-- `StrataBooleTest/shallow_generic_datatypes.lean`: first prototype of the carrier.
+- `StrataBooleTest/generic_datatypes.lean`: first prototype of the carrier.
 - Risks. Strata's own hand proof of a two-branch `if` is some twenty-five lines with
   `native_decide` and explicit store facts, so discharging the side conditions
   automatically is the bulk of step 1. Step 4 also waits on Strata carrying the

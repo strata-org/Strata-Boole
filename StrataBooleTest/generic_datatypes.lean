@@ -13,7 +13,7 @@ proved once; induction is recursion on the term.  `pos` and `nat` from Boole's
 `nat` library serve as the example.
 
 Not covered yet: `Map` fields keyed by a datatype (a negative occurrence) and
-parametric datatypes.  See `docs/ShallowEmbedding.md`.
+parametric datatypes.  See `docs/HoareLogic.md`.
 -/
 
 mutual

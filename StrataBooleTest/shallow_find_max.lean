@@ -9,7 +9,7 @@ import StrataBoole.Shallow.Layer
 should produce, verified with `mvcgen` on the layer.  This file is the
 contract between the translation and the layer. -/
 
--- Lean marks `mvcgen` experimental; see docs/ShallowEmbedding.md.
+-- Lean marks `mvcgen` experimental; see docs/HoareLogic.md.
 set_option mvcgen.warning false
 
 namespace Strata.Shallow.Test
