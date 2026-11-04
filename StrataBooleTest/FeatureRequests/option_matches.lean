@@ -56,3 +56,70 @@ program Boole;
 //            matches Some((_, v)) by { theorem_serialize_parse_roundtrip(v); };
 // };
 #end
+
+
+
+private def optionMatchesSeedRewrite : StrataDDM.Program :=
+#strata
+program Boole;
+
+type Value;
+
+function spec_parse(v: Sequence (bv W8)) : option (pair int Value);
+function spec_serialize(v: Value) : Sequence (bv W8);
+
+// --trusted roundtrip (#[verifier::external_body] equivalent)
+procedure theorem_serialize_parse_roundtrip (v: Value) returns()
+spec{
+  free ensures spec_parse(spec_serialize(v)) matches some((n : int, v': Value))
+    && n == Sequence.length(spec_serialize(v)) &&  v' == v;
+};
+
+
+//corollary_parse_surjective
+procedure parse_surjective_seed(v: Value) returns ()
+spec {
+  ensures ∃ b: Sequence (bv W8) .
+    (spec_parse(b) matches some((_ , v_ : Value)) && v_ == v);
+}
+{
+  call theorem_serialize_parse_roundtrip(v);
+};
+
+#end
+/--
+info:
+Obligation: option.get_body_calls_option..val_0
+Property: assert
+Result: ✅ pass
+
+Obligation: option.getOrElse_body_calls_option..val_0
+Property: assert
+Result: ✅ pass
+
+Obligation: theorem_serialize_parse_roundtrip_post_theorem_serialize_parse_roundtrip_ensures_0_3655_calls_option..val_0
+Property: assert
+Result: ✅ pass
+
+Obligation: theorem_serialize_parse_roundtrip_post_theorem_serialize_parse_roundtrip_ensures_0_3655_calls_option..val_1
+Property: assert
+Result: ✅ pass
+
+Obligation: parse_surjective_seed_post_parse_surjective_seed_ensures_1_3889_calls_option..val_0
+Property: assert
+Result: ✅ pass
+
+Obligation: assume_callElimAssume_theorem_serialize_parse_roundtrip_ensures_0_3655_1_calls_option..val_0
+Property: assert
+Result: ✅ pass
+
+Obligation: assume_callElimAssume_theorem_serialize_parse_roundtrip_ensures_0_3655_1_calls_option..val_1
+Property: assert
+Result: ✅ pass
+
+Obligation: parse_surjective_seed_ensures_1_3889
+Property: assert
+Result: ✅ pass
+-/
+#guard_msgs in
+#eval Strata.Boole.verify "cvc5" optionMatchesSeedRewrite (options := .quiet)

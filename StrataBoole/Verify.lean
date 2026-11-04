@@ -392,7 +392,6 @@ private def substTy (m : List (String × Lambda.LMonoTy)) : Lambda.LMonoTy → L
   throws error on mismatch
 
     .pattern_ctor looks up the constructor name `c` in `ctorTypes`
-    TODO: add constructor types for option, pair, nat?
 -/
 private partial def patOfAst(exTy : LMonoTy) : BooleDDM.Pattern SourceRange → TranslateM Pattern
   | .pattern_wild _ => return .wild exTy
@@ -457,15 +456,6 @@ private partial def Pattern.lower (e: Core.Expression.Expr) :
       p.lower (mkCoreApp (.op () (mkIdent acc) Option.none) [e])
     (mkCoreApp (.op () (mkIdent tester) Option.none) [e] :: rs.flatMap (·.1), rs.flatMap (·.2))
 
-/--
-  checks whether pattern matches any possible value
--/
-private def Pattern.isIrrefutable : Pattern → Bool
-| .wild _ => true
-| .var _ => true
-| .pair a b => isIrrefutable a && isIrrefutable b
---| .ctor _ _ args => args.attach.all (·.isIrrefutable) TODO
-| _ => false
 
 private def conj : List Core.Expression.Expr → Core.Expression.Expr
   | [] => .true ()
@@ -481,12 +471,61 @@ private def lowerArms (e: Core.Expression.Expr) : List (Pattern × TranslateM Co
     let (tests, binds) := p.lower e
   return .ite () (conj tests) (← withBVarExprs binds.toArray b) (← lowerArms e rest)
 
+private def getTypeName : Lambda.LMonoTy → String
+  | .tcons name _ => name
+  | .ftvar name => name
+  | .bitvec _ => "bitvector"
 
-private def checkExhaustiveness (m : SourceRange) (pats : List Pattern) : TranslateM Unit := do
-  let irrefutable := pats.any (·.isIrrefutable)
-  let hasSomeAndNone := pats.any (fun | .some v => v.isIrrefutable | _ => false) && pats.any (fun | .none _ => true | _ => false)
-  let isExhaustive := irrefutable || hasSomeAndNone
-  unless isExhaustive do throwAt m "Pattern match was not exhaustive, add a _ => ..."
+/--
+  checks whether pattern matches any possible value
+-/
+private def Pattern.isIrrefutable : Pattern → Bool
+| .wild _ => true
+| .var _ => true
+| .pair a b => isIrrefutable a && isIrrefutable b
+| _ => false
+
+/--
+  pattern matching is exhaustive if
+  - any pattern in `pats` is irrefutable e.g. wildcard `_`,
+  - the scrutinees type `ty` is an `option` and `pats` contains `none` and
+    `some(p)` with `p` irrefutable, or
+  - `ty` is a user datatype and every constructor has at least one pattern
+    naming it whose arguments are all irrefutable
+
+  throws an error otherwise
+
+  missing: recursive exhaustiveness check for nested constructors
+   (check is currently sound but incomplete)
+-/
+private def checkExhaustiveness
+  (m : SourceRange)
+  (ty : LMonoTy)
+  (pats : List Pattern)
+: TranslateM Unit := do
+  if (pats.any (·.isIrrefutable)) then return
+
+  let hasSomeAndNone := pats.any (fun | .some v => v.isIrrefutable | _ => false)
+                     && pats.any (fun | .none _ => true | _ => false)
+
+  let state ← get
+  let expCtors : Option (LDatatype Unit) :=
+   match ty with
+    | .tcons typeName _ =>
+        (state.ctorTypes.toList.find? fun (_, dt) => dt.name == typeName).map (·.2)
+    | _ => none
+
+  let hasAllCtors :=
+    match expCtors with
+    | some dt => dt.constrs.all fun ctor =>
+        pats.any fun
+          | .ctor tester _ args =>
+              tester == ctor.testerName && args.all (·.isIrrefutable)
+          | _ => false
+    | none => false
+
+  unless hasSomeAndNone || hasAllCtors do
+    throwAt m s!"Pattern match on {getTypeName ty} was not exhaustive, add _ => ..."
 
 
 mutual
@@ -693,7 +732,11 @@ private partial def toCoreExpr (e : Boole.Expr) : TranslateM Core.Expression.Exp
   | .option_isNone _ _ o => return mkCoreApp (.op () (mkIdent "option..isNone") none) [← toCoreExpr o]
   | .option_get _ _ o    => return mkCoreApp (.op () (mkIdent "option.get") none) [← toCoreExpr o]
   | .option_getOrElse _ _ o d => return mkCoreApp (.op () (mkIdent "option.getOrElse") none) [← toCoreExpr o, ← toCoreExpr d]
-    -- lower `e matches P(x) && body` to `isP(e) ∧ x == sel_P(e) ∧ body`
+  /-  Lowering of `matches`
+        e matches P(x : T)            ==>  isP(e)
+        e matches P(x : T) && body    ==>  isP(e) ∧ body[x := sel_P(e)]
+        e matches P(x : T) ==> body   ==>  isP(e) ==> body[x := sel_P(e)]
+    `patOfAst` type-checks the pattern against the type of `e`-/
   | .matches_expr_and _ matchTy e p body => do
     let pat ← patOfAst (← toCoreMonoType matchTy) p
     let (tests, binds) := pat.lower (← toCoreExpr e)
@@ -704,20 +747,29 @@ private partial def toCoreExpr (e : Boole.Expr) : TranslateM Core.Expression.Exp
     let (tests, binds) := pat.lower (← toCoreExpr e)
     let body' ←  withBVarExprs binds.toArray (toCoreExpr body)
       return mkCoreApp Core.boolImpliesOp [conj tests, body']
-   -- lower `e matches P(x)` to `isP(e) ∧ x == sel_P(e)`
   | .matches_expr _ matchTy e p => do
     let pat ← patOfAst (← toCoreMonoType matchTy) p
     let (tests, _) := pat.lower (← toCoreExpr e)
     return conj tests
+  /-
+  Lowering of `match`
+    match e { P1(x : T) => b1, ..., Pn => bn, _ => b }
+    lowers to
+    `ite(is_P1(e), b1[x := sel_P1(e)], ...  ite tests_Pn(e), bn[binds_Pn(e)], b))`
+
+    `tests` list of testers joined with `∧`
+    `binds` list of selectors
+    last arm becomes else
+    `checkExhaustive` checks exhaustiveness of patterns and throws error on violation
+    `patOfAst`typechecks `e` against each Pattern `Pi`
+    Core's `resolve` checks that result type of each arm is the same
+  -/
   | .match_expr m _ matchTy e p b ⟨_, r⟩  => do
     let arms := (p , b) :: r.toList.map (fun | .match_tail_arm _ p b =>(p, b))
     let exTy ← toCoreMonoType matchTy
     let pats ← arms.mapM fun (p, _) => patOfAst exTy p
     let bodys := arms.map fun (_, b) => toCoreExpr b
-
-    --exhaustiveness check
-    checkExhaustiveness m  pats
-
+    checkExhaustiveness m exTy pats
     let arms' := pats.zip bodys
     lowerArms (← toCoreExpr e) arms'
   | _ => throw (Message.fromString s!"Unsupported expression: {repr e}")

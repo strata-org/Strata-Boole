@@ -340,3 +340,29 @@ Result: ✅ pass
 -/
 #guard_msgs in
 #eval Strata.Boole.verify "cvc5" quantified_matches (options := .quiet)
+
+
+/-
+  test for VC generation with Core Datatype
+  (VC condition generation not working for option, pair, user defined datatypes)
+-/
+private def testvc := #strata
+program Boole;
+procedure match_quantified (s : Sequence int)
+{
+  assert s matches s : Sequence int && Sequence.length(s) >= 0;
+};
+
+#end
+/--
+info:
+Obligation: assert_0_7060
+Property: assert
+Result: ✅ pass
+-/
+#guard_msgs in
+#eval Strata.Boole.verify "cvc5" testvc (options := .quiet)
+
+example : Strata.smtVCsCorrectBoole testvc := by
+  gen_smt_vcs_boole
+  all_goals (try grind)
