@@ -209,3 +209,23 @@ Property: assert
 Result: ✅ pass-/
 #guard_msgs in
 #eval Strata.Boole.verify "cvc5" spec_quant_prog (options := .quiet)
+
+-- ── Test D: `typeCheck` sees the nat library too ─────────────────────────────
+-- The library used to be added only inside `verify`, so `Strata.Boole.typeCheck`
+-- rejected every program that uses `nat` ("Type nat is not an instance of a
+-- previously registered type"). It now goes through `withNatPreamble` as well.
+
+private def nat_header_prog : StrataDDM.Program :=
+#strata
+program Boole;
+
+procedure test_nat_header (a : nat, b : nat) returns ()
+spec { ensures a + b == b + a; }
+{ };
+#end
+
+/-- info: "type checks" -/
+#guard_msgs in
+#eval match Strata.Boole.typeCheck nat_header_prog Core.VerifyOptions.quiet with
+  | .ok _ => "type checks"
+  | .error e => toString (e.format none)

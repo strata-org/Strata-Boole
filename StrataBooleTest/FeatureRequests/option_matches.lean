@@ -97,27 +97,27 @@ Obligation: option.getOrElse_body_calls_option..val_0
 Property: assert
 Result: ✅ pass
 
-Obligation: theorem_serialize_parse_roundtrip_post_theorem_serialize_parse_roundtrip_ensures_0_3655_calls_option..val_0
+Obligation: theorem_serialize_parse_roundtrip_post_theorem_serialize_parse_roundtrip_ensures_0_2476_calls_option..val_0
 Property: assert
 Result: ✅ pass
 
-Obligation: theorem_serialize_parse_roundtrip_post_theorem_serialize_parse_roundtrip_ensures_0_3655_calls_option..val_1
+Obligation: theorem_serialize_parse_roundtrip_post_theorem_serialize_parse_roundtrip_ensures_0_2476_calls_option..val_1
 Property: assert
 Result: ✅ pass
 
-Obligation: parse_surjective_seed_post_parse_surjective_seed_ensures_1_3889_calls_option..val_0
+Obligation: parse_surjective_seed_post_parse_surjective_seed_ensures_1_2710_calls_option..val_0
 Property: assert
 Result: ✅ pass
 
-Obligation: assume_callElimAssume_theorem_serialize_parse_roundtrip_ensures_0_3655_1_calls_option..val_0
+Obligation: assume_callElimAssume_theorem_serialize_parse_roundtrip_ensures_0_2476_1_calls_option..val_0
 Property: assert
 Result: ✅ pass
 
-Obligation: assume_callElimAssume_theorem_serialize_parse_roundtrip_ensures_0_3655_1_calls_option..val_1
+Obligation: assume_callElimAssume_theorem_serialize_parse_roundtrip_ensures_0_2476_1_calls_option..val_1
 Property: assert
 Result: ✅ pass
 
-Obligation: parse_surjective_seed_ensures_1_3889
+Obligation: parse_surjective_seed_ensures_1_2710
 Property: assert
 Result: ✅ pass
 -/

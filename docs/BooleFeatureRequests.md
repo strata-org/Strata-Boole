@@ -9,7 +9,8 @@ several that are now fully implemented; a few have moved to
 
 - **Extensional equality** (#684)
   - `a =~= b` lowers to `∀ i : k . a[i] == b[i]`.
-  - Remaining gaps: named map synonyms, sequences, higher-order extensionality.
+  - Remaining gaps: named map synonyms, sequences (strata-org/Strata-Boole#18),
+    higher-order extensionality.
 - **Array axiomatization as standalone SMT-IR pass** (#795)
   - Post-encoding pass rewrites Array-theory SMT-IR to `Map` sorts with read-over-write axioms (generated only for type pairs used); fixes type-mismatch bug for datatypes with `Map` fields.
   - Remaining Boole-syntax gaps for `[T; N]`: see Gap #15.
@@ -60,6 +61,9 @@ several that are now fully implemented; a few have moved to
   - `fun x : T => body` lowers to nested Core `.abs` nodes; `(f)(x)` lowers to `.app () f x`.
   - Remaining gap: first-class function values as procedure parameters / local variables still need abstract-type encoding for the SMT path.
   - Benchmark: [`lambda_closure.lean`](../StrataBooleTest/FeatureRequests/lambda_closure.lean).
+- **Local `function` declarations inside procedures**
+  - A local function is a local variable bound to a lambda, as in Core; it can capture variables in scope. Type parameters and preconditions on local functions are rejected, and `inline` on them is ignored.
+  - Benchmark: [`local_functions.lean`](../StrataBooleTest/local_functions.lean).
 - **SMT-LIB 2.7 cast operators** (`e as_int`, `e as_sint`, `e as_bv{n}`) (Gap #6)
   - `e as_int` → `Bv{n}.ToUInt` → SMT-LIB 2.7 `ubv_to_int` (unsigned); widths 1/8/16/32/64/128.
   - `e as_sint` → `Bv{n}.ToInt` → SMT-LIB 2.7 `sbv_to_int` (signed); widths 1/8/16/32/64/128.
@@ -99,6 +103,8 @@ several that are now fully implemented; a few have moved to
     - Note: `FieldElement51.limbs: [u64; 5]` handled by Gap #13, not this gap.
     - Confirmed in sha256: `[u32; 64]`, `[u32; 16]`, `[u8; 64]`, `[0u32; 16]`, `K32: [u32; 64] = [...]`.
 16. **Slice types and slice indexing**: `&[T]` and `&[T; N]` — length, indexing, sub-slicing. Distinct from sequence slicing (#11): slices are runtime-sized Rust borrows. Confirmed in sha256: `blocks: &[[u8; 64]]`, `blocks[k]`, `to_u32s(&blocks[k])`.
+
+29. **`Set T` is reserved but unusable**: `Set` is one of Strata's known type names, so a Boole program cannot declare a `Set` of its own (`type Set (T : Type);` is rejected as reserved), and `Grammar.lean` provides no `Set` type former to use instead. A program needing sets must declare an abstract type under a different name; [`sha256_compact_indexed.lean`](../StrataBooleTest/FeatureRequests/sha256_compact_indexed.lean) uses `AbstractSet` for this reason. Either expose `Set` in the grammar, or stop reserving the name.
 
 ## Expressiveness requests
 

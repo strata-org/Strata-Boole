@@ -30,7 +30,7 @@ open StrataDDM (GlobalContext Program)
 
 def genVCs (program : Strata.Boole.Program) (gctx : GlobalContext) (options : Core.VerifyOptions := .default) : Option Core.coreVCs := do
   let program ← (Strata.Boole.toCoreProgram program gctx).toOption
-  Core.genVCs program options
+  Core.genVCs (Strata.Boole.withNatPreamble gctx program) options
 
 end Strata.Boole
 
