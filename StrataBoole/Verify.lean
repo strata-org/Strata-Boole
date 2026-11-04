@@ -381,7 +381,7 @@ private inductive Pattern where
   deriving Inhabited
 
 /-- Instantiate type parameters in a type -/
-private partial def substTy (m : List (String × Lambda.LMonoTy)) : Lambda.LMonoTy → Lambda.LMonoTy
+private def substTy (m : List (String × Lambda.LMonoTy)) : Lambda.LMonoTy → Lambda.LMonoTy
   | .ftvar n    => (m.lookup n).getD (.ftvar n)
   | .tcons c as => .tcons c (as.map (substTy m))
   | t           => t
@@ -1699,9 +1699,15 @@ private def optionOpNames : List String :=
 
 
 -- Returns true if `ty` mentions a sort with name `name` (including nested)
-private partial def lMonoTyHasDt (name : String)  : Lambda.LMonoTy → Bool
-  | .tcons n args => n == name || args.any (lMonoTyHasDt name)
+mutual
+private def lMonoTyHasDt (name : String) : Lambda.LMonoTy → Bool
+  | .tcons n args => n == name || lMonoTyHasDtList name args
   | _ => false
+
+private def lMonoTyHasDtList (name : String) : List Lambda.LMonoTy → Bool
+  | [] => false
+  | t :: ts => lMonoTyHasDt name t || lMonoTyHasDtList name ts
+end
 
 -- Returns true if `expr` contains any operator call in `ops` of the type checked in `tyTest`.
 -- Used to catch datatype usage in spec (requires/ensures) expressions and function bodies
@@ -1717,30 +1723,37 @@ private def lExprUsesDt (tyTest : Lambda.LMonoTy → Bool) (ops : List String) :
 -- Recursively scan a statement list for local variable declarations for the datatype with a tester function.
 -- This catches `var z : datatype := ...` inside procedure bodies that wouldn't appear
 -- in the procedure's header input/output types.
-private partial def stmtUsesDt (tyTest : Lambda.LMonoTy → Bool) (ops : List String) : Core.Statement → Bool
+mutual
+private def stmtUsesDt (tyTest : Lambda.LMonoTy → Bool) (ops : List String) : Core.Statement → Bool
     | .cmd (.cmd (.init _ ty (.det e) _))  => (match ty with | .forAll _ ty => tyTest ty) || lExprUsesDt tyTest ops e
     | .cmd (.cmd (.init _ ty .nondet _))  => match ty with | .forAll _ ty => tyTest ty
     | .cmd (.cmd (.assert _ b _))     => lExprUsesDt tyTest ops b
     | .cmd (.cmd (.assume _ b _))     => lExprUsesDt tyTest ops b
     | .cmd (.cmd (.cover _ b _))      => lExprUsesDt tyTest ops b
     | .cmd (.cmd (.set _ (.det e) _)) => lExprUsesDt tyTest ops e
-    | .block _ inner _                =>  inner.any (stmtUsesDt tyTest ops)
+    | .block _ inner _                => stmtUsesDtList tyTest ops inner
     | .ite (.det c) thenb elseb _     =>
-        lExprUsesDt tyTest ops c || thenb.any (stmtUsesDt tyTest ops)  || elseb.any (stmtUsesDt tyTest ops)
+        lExprUsesDt tyTest ops c || stmtUsesDtList tyTest ops thenb  || stmtUsesDtList tyTest ops elseb
     | .ite .nondet thenb elseb _      =>
-      thenb.any (stmtUsesDt tyTest ops)  || elseb.any  (stmtUsesDt tyTest ops)
+      stmtUsesDtList tyTest ops thenb  || stmtUsesDtList tyTest ops elseb
     | .loop (.det g) meas invs body _ =>
         lExprUsesDt tyTest ops g
         || meas.any (lExprUsesDt tyTest ops)
         || invs.any (fun (_, e) => lExprUsesDt tyTest ops e)
-        || body.any (stmtUsesDt tyTest ops)
+        || stmtUsesDtList tyTest ops body
     | .loop .nondet _ invs body _     =>
-        invs.any (fun (_, e) => lExprUsesDt tyTest ops e) || body.any (stmtUsesDt tyTest ops)
+        invs.any (fun (_, e) => lExprUsesDt tyTest ops e) || stmtUsesDtList tyTest ops body
     | .funcDecl f _                   =>
         f.body.any (lExprUsesDt tyTest ops)
         || f.axioms.any (lExprUsesDt tyTest ops)
         || f.measure.any (lExprUsesDt tyTest ops)
     | _                               => false
+
+private def stmtUsesDtList (tyTest : Lambda.LMonoTy → Bool) (ops : List String) : List Core.Statement → Bool
+  | [] => false
+  | st :: sts => stmtUsesDt tyTest ops st || stmtUsesDtList tyTest ops sts
+
+end
 
 -- Returns true if any function, procedure, or datatype in `cp` references the datatype checked in `tyTest`.
 -- Scans: input/output types, local variable types (body), spec expressions
