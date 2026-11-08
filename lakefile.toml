@@ -7,11 +7,12 @@ weakLeanArgs = ["--tstack=32768"]
 
 [[require]]
 name = "Strata"
-git = "https://github.com/strata-org/Strata"
-# A fixed commit, not `main`: with a branch name any `lake update` silently
-# moves Strata under us, and the break surfaces later as an unrelated CI
-# failure.  Bump this deliberately, with the migration it needs.
-rev = "9f989914b"
+# On this branch Strata is the `integration/lean-route` branch of the fork: Strata main
+# plus the open PRs the Lean route needs (datatype denotation, checked-to-total sequence
+# pass, public denote lemmas, datatypes to Lean). It moves back to strata-org/Strata when
+# they merge. A fixed commit, not a branch name, so `lake update` cannot move it.
+git = "https://github.com/kondylidou/Strata"
+rev = "f8be6585b"
 
 [[require]]
 name = "smt"

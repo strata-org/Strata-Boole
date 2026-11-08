@@ -9,6 +9,8 @@ public import StrataBoole.Boole
 public import Strata.Languages.Core.Program
 public import Strata.Languages.Core.Statement
 public import Strata.Languages.Core.Verifier
+-- `Core.verify` lives here since Strata walks obligations incrementally for every front end.
+public import Strata.Languages.Core.IncrementalSolve
 public import Strata.DL.Lambda.LExpr
 import Strata.DL.Lambda.LExprWF
 public import Strata.DL.Imperative.Stmt
