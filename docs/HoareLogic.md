@@ -70,8 +70,10 @@ So the tactic below is ours to build, and the triple is a stable target.
    the type-checked Core program as a Lean term. It is the input of step 1, so a user
    writes a `#strata program Boole` block and states `contractTriple` on its procedures.
 4. **Gaps shared with Strata, fixed in Strata.** Rules for nondeterministic `if` and
-   `while`; user-defined functions in the model; the generic datatype carrier wired into
-   the model (decision below), which also covers `nat`.
+   `while`; the program's own declarations in the model, that is its functions (with
+   bodies, recursive ones included), its uninterpreted functions and its axioms, which
+   `Triple` does not see today; the generic datatype carrier wired into the model
+   (decision below), which also covers `nat`; `Map` and `Sequence` (see Risks).
 5. **Boole semantics.** A Boole interpreter proved to agree with `toCoreProgram`, so that
    Boole has a meaning stated in its own terms and the lowering to Core is proved correct
    rather than definitional. This is what makes Boole a language rather than a front end.
@@ -121,6 +123,29 @@ So the tactic below is ours to build, and the triple is a stable target.
 | `Map`, `Sequence`, `string` operators | not usable yet: no value forms in the evaluator, and the triple quantifies over models that need not satisfy their axioms (see Risks) |
 | datatypes, `nat` | generic carrier (decision above); wiring into the model is step 4 |
 | user functions | step 4, Strata's TODO on the model factory |
+
+## Target: the benchmark the solver path already verifies
+
+`StrataBooleTest/dalek_sum_of_slice.lean` (36 obligations, cvc5 and lean-smt) is the
+program this route has to reach. What it uses, and where each item sits:
+
+| In the program | Needs | Step |
+| --- | --- | --- |
+| `for` loop with six invariants, `call` in the body, `exit` | rules exist; the tactic must discharge the loop and call side conditions | 1 |
+| integer and `bv W8` arithmetic, `as_uint`, comparisons | lifting lemmas per operator | 2 |
+| quantified `requires` and invariants | lifting of `denote` on quantifiers to Lean `∀` over `Int` | 2 |
+| `Sequence (bv W8)` and `Sequence Scalar`, `select`, `length` | a model and value forms in Strata | 4 |
+| native `nat`, the `nat_*` library | the generic carrier in the model, library functions as program functions | 4 |
+| `function` definitions, one `rec function` with `requires` and `decreases`, `function f();` without body | program declarations in the model | 4 |
+| `axiom` declarations, including the unfolding axiom of the recursive function | program axioms as hypotheses on the model | 4 |
+| a callee whose body is `assume false` | `call_of_contract` with a trivially proved contract | 1 |
+
+The lifted goals must stay solver-friendly: lean-smt closes goals over `Int`, `Bool` and
+`BitVec`, so sequences should lift to a length and an index function rather than to
+`List`, and `nat` to `Nat`. Decide this with step 4; it does not affect steps 1 to 3.
+
+Order: `max2`, the counting loop, then this program as soon as step 4 lands in Strata.
+Everything in steps 1 to 3 is exercised by the first two and reused unchanged by the third.
 
 ## Status
 
