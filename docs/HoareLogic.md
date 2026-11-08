@@ -64,8 +64,8 @@ So the tactic below is ours to build, and the triple is a stable target.
    and a contract clause under `denote` becomes the corresponding proposition. This is
    the shape of `core_lift`. The interpreter prototype's `Model.lean` and `Sort.lean`, a
    concrete interpretation of Core's types and operators over `LExpr.denote`, carry over
-   as this layer. Milestone: `max2`, then `find_max`, proved by the tactic, lifting, and
-   `omega`/`grind`.
+   as this layer. Milestone: `max2`, then the counting loop of `demo.lean`, proved by the
+   tactic, lifting, and `omega`/`grind`; `find_max` once `Map` is in (see Risks).
 3. **Boole entry.** The prototype's `shallow_reflect` (on its fork branch) already produces
    the type-checked Core program as a Lean term. It is the input of step 1, so a user
    writes a `#strata program Boole` block and states `contractTriple` on its procedures.
@@ -117,7 +117,8 @@ So the tactic below is ours to build, and the triple is a stable target.
 | --- | --- |
 | assignments, `init`, `assert`, `assume`, `havoc` (as `set x *` through `cmd`), blocks, `exit`, deterministic `if` and `while`, `call` | rules exist |
 | `if *`, `while *`, loop measures, `cover` | to add |
-| `int`, `bool`, `bv n`, `Map`, `Sequence` | denoted; lifting lemmas to add (step 2) |
+| `int`, `bool`, `bv n` | denoted; lifting lemmas to add (step 2) |
+| `Map`, `Sequence`, `string` operators | not usable yet: no value forms in the evaluator, and the triple quantifies over models that need not satisfy their axioms (see Risks) |
 | datatypes, `nat` | generic carrier (decision above); wiring into the model is step 4 |
 | user functions | step 4, Strata's TODO on the model factory |
 
@@ -131,15 +132,20 @@ So the tactic below is ours to build, and the triple is a stable target.
   `native_decide` and explicit store facts, so discharging the side conditions
   automatically is the bulk of step 1. Step 4 also waits on Strata carrying the
   typed-contract invariant as a hypothesis of `contractTriple`.
-- Vacuity in the evaluator. `set` and `init` require `Expression.eval` to return a value,
-  and `evalFully` returns `none` for any full application of an operator without a
-  concrete evaluation, which includes `select`, `update` and the sequence and string
-  operators. A statement such as `x := m[0]` then has no execution, and its triple holds
-  for any postcondition. This affects every program over `Map` or `Sequence`, `find_max`
-  included, and must be fixed in Strata before step 2's milestone: either give those
-  operators an evaluation on their value forms, or interpret `set` and `init` through
-  `denote` as the conditions already are. Until then the tactic must refuse such
-  statements rather than prove them.
+- `Map` and `Sequence` are outside the Hoare logic today, for two reasons that both
+  need a Strata change. First, `set` and `init` require `Expression.eval` to return a
+  value, and `evalFully` returns `none` for a full application of an operator without a
+  concrete evaluation (`select`, `update`, the sequence and string operators), so
+  `x := m[0]` has no execution and its triple holds for any postcondition. Second,
+  `Triple` quantifies over every `Lambda.Interp`, which must agree with function bodies
+  and concrete evaluations but not with the factory axioms, so nothing about
+  `m[k := v][k]` is provable in any case. The fix is to give these operators a fixed
+  interpretation in the model (maps as functions, sequences as lists) together with
+  value forms for the evaluator, or to interpret `set` and `init` through `denote`.
+  `Strata/Languages/Core/ProgramEval.lean` already has the evaluation of `select` over
+  `update`/`mapConst` terms for the concrete interpreter. Until this lands the tactic
+  refuses such statements, and the milestone is an integer program with a loop
+  (`demo.lean`'s), not `find_max`.
 
 ## Open questions
 
