@@ -131,6 +131,15 @@ So the tactic below is ours to build, and the triple is a stable target.
   `native_decide` and explicit store facts, so discharging the side conditions
   automatically is the bulk of step 1. Step 4 also waits on Strata carrying the
   typed-contract invariant as a hypothesis of `contractTriple`.
+- Vacuity in the evaluator. `set` and `init` require `Expression.eval` to return a value,
+  and `evalFully` returns `none` for any full application of an operator without a
+  concrete evaluation, which includes `select`, `update` and the sequence and string
+  operators. A statement such as `x := m[0]` then has no execution, and its triple holds
+  for any postcondition. This affects every program over `Map` or `Sequence`, `find_max`
+  included, and must be fixed in Strata before step 2's milestone: either give those
+  operators an evaluation on their value forms, or interpret `set` and `init` through
+  `denote` as the conditions already are. Until then the tactic must refuse such
+  statements rather than prove them.
 
 ## Open questions
 
@@ -138,6 +147,9 @@ So the tactic below is ours to build, and the triple is a stable target.
   check `decreases` separately?
 - `cover` is a reachability check, not a Hoare fact. How to state it?
 - Goal names: carry the program's clause names into the goals the tactic leaves.
+- Evaluator vacuity (see Risks): evaluation rules for `Map` and `Sequence` operators, or
+  `set`/`init` through `denote`? The second keeps one interpretation for expressions
+  everywhere; the first keeps Strata's semantics unchanged.
 - `native_decide` for AST facts: acceptable in the tactic, or avoid it?
 
 ## Sources
