@@ -149,9 +149,22 @@ Everything in steps 1 to 3 is exercised by the first two and reused unchanged by
 
 ## Status
 
-- Steps 1 and 2: not started against Strata's triple. `Deep/` has both against its own
+- `max2` is proved against Strata's triple, by hand, in `StrataBooleTest/hoare_max2.lean`:
+  `contractTriple_of_core_typed`, then `block`, `block`, `ite` and `set`, every side
+  condition by `native_decide` on the reflected program. The lifting lemmas it uses are
+  in `StrataBoole/HoareLift.lean`: the evaluator on `Int.Ge` over a store of literals
+  (one unfolding of `LExpr.eval.eq_2` plus the factory entry's facts), and the denotation
+  of `Int.Ge`, `Bool.And`, `Bool.Or` and `==` on literals in every model, each from the
+  model's agreement with the operator's concrete evaluation. The proof is the
+  specification of the step 1 tactic: it does these steps for any straight-line body with
+  `if`. Steps 1 and 2 as automation: not started. `Deep/` has both against its own
   semantics, with `max2` and a counting loop proved.
 - `StrataBoole/Shallow/Layer.lean` is kept until the milestone is reached.
+- Two things the hand proof settled. Under the module system, facts about factory entries
+  are not `rfl`; they need `import all` of the defining files and `simp` unfolding. And
+  the typing derivations (`HasTypeA`) must be spelled with the annotations exactly as the
+  lowering writes them, or the rewrite rules do not fire; the tactic should build them
+  from the term, not from the types.
 - `StrataBooleTest/generic_datatypes.lean`: first prototype of the carrier.
 - Risks. Strata's own hand proof of a two-branch `if` is some twenty-five lines with
   `native_decide` and explicit store facts, so discharging the side conditions

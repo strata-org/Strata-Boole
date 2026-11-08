@@ -7,6 +7,7 @@ module
 
 public import StrataBoole.Boole
 public import StrataBoole.Verify
+public import StrataBoole.HoareLift
 
 /-! ## Strata Boole Public Interface
 
