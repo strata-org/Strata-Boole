@@ -29,21 +29,21 @@ flowchart TD
 `Strata/Languages/Core/Logic/` (on Strata `main` since September 2026) is a Hoare logic for
 Core over Core's own operational semantics:
 
-- `Core.Logic.Hoare.Triple π params Pre ss Post`, quantified over every model of the
-  program's uninterpreted symbols (`Lambda.Interp Core.Factory`).
+- `Core.Logic.Hoare.Triple π params Pre ss Post factory`, quantified over every model
+  of `factory` (`Lambda.Interp`). A model satisfies the factory's axioms, and
+  `Core.factoryInterp` is one (maps as functions, sequences as lists, sets as predicates),
+  so the triple is never vacuous.
 - Proved rules for `cmd`, `set`, `init`, `seq`, `block`, `exit_cons`, `ite`, `while_rule`
   (partial correctness) and `Procedure.call_of_contract`.
 - `Procedure.contractTriple`, which reads `requires` and `ensures` as the triple to prove,
-  with `old` snapshots and typed parameters, and the generic `SpecHoareConnection`
-  (`Strata/DL/Imperative/Logic/`), which relates a triple to Strata's own notion of
-  assertion validity.
-- Since November 2026, expressions are evaluated denotationally: `Expression.eval` is
-  `LExpr.denoteEval` over a modeled factory (the factory, a model of it, and the sorts of
-  its type variables), and stores hold semantic values. Every model satisfies the factory
-  axioms, and `Core.factoryInterp` is one such model (maps as functions, sequences as
-  lists, sets as predicates), so the triple is never vacuous. The functions declared
-  before a procedure are part of its factory (`Program.factoryBeforeProcedure`), and
-  `contractTriple` carries the typing of the contract.
+  with `old` snapshots, typed parameters and typed clauses, over the factory visible at
+  the procedure: Core's operators plus the functions declared before it
+  (`Program.factoryBeforeProcedure`). The generic `SpecHoareConnection`
+  (`Strata/DL/Imperative/Logic/`) relates a triple to Strata's own notion of assertion
+  validity.
+- Expressions are evaluated denotationally (since November 2026): `Expression.eval` is
+  `LExpr.denoteEval` over the factory, a model of it and the sorts of its type variables,
+  and stores hold semantic values.
 - Lifting lemmas for the `int` and `bv` operators, free variables, `==` and `if`
   (`IntEvalProps.lean`, `BitVecEvalProps.lean`): the evaluator on values is the Lean
   operation in every model.
@@ -68,11 +68,11 @@ So the tactic below is ours to build, and the triple is a stable target.
    branch `exp/deep-embedding`), retargeted from its own `Exec` to Strata's `Triple`.
 2. **Lifting.** Turn each goal into a proposition over Lean values: a store slot of type
    `int` is an `Int` (`inputAsPredicate` and `SemValue.exists_ofInt`), `Expression.eval`
-   of an operator on values is the Lean operation (Strata's lemmas for `int` and `bv`,
-   ours for `Bool.And`, `Bool.Or` and `==` on integers in `StrataBoole/HoareLift.lean`),
-   and a contract clause becomes the corresponding proposition. Still to write: the
-   lemmas for `Map` and `Sequence` operators, which follow from the factory axioms every
-   model satisfies, and for quantifiers. This is the shape of `core_lift`. Milestone:
+   of an operator on values is the Lean operation (Strata's lemmas, plus ours for the
+   Boolean connectives and `==` in `StrataBoole/HoareLift.lean`), and a contract clause
+   becomes the corresponding proposition. Still to write: the lemmas for `Map` and
+   `Sequence` operators, which follow from the factory axioms, and for quantifiers. This
+   is the shape of `core_lift`. Milestone:
    `max2`, then the counting loop of `demo.lean`, then `find_max`, proved by the tactic,
    lifting, and `omega`/`grind`.
 3. **Boole entry.** The prototype's `shallow_reflect` (on its fork branch) already produces
@@ -142,7 +142,7 @@ program this route has to reach. What it uses, and where each item sits:
 | --- | --- | --- |
 | `for` loop with six invariants, `call` in the body, `exit` | rules exist; the tactic must discharge the loop and call side conditions | 1 |
 | integer and `bv W8` arithmetic, `as_uint`, comparisons | lifting lemmas per operator | 2 |
-| quantified `requires` and invariants | lifting of `denote` on quantifiers to Lean `∀` over `Int` | 2 |
+| quantified `requires` and invariants | lifting of quantifiers to Lean `∀` over `Int` | 2 |
 | `Sequence (bv W8)` and `Sequence Scalar`, `select`, `length` | lifting lemmas from the sequence axioms | 2 |
 | native `nat`, the `nat_*` library | the generic carrier in the model, library functions as program functions | 4 |
 | `function` definitions, one `rec function` with `requires` and `decreases` | in the model | done |
@@ -179,11 +179,9 @@ Everything in steps 1 to 3 is exercised by the first two and reused unchanged by
 - Risks. Strata's own hand proof of a two-branch `if` is some twenty-five lines with
   `native_decide` and explicit store facts, so discharging the side conditions
   automatically is the bulk of step 1.
-- `Map` and `Sequence` were outside the logic until November 2026: the fuel evaluator had
-  no value forms for their operators, so `x := m[0]` had no execution, and models did not
-  have to satisfy the factory axioms (strata-org/Strata#1496). Both are fixed by the
-  denotational evaluation above. The only remaining work on them is ours: the lifting
-  lemmas of step 2.
+- `Map` and `Sequence` were outside the logic until November 2026 (strata-org/Strata#1496:
+  their operators had no execution, and models were free to violate the axioms). The
+  denotational evaluation fixed both; what remains is the lifting lemmas of step 2.
 
 ## Open questions
 
