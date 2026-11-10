@@ -43,19 +43,19 @@ spec {
 #end
 
 /-- info:
-Obligation: pos.toInt_body_calls_pos..xO_h_0
-Property: assert
-Result: ✅ pass
-
-Obligation: pos.toInt_body_calls_pos..xI_h_1
-Property: assert
-Result: ✅ pass
-
 Obligation: pos.toInt_terminates_0
 Property: assert
 Result: ✅ pass
 
 Obligation: pos.toInt_terminates_1
+Property: assert
+Result: ✅ pass
+
+Obligation: pos.toInt_body_calls_pos..xO_h_0
+Property: assert
+Result: ✅ pass
+
+Obligation: pos.toInt_body_calls_pos..xI_h_1
 Property: assert
 Result: ✅ pass
 
@@ -148,19 +148,19 @@ spec {
 #end
 
 /-- info:
-Obligation: pos.toInt_body_calls_pos..xO_h_0
-Property: assert
-Result: ✅ pass
-
-Obligation: pos.toInt_body_calls_pos..xI_h_1
-Property: assert
-Result: ✅ pass
-
 Obligation: pos.toInt_terminates_0
 Property: assert
 Result: ✅ pass
 
 Obligation: pos.toInt_terminates_1
+Property: assert
+Result: ✅ pass
+
+Obligation: pos.toInt_body_calls_pos..xO_h_0
+Property: assert
+Result: ✅ pass
+
+Obligation: pos.toInt_body_calls_pos..xI_h_1
 Property: assert
 Result: ✅ pass
 

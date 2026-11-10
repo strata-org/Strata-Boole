@@ -12,7 +12,7 @@ name = "Strata"
 # pass, public denote lemmas, datatypes to Lean). It moves back to strata-org/Strata when
 # they merge. A fixed commit, not a branch name, so `lake update` cannot move it.
 git = "https://github.com/kondylidou/Strata"
-rev = "f8be6585b"
+rev = "91bb45532"
 
 [[require]]
 name = "smt"

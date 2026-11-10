@@ -143,20 +143,20 @@ Obligation: seq_empty_bv64_seed_ensures_8_1950
 Property: assert
 Result: ✅ pass
 
-Obligation: reconstruct_body_calls_Sequence.select_0
-Property: out-of-bounds access check
-Result: ✅ pass
-
-Obligation: reconstruct_body_calls_Sequence.drop_1
-Property: out-of-bounds access check
-Result: ✅ pass
-
 Obligation: reconstruct_terminates_0
 Property: assert
 Result: ✅ pass
 
 Obligation: reconstruct_terminates_1
 Property: assert
+Result: ✅ pass
+
+Obligation: reconstruct_body_calls_Sequence.select_0
+Property: out-of-bounds access check
+Result: ✅ pass
+
+Obligation: reconstruct_body_calls_Sequence.drop_1
+Property: out-of-bounds access check
 Result: ✅ pass
 -/
 #guard_msgs in

@@ -134,51 +134,51 @@ true
 Label: StackEmpty_ensures_3_1210
 Property: assert
 Assumptions:
-<label_ite_cond_true: top == 0>: if top@3 == 0 then top@3 == 0 else true
-<label_ite_cond_false: !(top == 0)>: if if top@3 == 0 then false else true then if top@3 == 0 then false else true else true
+<label_ite_cond_true: top == 0>: if top@2 == 0 then top@2 == 0 else true
+<label_ite_cond_false: !(top == 0)>: if if top@2 == 0 then false else true then if top@2 == 0 then false else true else true
 Obligation:
-(if top@3 == 0 then true else false) ==> top@3 == 0
+(if top@2 == 0 then true else false) ==> top@2 == 0
 
 Label: StackEmpty_ensures_4_1238
 Property: assert
 Assumptions:
-<label_ite_cond_true: top == 0>: if top@3 == 0 then top@3 == 0 else true
-<label_ite_cond_false: !(top == 0)>: if if top@3 == 0 then false else true then if top@3 == 0 then false else true else true
+<label_ite_cond_true: top == 0>: if top@2 == 0 then top@2 == 0 else true
+<label_ite_cond_false: !(top == 0)>: if if top@2 == 0 then false else true then if top@2 == 0 then false else true else true
 Obligation:
-top@3 == 0 ==> (if top@3 == 0 then true else false)
+top@2 == 0 ==> (if top@2 == 0 then true else false)
 
 Label: Push_ensures_6_1499
 Property: assert
 Assumptions:
-Push_requires_5_1448: int.lt(top@4, n@4)
+Push_requires_5_1448: int.lt(top@3, n@3)
 Obligation:
 true
 
 Label: Push_ensures_7_1530
 Property: assert
 Assumptions:
-Push_requires_5_1448: int.lt(top@4, n@4)
+Push_requires_5_1448: int.lt(top@3, n@3)
 Obligation:
-(S@3[int.add(top@4, 1):=x@1])[int.add(top@4, 1)] == x@1
+(S@3[int.add(top@3, 1):=x@1])[int.add(top@3, 1)] == x@1
 
 Label: Push_ensures_8_1588
 Property: assert
 Assumptions:
-Push_requires_5_1448: int.lt(top@4, n@4)
+Push_requires_5_1448: int.lt(top@3, n@3)
 Obligation:
-forall __q0 : int :: int.le(1, __q0) && int.le(__q0, top@4) ==> (S@3[int.add(top@4, 1):=x@1])[__q0] == S@3[__q0]
+forall __q0 : int :: int.le(1, __q0) && int.le(__q0, top@3) ==> (S@3[int.add(top@3, 1):=x@1])[__q0] == S@3[__q0]
 
 Label: Pop_ensures_10_1845
 Property: assert
 Assumptions:
-Pop_requires_9_1808: int.gt(top@6, 0)
+Pop_requires_9_1808: int.gt(top@4, 0)
 Obligation:
 true
 
 Label: Pop_ensures_11_1876
 Property: assert
 Assumptions:
-Pop_requires_9_1808: int.gt(top@6, 0)
+Pop_requires_9_1808: int.gt(top@4, 0)
 Obligation:
 true
 

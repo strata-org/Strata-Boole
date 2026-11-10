@@ -129,19 +129,19 @@ true
 Label: callElimAssert_inc_requires_0_2575_6
 Property: assert
 Assumptions:
-main_caller_requires_2_2709: z@3 == 10
-main_caller_requires_3_2729: g@3 == 0
+main_caller_requires_2_2709: z@2 == 10
+main_caller_requires_3_2729: g@2 == 0
 Obligation:
-int.gt(z@3, 0)
+int.gt(z@2, 0)
 
 Label: main_caller_ensures_4_2748
 Property: assert
 Assumptions:
-main_caller_requires_2_2709: z@3 == 10
-main_caller_requires_3_2729: g@3 == 0
-callElimAssume_inc_ensures_1_2593_7: g@5 == int.add(int.add(g@3, 5), z@5)
+main_caller_requires_2_2709: z@2 == 10
+main_caller_requires_3_2729: g@2 == 0
+callElimAssume_inc_ensures_1_2593_7: g@3 == int.add(int.add(g@2, 5), z@3)
 Obligation:
-g@5 == 15
+g@3 == 15
 
 ---
 info:
@@ -157,7 +157,7 @@ Obligation: main_caller_ensures_4_2748
 Property: assert
 Result: ❓ unknown
 Model:
-(g@5, 5) (g@3, 0) (z@3, 10) (z@5, 0)-/
+(g@3, 5) (g@2, 0) (z@2, 10) (z@3, 0)-/
 #guard_msgs in
 #eval Strata.Boole.verify "cvc5" callerPgm
 

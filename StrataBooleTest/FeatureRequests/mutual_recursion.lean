@@ -53,19 +53,19 @@ spec {
 #end
 
 /-- info:
-Obligation: even_body_calls_MyNat..pred_0
-Property: assert
-Result: ✅ pass
-
-Obligation: odd_body_calls_MyNat..pred_0
-Property: assert
-Result: ✅ pass
-
 Obligation: even_terminates_0
 Property: assert
 Result: ✅ pass
 
 Obligation: odd_terminates_0
+Property: assert
+Result: ✅ pass
+
+Obligation: even_body_calls_MyNat..pred_0
+Property: assert
+Result: ✅ pass
+
+Obligation: odd_body_calls_MyNat..pred_0
 Property: assert
 Result: ✅ pass
 
@@ -106,7 +106,7 @@ Result: ✅ pass-/
 -- Open gap: the denotation of SMT queries has no datatypes yet, so `gen_smt_vcs`
 -- refuses the selector well-formedness VCs of `MyNat` (strata-org/Strata#1480).
 /--
-error: gen_smt_vcs: verification condition 'even_body_calls_MyNat..pred_0' uses a datatype, which the denotation of SMT queries does not cover yet, so no Lean goal can be created for it; the SMT path still checks it
+error: gen_smt_vcs: verification condition 'even_terminates_0' uses a datatype, which the denotation of SMT queries does not cover yet, so no Lean goal can be created for it; the SMT path still checks it
 -/
 #guard_msgs in
 example : Strata.smtVCsCorrectBoole mutualRecursionSeed := by

@@ -176,20 +176,20 @@ Obligation: cast_in_exists_ensures_11_1592
 Property: assert
 Result: ✅ pass
 
-Obligation: bytes_to_nat_body_calls_Sequence.select_0
-Property: out-of-bounds access check
-Result: ✅ pass
-
-Obligation: bytes_to_nat_body_calls_Sequence.drop_1
-Property: out-of-bounds access check
-Result: ✅ pass
-
 Obligation: bytes_to_nat_terminates_0
 Property: assert
 Result: ✅ pass
 
 Obligation: bytes_to_nat_terminates_1
 Property: assert
+Result: ✅ pass
+
+Obligation: bytes_to_nat_body_calls_Sequence.select_0
+Property: out-of-bounds access check
+Result: ✅ pass
+
+Obligation: bytes_to_nat_body_calls_Sequence.drop_1
+Property: out-of-bounds access check
 Result: ✅ pass
 
 Obligation: test_rec_empty_ensures_15_2126
