@@ -3,11 +3,12 @@
 ## Goal
 
 Verify Boole programs in Lean with proofs that are sound by construction. Today's Lean
-path trusts the VC generator, the SMT encoding and a bridge axiom; strata-org/Strata#1488
-showed it could prove `False`, and strata-org/Strata#1490 closed that by refusing every
-VC the denotation does not cover. Here the trusted parts are Core's semantics and Lean, and the
-goals range over Lean values, so Lean tactics work on them without a solver. Boole programs
-reach it through their lowering to Core.
+path, `gen_smt_vcs_boole`, trusts the VC generator, the SMT encoding and a bridge axiom;
+strata-org/Strata#1488 showed it could prove `False`, and strata-org/Strata#1490 closed
+that by refusing every VC the denotation does not cover. This route aims to trust only
+Core's semantics and Lean (see Trusted base). Its goals range over Lean values, so Lean
+tactics work on them without a solver. Boole programs reach it through their lowering to
+Core.
 
 ```mermaid
 flowchart TD
@@ -24,172 +25,191 @@ flowchart TD
     O["Core operational semantics"] -. rules are theorems about it .- H
 ```
 
-## What Strata already provides
+## What Strata provides
 
-`Strata/Languages/Core/Logic/` (on Strata `main` since September 2026) is a Hoare logic for
-Core over Core's own operational semantics:
+`Strata/Languages/Core/Logic/` is a Hoare logic for Core over Core's own operational
+semantics:
 
-- `Core.Logic.Hoare.Triple π params Pre ss Post factory`, quantified over every model
-  of `factory` (`Lambda.Interp`). A model satisfies the factory's axioms, and
-  `Core.factoryInterp` is one (maps as functions, sequences as lists, sets as predicates),
-  so the triple is never vacuous.
-- Proved rules for `cmd`, `set`, `init`, `seq`, `block`, `exit_cons`, `ite`, `while_rule`
+- `Triple π params Pre ss Post factory`, quantified over every model of `factory`
+  (`Lambda.Interp`). A model satisfies the factory's axioms. One is shown to exist for
+  Core's own factory (`Core.factoryInterp`: maps as functions, sequences as lists, sets as
+  predicates), none for a program's.
+- Proved rules: `cmd`, `set`, `init`, `seq`, `block`, `exit_cons`, `ite`, `while_rule`
   (partial correctness) and `Procedure.call_of_contract`.
-- `Procedure.contractTriple`, which reads `requires` and `ensures` as the triple to prove,
-  with `old` snapshots, typed parameters and typed clauses, over the factory visible at
-  the procedure: Core's operators plus the functions declared before it
-  (`Program.factoryBeforeProcedure`). The generic `SpecHoareConnection`
-  (`Strata/DL/Imperative/Logic/`) relates a triple to Strata's own notion of assertion
-  validity.
-- Expressions are evaluated denotationally (since November 2026): `Expression.eval` is
-  `LExpr.denoteEval` over the factory, a model of it and the sorts of its type variables,
-  and stores hold semantic values.
-- Lifting lemmas for the `int` and `bv` operators, free variables, `==` and `if`
-  (`IntEvalProps.lean`, `BitVecEvalProps.lean`): the evaluator on values is the Lean
-  operation in every model.
+- `Procedure.contractTriple`: `requires` and `ensures` as the triple to prove, with `old`
+  snapshots and typed parameters and clauses. Its factory is Core's operators plus the
+  functions declared before the procedure, with or without body
+  (`Program.factoryBeforeProcedure`). Datatype declarations add nothing to it, and the
+  program's axioms are not in the precondition.
+- Strata's notion of correctness, `ProcedureAssertsValidOnTraces.denote`: every assertion
+  on every run is valid and the postconditions hold, from entry environments satisfying
+  the axioms declared before the procedure (`AxiomsBeforeProcedureDecl`).
+  `Strata/Transform/SpecHoareConnection.lean` takes a triple to assertion validity on
+  every run, given termination.
+- Denotational evaluation (since November 2026): `Expression.eval` is `LExpr.denoteEval`
+  over the factory and a model of it, and stores hold semantic values. Lifting lemmas
+  exist for `+`, `-`, `*` and the comparisons on `int`, three `bv16` operators, free
+  variables, `==` and `if` (`IntEvalProps.lean`, `BitVecEvalProps.lean`), with a generic
+  one for any binary operator that has a concrete evaluation (`eval_app2_op`).
 
-Its tests prove some twenty procedures by applying the rules by hand, with `native_decide`
-for facts about the AST. There is no automation: a goal reads
-`Expression.eval ρ.factory ρ.store e = some v` until the lemmas are applied.
-
-Its authors confirmed (October 2026) that the triple was written as the specification of
-partial correctness, the invariant a correct program transformation must preserve, and
-that they have no plans to automate it. Generating verification conditions against it is
-open to others, and they see no blocker once the generator's correctness is established.
-So the tactic below is ours to build, and the triple is a stable target.
+Its tests prove some twenty procedures by hand, with `native_decide` for facts about the
+AST; none uses axioms, datatypes, maps or sequences. There is no automation and its
+authors plan none: the triple is their specification of partial correctness, and
+generating verification conditions against it is open to others. So the tactic is ours to
+build, on a stable target.
 
 ## Plan
 
-1. **VC generation tactic over `Core.Logic.Hoare`.** From `Procedure.contractTriple p params
-   name`, apply the rules backwards statement by statement and discharge their side
-   conditions (`InitEnvWF`, `PostWF`, `exitsCoveredByBlocks`) by evaluation on the
-   concrete AST. The result is one goal per `assert`, loop invariant and `ensures`, over
-   the store. This is the shape of `core_vcgen` in the `StrataBoole/Deep/` experiment (fork
-   branch `exp/deep-embedding`), retargeted from its own `Exec` to Strata's `Triple`.
+1. **Tactic.** State the contract triple with `AxiomsBeforeProcedureDecl` added to its
+   precondition, so the axioms are available as Strata's notion of correctness assumes
+   them. A theorem to write takes a proved triple to the part of that notion about runs
+   that finish; the part about runs that do not also needs termination. Apply the rules
+   backwards and discharge their side conditions: `exitsCoveredByBlocks`, and `PostWF` for
+   a block that declares nothing, by evaluation on the concrete AST; `PostWF` for a block
+   with declarations from `denoteEval_congr`, since a postcondition does not read the
+   variables the block drops; and for a call `bodyFrame` and `bodyOutputsTyped`, which are
+   facts about every run of the callee's body. Derive from `cmd` the rules Strata does not
+   name: `assume`, `assert`, `havoc`, declaration without initialiser. The result is one
+   goal per `assert`, loop invariant and `ensures`, over the store. This is `core_vcgen`
+   of the `StrataBoole/Deep/` experiment (fork branch `exp/deep-embedding`), retargeted to
+   Strata's `Triple`.
 2. **Lifting.** Turn each goal into a proposition over Lean values: a store slot of type
-   `int` is an `Int` (`inputAsPredicate` and `SemValue.exists_ofInt`), `Expression.eval`
-   of an operator on values is the Lean operation (Strata's lemmas, plus ours for the
-   Boolean connectives and `==` in `StrataBoole/HoareLift.lean`), and a contract clause
-   becomes the corresponding proposition. Still to write: the lemmas for `Map` and
-   `Sequence` operators, which follow from the factory axioms, and for quantifiers. This
-   is the shape of `core_lift`. Milestone:
-   `max2`, then the counting loop of `demo.lean`, then `find_max`, proved by the tactic,
-   lifting, and `omega`/`grind`.
-3. **Boole entry.** The prototype's `shallow_reflect` (on its fork branch) already produces
-   the type-checked Core program as a Lean term. It is the input of step 1, so a user
-   writes a `#strata program Boole` block and states `contractTriple` on its procedures.
-4. **Gaps shared with Strata, fixed in Strata.** Rules for nondeterministic `if` and
-   `while`; the program's uninterpreted functions and axioms in the model (its functions
-   with bodies are in since November 2026); the generic datatype carrier wired into the
-   model (decision below), which also covers `nat`.
+   `int` is an `Int`, and evaluating an operator on values is the Lean operation. Done:
+   Strata's lemmas, plus `Bool.And`, `Bool.Or` and `==` on integers in
+   `StrataBoole/HoareLift.lean`. To write: the other Boolean connectives, `div` and `mod`,
+   the `bv` operators and conversions, `Map` and `Sequence` operators (from the factory
+   axioms), quantifiers, and user functions (a function equals its body in every model).
+   This is `core_lift` of the same experiment.
+3. **Boole entry.** `Strata.Boole.typeCheck` gives the type-checked Core program of a
+   `#strata program Boole` block as a Lean term, and the triple is stated on its
+   procedures, as in `hoare_max2.lean`. The prototype's `shallow_reflect` (fork branch)
+   wraps this as a command.
+4. **The model, in Strata.** Not needed to prove a triple, needed to trust one.
+   - Datatypes: constructors, testers and destructors enter the visible factory
+     (`Lambda.genBlockFactory` generates them), and the model's datatype laws, today
+     disjointness and injectivity, gain inversion and induction.
+   - A model exists for a program's factory with its axioms, built on the carrier
+     (Decisions). This rules out a vacuous triple, and proves the `nat` bridge axioms of
+     the intended `nat` instead of assuming them.
+   - `contractTriple` and `call_of_contract` carry the axioms, so a callee's proof may
+     use them.
+   - Function preconditions and termination of recursive functions, which the solver path
+     checks, stated beside the triple.
+   - Rules for nondeterministic `if` and `while`.
 5. **Boole semantics.** A Boole interpreter proved to agree with `toCoreProgram`, so that
-   Boole has a meaning stated in its own terms and the lowering to Core is proved correct
-   rather than definitional. This is what makes Boole a language rather than a front end.
-   It comes after steps 1 to 3 because the agreement theorem needs Core's semantics on the
-   other side. Its prerequisites, `toCoreExpr` total and the `nat` library inside
-   `typeCheck`, are merged (strata-org/Strata-Boole#25, #26). Running programs is not
-   what it is for: Strata already has an executable evaluator for Core
-   (`Strata/Languages/Core/StatementEval.lean`). Open design choice: Velvet's
-   nondeterministic state monad, with its VC generator, is a candidate for the
-   interpreter now that Strata and Velvet share a Lean version.
+   Boole has a meaning in its own terms and the lowering is proved, not trusted. It
+   follows steps 1 to 3 because the agreement theorem needs Core's semantics on the other
+   side. It is not for running programs; Strata's `StatementEval.lean` does that. Its
+   prerequisites are merged (strata-org/Strata-Boole#25, #26). Candidate: Velvet's
+   nondeterministic state monad with its VC generator.
+
+Milestones: `max2`, the counting loop of `demo.lean`, a loop over a sequence, `find_max`,
+then the benchmark below.
 
 ## Decisions
 
-- Build on `Core.Logic.Hoare`, not on a semantics of our own: neither `Deep/`'s `Exec`,
-  which nothing connects to Core's semantics, nor an interpreter with an adequacy proof
-  that would redo what Strata's rules already prove.
-- Core first, then Boole. Boole is the language users write and the one this work is
-  about; Core is where the proved semantics lives today. Starting from Boole directly
-  would leave nothing to prove adequacy against, so the Boole semantics is step 5, not
-  step 1.
+- Build on `Core.Logic.Hoare`, not on a semantics of our own. `Deep/`'s `Exec` is not
+  connected to Core's semantics, and an interpreter with an adequacy proof would redo what
+  Strata's rules already prove.
+- Core first, then Boole: Core is where the proved semantics lives, so a Boole semantics
+  has something to agree with.
 - Goals over Lean values come from lifting, not from a monadic encoding, so
   `Std.Do`/`mvcgen` (`StrataBoole/Shallow/Layer.lean`) is off the path.
-- Failure is never vacuous: a construct the tactic cannot handle leaves the goal open
-  instead of closing it.
-- Datatypes get one generic model, not one Lean inductive per program: a single inductive
-  of constructor applications with a well-sortedness predicate (`DT.Carrier` in
-  `Strata/DL/SMT/DenoteDatatypes.lean`, the SMT denotation under review in Strata). Its laws
-  are proved once, a program's datatypes are declarations the model reads, and `nat` is
-  its `pos`/`nat` with `toInt` by structural recursion. The same carrier interprets
-  datatype sorts in the model `Triple` quantifies over, which discharges the laws the
-  Lambda denotation leaves as assumptions. The per-program inductives of
-  strata-org/Strata#1480 serve the SMT-IR path; readable goals (`pos.xO h` for
-  `mk "xO" [h]`) are notation and simp lemmas added later.
-- This is a deep embedding with shallow goals: the program stays data, the Lean term is
-  the proof about it, and what the user sees are goals over Lean values. It started as a
-  shallow embedding in the Velvet sense; say so when the difference matters. The
-  `Shallow` names left in the tree (`StrataBoole/Shallow/`, `shallow_find_max`) are that
-  prototype's.
+- Failure is never vacuous: a construct the tactic cannot handle leaves its goal open.
+- Datatypes: keep Strata's approach of stating their laws as conditions on every model,
+  and supply the model from one generic carrier, a single inductive of constructor
+  applications with a well-sortedness predicate (`DT.Carrier`, strata-org/Strata#1493,
+  written for the SMT denotation). `nat` is its `pos`/`nat` with `toInt` by structural
+  recursion. The per-program inductives of strata-org/Strata#1480 serve the SMT path only;
+  readable goals are notation added later.
+- This is a deep embedding with shallow goals: the program stays data, and the user sees
+  goals over Lean values. The `Shallow` names in the tree are the earlier prototype's.
 
-## Coverage of the rules
+## Coverage
 
-| Core | `Core.Logic.Hoare` |
+| Core | State |
 | --- | --- |
-| assignments, `init`, `assert`, `assume`, `havoc` (as `set x *` through `cmd`), blocks, `exit`, deterministic `if` and `while`, `call` | rules exist |
+| assignments, `init` with a value, blocks, `exit`, deterministic `if` and `while`, `call` | rules exist |
+| `assert`, `assume`, `havoc`, declaration without initialiser | through `cmd`; rules to derive (step 1) |
 | `if *`, `while *`, loop measures, `cover` | to add |
-| `int`, `bool`, `bv n` | denoted and lifted |
-| `Map`, `Sequence`, `Set`, `string` operators | modelled, every model satisfies their axioms; lifting lemmas to add (step 2) |
-| datatypes, `nat` | generic carrier (decision above); wiring into the model is step 4 |
-| user functions with bodies | in the model (`factoryBeforeProcedure`) |
-| uninterpreted functions, `axiom` | step 4 |
+| `int`, `bool`, `bv n` | lifted: `+`, `-`, `*` and comparisons on `int`, `&&`, `\|\|`, three `bv16` operators; the rest to add (step 2) |
+| `Map`, `Sequence`, `Set`, `string` | constrained in every model; lifting to add (step 2) |
+| functions, with or without body | in the model |
+| `axiom` | through `AxiomsBeforeProcedureDecl` (step 1); assumed until step 4 |
+| datatypes, `nat` | not in the model: constructors are unconstrained symbols (step 4) |
 
-## Target: the benchmark the solver path already verifies
+## Target: `dalek_sum_of_slice`
 
-`StrataBooleTest/dalek_sum_of_slice.lean` (36 obligations, cvc5 and lean-smt) is the
-program this route has to reach. What it uses, and where each item sits:
+`StrataBooleTest/dalek_sum_of_slice.lean` (branch `demo/dalek-sum-of-slice`; 36
+obligations on the solver path, cvc5 and lean-smt) is the program this route has to reach.
+On the current Strata it type checks, both procedures pass `contractChecksTyped`, every
+operator of their specifications is in the visible factory, and caller and callee see the
+same factory, as `call_of_contract` requires.
 
-| In the program | Needs | Step |
-| --- | --- | --- |
-| `for` loop with six invariants, `call` in the body, `exit` | rules exist; the tactic must discharge the loop and call side conditions | 1 |
-| integer and `bv W8` arithmetic, `as_uint`, comparisons | lifting lemmas per operator | 2 |
-| quantified `requires` and invariants | lifting of quantifiers to Lean `∀` over `Int` | 2 |
-| `Sequence (bv W8)` and `Sequence Scalar`, `select`, `length` | lifting lemmas from the sequence axioms | 2 |
-| native `nat`, the `nat_*` library | the generic carrier in the model, library functions as program functions | 4 |
-| `function` definitions, one `rec function` with `requires` and `decreases` | in the model | done |
-| `function f();` without body | uninterpreted functions in the model | 4 |
-| `axiom` declarations, including the unfolding axiom of the recursive function | program axioms as hypotheses on the model | 4 |
-| a callee whose body is `assume false` | `call_of_contract` with a trivially proved contract | 1 |
+It uses a `for` loop with six invariants and a `call` in its body, `exit`, `assume` and
+two declarations without initialiser (step 1); integer `+`, `-`, `*`, `div`, `mod`, `<=`
+and `<`, `&&` and `==>`, `<=` on `bv W8` and `as_uint`, `Sequence` `select`, `select!` and
+`length`, quantified clauses, and thirteen functions, one recursive and two without body
+(step 2); and 19 axioms, 12 from the `nat` library and 7 of its own. `nat` is used only
+through its library functions and those axioms, so the proof is expected to need no
+datatype reasoning. It does not wait on step 4; until then it assumes the 19 axioms, as
+the solver path does.
 
-The lifted goals must stay solver-friendly: lean-smt closes goals over `Int`, `Bool` and
-`BitVec`, so sequences should lift to a length and an index function rather than to
-`List`, and `nat` to `Nat`. Decide this with step 4; it does not affect steps 1 to 3.
+The callee is trusted: its body is `assume false`. Core's semantics runs the callee's body
+at a call, so that assumption enters the caller's trace, and every obligation of the
+caller after the first call holds vacuously. On this route a trusted procedure needs a
+body that can run and meets its contract, such as assigning an arbitrary value and
+assuming the `ensures`. That is a change to the benchmark and to how trusted functions
+are translated, not to Strata.
 
-Order: `max2`, the counting loop, then this program as soon as step 4 lands in Strata.
-Everything in steps 1 to 3 is exercised by the first two and reused unchanged by the third.
+Lifted goals must stay within what lean-smt closes (`Int`, `Bool`, `BitVec`): sequences
+lift to a length and an index function, which is what the axioms give in an arbitrary
+model, and `nat` appears through `nat.toInt`.
+
+## Trusted base
+
+What a proved triple rests on, beyond Lean's kernel, Core's semantics and the contract as
+written:
+
+| Trusted today | Removed by |
+| --- | --- |
+| the Boole to Core lowering | step 5 |
+| the program's axioms, and that a model of the program with them exists | step 4 |
+| function preconditions and termination, which the triple does not state | step 4 |
+| the Lean compiler, through `native_decide` on facts about the AST | kernel-checked facts in the tactic |
+
+The solver path trusts the lowering and the axioms too, and in addition Strata's
+transformation pipeline, the SMT encoding and the solver. The tactic needs no adequacy
+theorem: it builds a proof from rules that are theorems about the semantics, and the
+kernel checks that proof for each program.
 
 ## Status
 
-- `max2` is proved against Strata's triple, by hand, in `StrataBooleTest/hoare_max2.lean`
-  on the denotational semantics: `contractTriple_of_core_typed`, then `block`, `block`,
-  `ite` and `set`, every side condition by `native_decide` on the reflected program, the
-  inputs recovered from the condition's evaluation (`denoteEval_defines`), the operators
-  lifted with Strata's `eval_intGe` and `eval_fvar_int` and our `eval_boolAnd`,
-  `eval_boolOr` and `eval_eq_ints` (`StrataBoole/HoareLift.lean`, each from the model's
-  agreement with the operator's concrete evaluation). The proof is the specification of
-  the step 1 tactic: it does these steps for any straight-line body with `if`. Steps 1
-  and 2 as automation: not started. `Deep/` has both against its own semantics, with
-  `max2` and a counting loop proved.
-- `StrataBoole/Shallow/Layer.lean` is kept until the milestone is reached.
-- Two things the hand proof settled. Under the module system, facts about factory entries
-  are not `rfl`; they need `import all` of the defining files and `simp` unfolding. And
-  the typing derivations (`HasTypeA`) must be spelled with the annotations exactly as the
-  lowering writes them, or the rewrite rules do not fire; the tactic should build them
-  from the term, not from the types.
-- `StrataBooleTest/generic_datatypes.lean`: first prototype of the carrier.
-- Risks. Strata's own hand proof of a two-branch `if` is some twenty-five lines with
-  `native_decide` and explicit store facts, so discharging the side conditions
-  automatically is the bulk of step 1.
-- `Map` and `Sequence` were outside the logic until November 2026 (strata-org/Strata#1496:
-  their operators had no execution, and models were free to violate the axioms). The
-  denotational evaluation fixed both; what remains is the lifting lemmas of step 2.
+- `max2` is proved against Strata's triple by hand (`StrataBooleTest/hoare_max2.lean`):
+  `contractTriple_of_core_typed`, then `block`, `block`, `ite` and `set`, side conditions
+  by `native_decide`, operators lifted with Strata's lemmas and
+  `StrataBoole/HoareLift.lean`. It is the specification of the tactic for straight-line
+  bodies with `if`. The tactic is not started; `Deep/` has one against its own semantics,
+  with `max2` and a counting loop.
+- What the hand proof settled: under the module system, facts about factory entries need
+  `import all` and `simp`, not `rfl`. Typing derivations no longer have to be written:
+  Strata's lemmas take the evaluation of the subterms.
+- Risk: discharging the side conditions is the bulk of step 1. Strata's hand proof of a
+  two-branch `if` is some 25 lines, its call test some 1400 lines for three procedures.
+- `StrataBooleTest/generic_datatypes.lean` is a first prototype of the carrier.
+  `StrataBoole/Shallow/Layer.lean` is kept until the first milestone.
 
 ## Open questions
 
-- Loop measures: `while_rule` is partial correctness. Add a total-correctness rule, or
-  check `decreases` separately?
+- Termination: `while_rule` is partial correctness, while Strata's notion of correctness
+  also covers runs that never finish. Add a total-correctness rule, or check `decreases`
+  separately?
 - `cover` is a reachability check, not a Hoare fact. How to state it?
 - Goal names: carry the program's clause names into the goals the tactic leaves.
-- `native_decide` for AST facts: acceptable in the tactic, or avoid it?
+- Datatypes and program models in the Hoare logic (step 4): no upstream test uses either,
+  so agree the shape with Strata before building.
+- Trusted procedures: `Triple` runs a callee's body, while Strata also has a
+  contract-based call semantics (`EvalCmdExtContractE`). Should a triple over it exist?
 
 ## Sources
 
