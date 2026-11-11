@@ -140,31 +140,25 @@ then the benchmark below.
 
 ## Target: `dalek_sum_of_slice`
 
-`StrataBooleTest/dalek_sum_of_slice.lean` (branch `demo/dalek-sum-of-slice`; 36
-obligations on the solver path, cvc5 and lean-smt) is the program this route has to reach.
-On the current Strata it type checks, both procedures pass `contractChecksTyped`, every
-operator of their specifications is in the visible factory, and caller and callee see the
-same factory, as `call_of_contract` requires.
+`StrataBooleTest/dalek_sum_of_slice.lean` (branch `demo/dalek-sum-of-slice`, 36
+obligations on the solver path) is the program this route has to reach. On the current
+Strata it type checks, both contracts pass `contractChecksTyped`, and caller and callee
+see the same factory, as `call_of_contract` requires.
 
-It uses a `for` loop with six invariants and a `call` in its body, `exit`, `assume` and
-two declarations without initialiser (step 1); integer `+`, `-`, `*`, `div`, `mod`, `<=`
-and `<`, `&&` and `==>`, `<=` on `bv W8` and `as_uint`, `Sequence` `select`, `select!` and
-`length`, quantified clauses, and thirteen functions, one recursive and two without body
-(step 2); and 19 axioms, 12 from the `nat` library and 7 of its own. `nat` is used only
-through its library functions and those axioms, so the proof is expected to need no
-datatype reasoning. It does not wait on step 4; until then it assumes the 19 axioms, as
-the solver path does.
+| It uses | Step |
+| --- | --- |
+| a `for` loop with six invariants and a `call`, `exit`, `assume`, two declarations without initialiser | 1 |
+| integer arithmetic with `div` and `mod`, `&&`, `==>`, `<=` and `as_uint` on `bv W8`, `Sequence` `select`, `select!` and `length`, quantifiers, thirteen functions | 2 |
+| 19 axioms, 12 of them the `nat` library's | assumed until 4 |
 
-The callee is trusted: its body is `assume false`. Core's semantics runs the callee's body
-at a call, so that assumption enters the caller's trace, and every obligation of the
-caller after the first call holds vacuously. On this route a trusted procedure needs a
-body that can run and meets its contract, such as assigning an arbitrary value and
-assuming the `ensures`. That is a change to the benchmark and to how trusted functions
-are translated, not to Strata.
-
-Lifted goals must stay within what lean-smt closes (`Int`, `Bool`, `BitVec`): sequences
-lift to a length and an index function, which is what the axioms give in an arbitrary
-model, and `nat` appears through `nat.toInt`.
+- `nat` is used only through its library and those axioms, so the proof should need no
+  datatype reasoning and does not wait on step 4.
+- The callee is trusted, with body `assume false`. A call runs the callee's body, so
+  every obligation of the caller after the first call holds vacuously. The benchmark
+  needs a body that can run, such as assigning an arbitrary value and assuming the
+  `ensures`: a change to the benchmark and its translation, not to Strata.
+- Lifted goals stay within what lean-smt closes (`Int`, `Bool`, `BitVec`): sequences as
+  a length and an index function, `nat` through `nat.toInt`.
 
 ## Trusted base
 
