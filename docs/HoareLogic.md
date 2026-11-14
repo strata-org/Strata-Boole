@@ -120,7 +120,7 @@ then the benchmark below.
   and supply the model from one generic carrier, a single inductive of constructor
   applications with a well-sortedness predicate (`DT.Carrier`, strata-org/Strata#1493,
   written for the SMT denotation). `nat` is its `pos`/`nat` with `toInt` by structural
-  recursion. Per-program Lean inductives (strata-org/Strata#1480) are not used: the SMT
+  recursion. Per-program Lean inductives (strata-org/Strata#1480, closed) are not used: the SMT
   path's goals must equal its denotation, which is over the carrier too. Readable goals
   are notation added later.
 - This is a deep embedding with shallow goals: the program stays data, and the user sees
@@ -202,7 +202,7 @@ merge.
 | Change | State | Used by |
 | --- | --- | --- |
 | strata-org/Strata#1498: rules `init_nondet`, `havoc`, `assume`, `assert`, and the forms of the last two that read a condition by evaluation | merged | step 1 |
-| strata-org/Strata#1492: public unfolding lemmas for quantifiers and binders | approved, not merged | quantifier lifting in step 2 |
+| strata-org/Strata#1492: public unfolding lemmas for quantifiers and binders | merged | quantifier lifting in step 2 |
 | strata-org/Strata#1493: datatypes in the SMT denotation, with the generic carrier | open, not reviewed | the SMT path now, the model of step 4 later |
 | strata-org/Strata#1496: `Map` and `Sequence` statements had no execution, and models did not have to satisfy their axioms | closed, fixed upstream by the denotational evaluation | step 2 |
 | strata-org/Strata#1490: the SMT path refuses the VCs its denotation does not cover | merged | Goal |
