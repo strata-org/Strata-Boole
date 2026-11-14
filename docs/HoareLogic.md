@@ -195,8 +195,8 @@ kernel checks that proof for each program.
 
 ## Strata changes for this route
 
-This branch pins the `integration/lean-route` branch of the fork: an earlier Strata main
-plus the pull requests below. The pin returns to strata-org/Strata when the open ones
+This branch pins the `integration/lean-route` branch of the fork: Strata main plus the
+pull requests below that are still open. The pin returns to strata-org/Strata when they
 merge.
 
 | Change | State | Used by |

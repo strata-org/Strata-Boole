@@ -36,10 +36,16 @@ spec {
 };
 #end
 
-/-- The type-checked Core program the Boole block lowers to. -/
+/-- The type-checked Core program the Boole block lowers to, with every expression's
+    location replaced by `valueLoc`, as in Strata's own Hoare tests. Typing and
+    evaluation ignore locations (`Core.Expression.eval_eraseLocs`), and the shapes below
+    then match Strata's operator constants and do not depend on the locations the
+    translation attaches. -/
 def max2Core : Core.Program :=
   match Strata.Boole.typeCheck max2Pgm with
-  | .ok p => p
+  | .ok p => { p with decls := p.decls.map fun d => match d with
+      | .proc proc md => .proc (Core.Procedure.mapExprs Core.eraseLocs proc) md
+      | other => other }
   | .error _ => default
 
 def max2Proc : Core.Procedure := (max2Core.findProcByString? "max2").get!
@@ -53,12 +59,12 @@ def yV : Core.Expression.Ident := ⟨"y", ()⟩
 def rV : Core.Expression.Ident := ⟨"r", ()⟩
 
 /-- `a >= b`, `a && b`, `a || b` as the lowering writes them. -/
-abbrev geE (a b : E) : E := .app () (.app () Core.intGeOp a) b
-abbrev andE (a b : E) : E := .app () (.app () Core.boolAndOp a) b
-abbrev orE (a b : E) : E := .app () (.app () Core.boolOrOp a) b
+abbrev geE (a b : E) : E := .app Core.valueLoc (.app Core.valueLoc Core.intGeOp a) b
+abbrev andE (a b : E) : E := .app Core.valueLoc (.app Core.valueLoc Core.boolAndOp a) b
+abbrev orE (a b : E) : E := .app Core.valueLoc (.app Core.valueLoc Core.boolOrOp a) b
 
 /-- The condition of the `if`. -/
-abbrev cond : E := geE (.fvar () xV intTy) (.fvar () yV intTy)
+abbrev cond : E := geE (.fvar Core.valueLoc xV intTy) (.fvar Core.valueLoc yV intTy)
 
 /-- Metadata and labels of the statements and clauses, read off the program so the shapes
     below are exact. -/
@@ -76,8 +82,8 @@ def md2 : Imperative.MetaData Core.Expression :=
 theorem max2_body_eq : max2Proc.body = .structured
     [.block "max2"
       [.ite (.det cond)
-        [.cmd (.cmd (.set rV (.det (.fvar () xV intTy)) md1))]
-        [.cmd (.cmd (.set rV (.det (.fvar () yV intTy)) md2))] md3] md4] := by
+        [.cmd (.cmd (.set rV (.det (.fvar Core.valueLoc xV intTy)) md1))]
+        [.cmd (.cmd (.set rV (.det (.fvar Core.valueLoc yV intTy)) md2))] md3] md4] := by
   native_decide
 
 def lbl0 : Core.CoreLabel :=
@@ -90,11 +96,11 @@ def mdP1 : Imperative.MetaData Core.Expression :=
   match max2Proc.spec.postconditions.toList with | _ :: (_, c) :: _ => c.md | _ => #[]
 
 theorem max2_posts : max2Proc.spec.postconditions.toList =
-    [(lbl0, { expr := andE (geE (.fvar () rV intTy) (.fvar () xV intTy))
-                            (geE (.fvar () rV intTy) (.fvar () yV intTy)),
+    [(lbl0, { expr := andE (geE (.fvar Core.valueLoc rV intTy) (.fvar Core.valueLoc xV intTy))
+                            (geE (.fvar Core.valueLoc rV intTy) (.fvar Core.valueLoc yV intTy)),
               attr := .Default, md := mdP0 }),
-     (lbl1, { expr := orE (.eq () (.fvar () rV intTy) (.fvar () xV intTy))
-                          (.eq () (.fvar () rV intTy) (.fvar () yV intTy)),
+     (lbl1, { expr := orE (.eq Core.valueLoc (.fvar Core.valueLoc rV intTy) (.fvar Core.valueLoc xV intTy))
+                          (.eq Core.valueLoc (.fvar Core.valueLoc rV intTy) (.fvar Core.valueLoc yV intTy)),
               attr := .Default, md := mdP1 })] := by
   native_decide
 
@@ -109,8 +115,9 @@ theorem max2_checksTyped : Core.Logic.Hoare.Procedure.contractChecksTyped max2Pr
 theorem max2_factory : max2Core.factoryBeforeProcedure "max2" = Core.Factory :=
   Core.Program.factoryBeforeProcedure_eq_core_of_noFunctions (by native_decide)
 
-/-- Gate parameters: no reserved prefixes, every operator counts as declared. -/
-def params : Core.Logic.InitEnvWFParams := ⟨[], fun _ => true⟩
+/-- Gate parameters: no reserved prefixes for identifiers or block labels, every operator
+    counts as declared. -/
+def params : Core.Logic.InitEnvWFParams := ⟨[], [], fun _ => true⟩
 
 /-! ## The values of the inputs -/
 
@@ -166,10 +173,10 @@ theorem max2_post (ρ : Imperative.Env Core.Expression) (a b c : Int)
   intro label check hmem _
   rw [max2_posts] at hmem
   simp only [List.mem_cons, List.not_mem_nil, or_false, Prod.mk.injEq] at hmem
-  have er := Core.eval_fvar_int (ty := intTy) (m := ()) ρ.factory hx
-  have ex := Core.eval_fvar_int (ty := intTy) (m := ()) ρ.factory hx
-  have ey := Core.eval_fvar_int (ty := intTy) (m := ()) ρ.factory hy
-  have err := Core.eval_fvar_int (ty := intTy) (m := ()) ρ.factory hr
+  have er := Core.eval_fvar_int (ty := intTy) (m := Core.valueLoc) ρ.factory hx
+  have ex := Core.eval_fvar_int (ty := intTy) (m := Core.valueLoc) ρ.factory hx
+  have ey := Core.eval_fvar_int (ty := intTy) (m := Core.valueLoc) ρ.factory hy
+  have err := Core.eval_fvar_int (ty := intTy) (m := Core.valueLoc) ρ.factory hr
   have hge : ρ.factory.factory["Int.Ge"]? = some (Lambda.intGeFunc (T := CoreLParams)).func := by
     rw [hfac]; exact Core.coreFactory_intGe
   rcases hmem with ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩ <;> intro world <;> refine Or.inl ⟨hfac, ?_⟩ <;>

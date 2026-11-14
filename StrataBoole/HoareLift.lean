@@ -71,11 +71,13 @@ theorem boolAnd_opInterp_of_lookup {factory : Lambda.Factory CoreLParams}
     (model.opInterp "Bool.And" (Lambda.LSort.mkArrow .bool [.bool, .bool]) p q : Bool)
       = (p && q) := by
   have heval : (Lambda.boolAndFunc (T := CoreLParams)).func.concreteEval.bind
-      (fun ce => ce () [.boolConst () p, .boolConst () q]) = some (.boolConst () (p && q)) := by
+      (fun ce => ce Core.coreLoc (some ((Lambda.boolAndFunc (T := CoreLParams)).func.instTy Lambda.Subst.empty))
+        [.boolConst Core.coreLoc p, .boolConst Core.coreLoc q]) =
+      some (.boolConst Core.coreLoc (p && q)) := by
     cases p <;> rfl
   exact (Core.opInterp_of_concreteEval model hlookup rfl heval (fun _ => .int) (fun _ s =>
       @default _ (@Lambda.SortDenote.instInhabited model.tcInterp model.allInhabited s))
-    (.cons .const (.cons .const .nil)) .const).symm
+    (.cons (.const rfl) (.cons (.const rfl) .nil)) (.const rfl)).symm
 
 theorem boolOr_opInterp_of_lookup {factory : Lambda.Factory CoreLParams}
     (model : Lambda.Interp factory)
@@ -84,11 +86,13 @@ theorem boolOr_opInterp_of_lookup {factory : Lambda.Factory CoreLParams}
     (model.opInterp "Bool.Or" (Lambda.LSort.mkArrow .bool [.bool, .bool]) p q : Bool)
       = (p || q) := by
   have heval : (Lambda.boolOrFunc (T := CoreLParams)).func.concreteEval.bind
-      (fun ce => ce () [.boolConst () p, .boolConst () q]) = some (.boolConst () (p || q)) := by
+      (fun ce => ce Core.coreLoc (some ((Lambda.boolOrFunc (T := CoreLParams)).func.instTy Lambda.Subst.empty))
+        [.boolConst Core.coreLoc p, .boolConst Core.coreLoc q]) =
+      some (.boolConst Core.coreLoc (p || q)) := by
     cases p <;> rfl
   exact (Core.opInterp_of_concreteEval model hlookup rfl heval (fun _ => .int) (fun _ s =>
       @default _ (@Lambda.SortDenote.instInhabited model.tcInterp model.allInhabited s))
-    (.cons .const (.cons .const .nil)) .const).symm
+    (.cons (.const rfl) (.cons (.const rfl) .nil)) (.const rfl)).symm
 
 /-! ## Their evaluation -/
 
