@@ -69,7 +69,7 @@ build, on a stable target.
    with declarations from `denoteEval_congr`, since a postcondition does not read the
    variables the block drops; and for a call `bodyFrame` and `bodyOutputsTyped`, which are
    facts about every run of the callee's body. The rules for `assume`, `assert`, `havoc`
-   and a declaration without initialiser are in strata-org/Strata#1498. The result is one
+   and a declaration without initialiser came with strata-org/Strata#1498. The result is one
    goal per `assert`, loop invariant and `ensures`, over the store. This is `core_vcgen`
    of the `StrataBoole/Deep/` experiment (fork branch `exp/deep-embedding`), retargeted to
    Strata's `Triple`.
@@ -120,8 +120,9 @@ then the benchmark below.
   and supply the model from one generic carrier, a single inductive of constructor
   applications with a well-sortedness predicate (`DT.Carrier`, strata-org/Strata#1493,
   written for the SMT denotation). `nat` is its `pos`/`nat` with `toInt` by structural
-  recursion. The per-program inductives of strata-org/Strata#1480 serve the SMT path only;
-  readable goals are notation added later.
+  recursion. Per-program Lean inductives (strata-org/Strata#1480) are not used: the SMT
+  path's goals must equal its denotation, which is over the carrier too. Readable goals
+  are notation added later.
 - This is a deep embedding with shallow goals: the program stays data, and the user sees
   goals over Lean values. The `Shallow` names in the tree are the earlier prototype's.
 
@@ -129,8 +130,7 @@ then the benchmark below.
 
 | Core | State |
 | --- | --- |
-| assignments, `init` with a value, blocks, `exit`, deterministic `if` and `while`, `call` | rules exist |
-| `assert`, `assume`, `havoc`, declaration without initialiser | rules in strata-org/Strata#1498 |
+| assignments, `init` with or without a value, `havoc`, `assert`, `assume`, blocks, `exit`, deterministic `if` and `while`, `call` | rules exist |
 | `if *`, `while *`, loop measures, `cover` | to add |
 | `int`, `bool`, `bv n` | lifted: `+`, `-`, `*` and comparisons on `int`, `&&`, `\|\|`, three `bv16` operators; the rest to add (step 2) |
 | `Map`, `Sequence`, `Set`, `string` | constrained in every model; lifting to add (step 2) |
@@ -195,14 +195,15 @@ kernel checks that proof for each program.
 
 ## Strata changes for this route
 
-This branch pins the `integration/lean-route` branch of the fork: Strata main plus the open
-pull requests below. The pin returns to strata-org/Strata when they merge.
+This branch pins the `integration/lean-route` branch of the fork: an earlier Strata main
+plus the pull requests below. The pin returns to strata-org/Strata when the open ones
+merge.
 
 | Change | State | Used by |
 | --- | --- | --- |
-| strata-org/Strata#1498: rules `init_nondet`, `havoc`, `assume`, `assert`, and the forms of the last two that read a condition by evaluation | open | step 1 |
+| strata-org/Strata#1498: rules `init_nondet`, `havoc`, `assume`, `assert`, and the forms of the last two that read a condition by evaluation | merged | step 1 |
 | strata-org/Strata#1492: public unfolding lemmas for quantifiers and binders | approved, not merged | quantifier lifting in step 2 |
-| strata-org/Strata#1493: datatypes in the SMT denotation, with the generic carrier | open | the SMT path now, the model of step 4 later |
+| strata-org/Strata#1493: datatypes in the SMT denotation, with the generic carrier | open, not reviewed | the SMT path now, the model of step 4 later |
 | strata-org/Strata#1496: `Map` and `Sequence` statements had no execution, and models did not have to satisfy their axioms | closed, fixed upstream by the denotational evaluation | step 2 |
 | strata-org/Strata#1490: the SMT path refuses the VCs its denotation does not cover | merged | Goal |
 
