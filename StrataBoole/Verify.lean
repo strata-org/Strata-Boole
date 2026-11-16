@@ -809,11 +809,12 @@ private def toCoreStmt (s : BooleDDM.Statement SourceRange) : TranslateM Core.St
     return .init (mkIdent n) (.forAll [] funcTy) (.det lambda) (← toCoreMetaData m)
   | .for_statement m v init guard step invs body =>
     let (id, ty) ← toCoreMonoBind v
+    let initExpr ← toCoreExpr init
     withBVars [id.name] do
       let body ← withBVars [] (toCoreBlock body)
       lowerFor
         m id ty
-        (← toCoreExpr init)
+        initExpr
         (← toCoreExpr guard)
         (← toCoreExpr step)
         none
@@ -822,9 +823,9 @@ private def toCoreStmt (s : BooleDDM.Statement SourceRange) : TranslateM Core.St
   | .for_to_by_statement m v init limit ⟨_, step?⟩ ⟨_, decr?⟩ invs body =>
     let (id, ty) ← toCoreMonoBind v
     let (leOp, addOp, _, one) := forArithOps ty
+    let initExpr ← toCoreExpr init
     let limitExpr ← toCoreExpr limit
     withBVars [id.name] do
-      let initExpr ← toCoreExpr init
       let guard := mkCoreApp leOp [.fvar () id none, limitExpr]
       let stepExpr ← ((match step? with
         | none => pure one
@@ -839,9 +840,9 @@ private def toCoreStmt (s : BooleDDM.Statement SourceRange) : TranslateM Core.St
   | .for_down_to_by_statement m v init limit ⟨_, step?⟩ ⟨_, decr?⟩ invs body =>
     let (id, ty) ← toCoreMonoBind v
     let (leOp, _, subOp, one) := forArithOps ty
+    let initExpr ← toCoreExpr init
     let limitExpr ← toCoreExpr limit
     withBVars [id.name] do
-      let initExpr ← toCoreExpr init
       let guard := mkCoreApp leOp [limitExpr, .fvar () id none]
       let stepExpr ← ((match step? with
         | none => pure one

@@ -14,6 +14,7 @@ import StrataBooleTest.demo
 import StrataBooleTest.deterministic
 import StrataBooleTest.find_max
 import StrataBooleTest.find_max_verus
+import StrataBooleTest.for_loop_init
 import StrataBooleTest.format_program
 import StrataBooleTest.function_definitions
 import StrataBooleTest.nat_native
