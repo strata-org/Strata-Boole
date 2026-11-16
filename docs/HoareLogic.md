@@ -140,10 +140,12 @@ then the benchmark below.
 
 ## Target: `dalek_sum_of_slice`
 
-`StrataBooleTest/dalek_sum_of_slice.lean` (branch `demo/dalek-sum-of-slice`, 36
-obligations on the solver path) is the program this route has to reach. On the current
-Strata it type checks, both contracts pass `contractChecksTyped`, and caller and callee
-see the same factory, as `call_of_contract` requires.
+`StrataBooleTest/dalek_sum_of_slice.lean` is the program this route has to reach. On this
+branch it is checked on the solver path only, with all 36 obligations passing as on the
+frozen demo branch; the demo's kernel stage relied on the trusted bridge of
+`gen_smt_vcs_boole` and is not carried over. On the current Strata it type checks, both
+contracts pass `contractChecksTyped`, and caller and callee see the same factory, as
+`call_of_contract` requires.
 
 | It uses | Step |
 | --- | --- |
