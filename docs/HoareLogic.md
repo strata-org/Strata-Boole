@@ -82,8 +82,7 @@ build, on a stable target.
    This is `core_lift` of the same experiment.
 3. **Boole entry.** `Strata.Boole.typeCheck` gives the type-checked Core program of a
    `#strata program Boole` block as a Lean term, and the triple is stated on its
-   procedures, as in `hoare_max2.lean`. The prototype's `shallow_reflect` (fork branch)
-   wraps this as a command.
+   procedures, as in `hoare_max2.lean`. A reflection command on a fork branch wraps this.
 4. **The model, in Strata.** Not needed to prove a triple, needed to trust one.
    - Datatypes: constructors, testers and destructors enter the visible factory
      (`Lambda.genBlockFactory` generates them), and the model's datatype laws, today
@@ -114,7 +113,7 @@ then the benchmark below.
 - Core first, then Boole: Core is where the proved semantics lives, so a Boole semantics
   has something to agree with.
 - Goals over Lean values come from lifting, not from a monadic encoding, so
-  `Std.Do`/`mvcgen` (`StrataBoole/Shallow/Layer.lean`) is off the path.
+  `Std.Do`/`mvcgen` is off the path.
 - Failure is never vacuous: a construct the tactic cannot handle leaves its goal open.
 - Datatypes: keep Strata's approach of stating their laws as conditions on every model,
   and supply the model from one generic carrier, a single inductive of constructor
@@ -124,7 +123,7 @@ then the benchmark below.
   path's goals must equal its denotation, which is over the carrier too. Readable goals
   are notation added later.
 - This is a deep embedding with shallow goals: the program stays data, and the user sees
-  goals over Lean values. The `Shallow` names in the tree are the earlier prototype's.
+  goals over Lean values.
 
 ## Coverage
 
@@ -193,7 +192,6 @@ kernel checks that proof for each program.
 - Risk: discharging the side conditions is the bulk of step 1. Strata's hand proof of a
   two-branch `if` is some 25 lines, its call test some 1400 lines for three procedures.
 - `StrataBooleTest/generic_datatypes.lean` is a first prototype of the carrier.
-  `StrataBoole/Shallow/Layer.lean` is kept until the first milestone.
 
 ## Strata changes for this route
 

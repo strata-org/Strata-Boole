@@ -30,12 +30,6 @@ dialect of Strata.
   `Strata.BooleNat.prepend`.  The implementation is `natCorePreamble` in
   `StrataBoole/Verify.lean`; nothing imports this module.  `lake build StrataBoole.Nat`.
 
-### `import StrataBoole.Shallow.Layer`
-
-A shallow-embedding prototype on `Std.Do`: the `ND` monad with `havoc`,
-`assume`, `assert` and `whileInv`, each with its `@[spec]` rule for `mvcgen`.
-The Hoare-logic route in `docs/HoareLogic.md` does not build on it.
-
 ### `import StrataBoole.MetaVerifier`
 
 The `gen_smt_vcs_boole` tactic and `Strata.smtVCsCorrectBoole` are available

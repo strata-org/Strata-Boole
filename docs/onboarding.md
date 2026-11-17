@@ -36,9 +36,10 @@ before you read the code as though it were the design.
 
 * **Rust is one front end, not the front end.** Python, C and C++, and Java are
   intended to reach Boole the same way.
-* **A shallow embedding is being explored** alongside the deep one, following
-  Velvet and Loom, where a program becomes a Lean term directly rather than
-  data interpreted by a generator.
+* **A second Lean route is being built** on Core's Hoare logic
+  (`docs/HoareLogic.md`): the program stays data, its contract is proved as a
+  Hoare triple over Core's semantics, and the goals a person reads are over
+  Lean values.
 * **cvc5 is one prover among several.** A Lean goal can be closed by `smt`
   (lean-smt, which calls cvc5 and replays its proof), by Lean Hammer, by
   `grind`, or by LLM-based and other AI-based provers.
@@ -204,7 +205,7 @@ say so and stop. That is a real result, and it belongs in
 * [Lean-SMT](https://github.com/ufmg-smite/lean-smt), the tactic behind the
   kernel back end. It hands a goal to cvc5 and reconstructs the returned proof
   in Lean, so the solver does not have to be trusted.
-* Velvet and Loom, for the shallow embedding mentioned above. Loom is
+* Velvet and Loom, the related work closest to that route. Loom is
   [*Foundational Multi-Modal Program Verifiers*](https://ilyasergey.net/assets/pdf/papers/loom-preprint.pdf),
   and [Velvet](https://ilyasergey.net/assets/pdf/papers/velvet-cav26.pdf) is the
   Dafny-style verifier built on it.
