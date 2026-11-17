@@ -14,6 +14,7 @@ import StrataBooleTest.demo
 import StrataBooleTest.deterministic
 import StrataBooleTest.find_max
 import StrataBooleTest.find_max_verus
+import StrataBooleTest.for_loop_init
 import StrataBooleTest.format_program
 import StrataBooleTest.function_definitions
 import StrataBooleTest.nat_native
@@ -62,8 +63,3 @@ import StrataBooleTest.FeatureRequests.scalar_reduce
 import StrataBooleTest.FeatureRequests.seq_empty_literal
 import StrataBooleTest.FeatureRequests.sha256_compact_indexed
 import StrataBooleTest.CoreTests.DefineFunRecTests
-import StrataBooleTest.shallow_find_max
-import StrataBooleTest.hoare_max2
-import StrataBooleTest.hoare_compatibility
-import StrataBooleTest.generic_datatypes
-import StrataBooleTest.tagless

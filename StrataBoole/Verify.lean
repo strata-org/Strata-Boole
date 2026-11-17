@@ -9,8 +9,6 @@ public import StrataBoole.Boole
 public import Strata.Languages.Core.Program
 public import Strata.Languages.Core.Statement
 public import Strata.Languages.Core.Verifier
--- `Core.verify` lives here since Strata walks obligations incrementally for every front end.
-public import Strata.Languages.Core.IncrementalSolve
 public import Strata.DL.Lambda.LExpr
 import Strata.DL.Lambda.LExprWF
 public import Strata.DL.Imperative.Stmt
@@ -240,7 +238,6 @@ private def typeRange : Boole.Type → SourceRange
   | .W1 m | .W8 m | .W16 m | .W32 m | .W64 m | .W128 m => m
   | .Map m _ _ => m
   | .Sequence m _ => m
-  | .Set m _ => m
   | .nat m => m
 
 private def toCoreMonoType (t : Boole.Type) : TranslateM Lambda.LMonoTy := do
@@ -489,29 +486,20 @@ private def toCoreExpr (e : Boole.Expr) : TranslateM Core.Expression.Expr := do
   | .bvsmod m ty a b => toCoreBvBin m ty "SMod" (← toCoreExpr a) (← toCoreExpr b)
   | .old _ _ a =>
       return oldifyExpr (← get).currentInoutNames (← toCoreExpr a)
-  -- Sequence operations (Core Grammar, inherited by Boole). Core groups each checked
-  -- operation with its total twin under one production whose first argument names the
-  -- operator; the twin has no bounds precondition and is unconstrained out of range.
+  -- Sequence operations (Core Grammar, inherited by Boole)
   | .seq_length _ _ s       => return mkCoreApp Core.seqLengthOp  [← toCoreExpr s]
-  | .seqSelectOp _ _ f s i  =>
-      let op := match f with
-        | .seq_select _ => Core.seqSelectOp
-        | .seq_select_unsafe _ => Core.seqSelectUnsafeOp
-      return mkCoreApp op [← toCoreExpr s, ← toCoreExpr i]
-  | .seqSliceOp _ _ f s n   =>
-      let op := match f with
-        | .seq_take _ => Core.seqTakeOp
-        | .seq_take_unsafe _ => Core.seqTakeUnsafeOp
-        | .seq_drop _ => Core.seqDropOp
-        | .seq_drop_unsafe _ => Core.seqDropUnsafeOp
-      return mkCoreApp op [← toCoreExpr s, ← toCoreExpr n]
+  | .seq_select  _ _ s i    => return mkCoreApp Core.seqSelectOp  [← toCoreExpr s, ← toCoreExpr i]
+  | .seq_take    _ _ s n    => return mkCoreApp Core.seqTakeOp    [← toCoreExpr s, ← toCoreExpr n]
+  | .seq_drop    _ _ s n    => return mkCoreApp Core.seqDropOp    [← toCoreExpr s, ← toCoreExpr n]
   | .seq_append  _ _ s1 s2  => return mkCoreApp Core.seqAppendOp  [← toCoreExpr s1, ← toCoreExpr s2]
   | .seq_build   _ _ s v    => return mkCoreApp Core.seqBuildOp   [← toCoreExpr s, ← toCoreExpr v]
-  | .seqUpdateOp _ _ f s i v =>
-      let op := match f with
-        | .seq_update _ => Core.seqUpdateOp
-        | .seq_update_unsafe _ => Core.seqUpdateUnsafeOp
-      return mkCoreApp op [← toCoreExpr s, ← toCoreExpr i, ← toCoreExpr v]
+  | .seq_update  _ _ s i v  => return mkCoreApp Core.seqUpdateOp  [← toCoreExpr s, ← toCoreExpr i, ← toCoreExpr v]
+  -- Total (unsafe) variants: no bounds precondition, unconstrained out of range.
+  -- Useful in spec functions over fixed-size arrays whose length is a typing fact.
+  | .seq_select_unsafe _ _ s i   => return mkCoreApp Core.seqSelectUnsafeOp [← toCoreExpr s, ← toCoreExpr i]
+  | .seq_update_unsafe _ _ s i v => return mkCoreApp Core.seqUpdateUnsafeOp [← toCoreExpr s, ← toCoreExpr i, ← toCoreExpr v]
+  | .seq_take_unsafe   _ _ s n   => return mkCoreApp Core.seqTakeUnsafeOp   [← toCoreExpr s, ← toCoreExpr n]
+  | .seq_drop_unsafe   _ _ s n   => return mkCoreApp Core.seqDropUnsafeOp   [← toCoreExpr s, ← toCoreExpr n]
   | .seq_contains _ _ s v   => return mkCoreApp Core.seqContainsOp [← toCoreExpr s, ← toCoreExpr v]
   -- Sequence operations (Boole Verus-style additions — not in Core Grammar)
   -- Sequence.skip(s, n)      = drop first n elements
@@ -821,11 +809,12 @@ private def toCoreStmt (s : BooleDDM.Statement SourceRange) : TranslateM Core.St
     return .init (mkIdent n) (.forAll [] funcTy) (.det lambda) (← toCoreMetaData m)
   | .for_statement m v init guard step invs body =>
     let (id, ty) ← toCoreMonoBind v
+    let initExpr ← toCoreExpr init
     withBVars [id.name] do
       let body ← withBVars [] (toCoreBlock body)
       lowerFor
         m id ty
-        (← toCoreExpr init)
+        initExpr
         (← toCoreExpr guard)
         (← toCoreExpr step)
         none
@@ -834,9 +823,9 @@ private def toCoreStmt (s : BooleDDM.Statement SourceRange) : TranslateM Core.St
   | .for_to_by_statement m v init limit ⟨_, step?⟩ ⟨_, decr?⟩ invs body =>
     let (id, ty) ← toCoreMonoBind v
     let (leOp, addOp, _, one) := forArithOps ty
+    let initExpr ← toCoreExpr init
     let limitExpr ← toCoreExpr limit
     withBVars [id.name] do
-      let initExpr ← toCoreExpr init
       let guard := mkCoreApp leOp [.fvar () id none, limitExpr]
       let stepExpr ← ((match step? with
         | none => pure one
@@ -851,9 +840,9 @@ private def toCoreStmt (s : BooleDDM.Statement SourceRange) : TranslateM Core.St
   | .for_down_to_by_statement m v init limit ⟨_, step?⟩ ⟨_, decr?⟩ invs body =>
     let (id, ty) ← toCoreMonoBind v
     let (leOp, _, subOp, one) := forArithOps ty
+    let initExpr ← toCoreExpr init
     let limitExpr ← toCoreExpr limit
     withBVars [id.name] do
-      let initExpr ← toCoreExpr init
       let guard := mkCoreApp leOp [limitExpr, .fvar () id none]
       let stepExpr ← ((match step? with
         | none => pure one
