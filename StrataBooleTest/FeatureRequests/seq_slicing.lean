@@ -166,9 +166,9 @@ example : Strata.smtVCsCorrectBoole seqSlicingSeed := by
   gen_smt_vcs_boole
   all_goals (try grind)
 
--- Shape test: Sequence.select on an empty sequence currently produces no
--- out-of-bounds precondition VC (that guard is tracked separately).
--- The ensures clause passes because the result is unconstrained.
+-- Shape test: Sequence.select on an empty sequence is out of bounds, and the
+-- bounds check reports it. The ensures clause is unknown: the result is
+-- unconstrained.
 private def seqOutOfBoundsSeed : StrataDDM.Program :=
 #strata
 program Boole;
@@ -185,9 +185,9 @@ spec {
 /-- info:
 Obligation: set_v_calls_Sequence.select_0
 Property: out-of-bounds access check
-Result: ❓ unknown
+Result: ❌ fail
 
-Obligation: seq_oob_seed_ensures_0_4990
+Obligation: seq_oob_seed_ensures_0_4950
 Property: assert
 Result: ❓ unknown-/
 #guard_msgs in

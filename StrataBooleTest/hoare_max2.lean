@@ -115,9 +115,9 @@ theorem max2_checksTyped : Core.Logic.Hoare.Procedure.contractChecksTyped max2Pr
 theorem max2_factory : max2Core.factoryBeforeProcedure "max2" = Core.Factory :=
   Core.Program.factoryBeforeProcedure_eq_core_of_noFunctions (by native_decide)
 
-/-- Gate parameters: no reserved prefixes for identifiers or block labels, every operator
-    counts as declared. -/
-def params : Core.Logic.InitEnvWFParams := ⟨[], [], fun _ => true⟩
+/-- Gate parameters: no reserved prefixes, every operator counts as declared. -/
+def params : Core.Logic.InitEnvWFParams :=
+  { prefixIdents := [], declaredFuncs := fun _ => true }
 
 /-! ## The values of the inputs -/
 

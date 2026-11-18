@@ -39,8 +39,9 @@ semantics:
 - `Procedure.contractTriple`: `requires` and `ensures` as the triple to prove, with `old`
   snapshots and typed parameters and clauses. Its factory is Core's operators plus the
   functions declared before the procedure, with or without body
-  (`Program.factoryBeforeProcedure`). Datatype declarations add nothing to it, and the
-  program's axioms are not in the precondition.
+  (`Program.factoryBeforeProcedure`). Datatype declarations add nothing to it. Its
+  precondition assumes the axioms declared before the procedure
+  (`AxiomsBeforeProcedureDecl`), since strata-org/Strata#1499.
 - Strata's notion of correctness, `ProcedureAssertsValidOnTraces.denote`: every assertion
   on every run is valid and the postconditions hold, from entry environments satisfying
   the axioms declared before the procedure (`AxiomsBeforeProcedureDecl`).
@@ -60,10 +61,10 @@ build, on a stable target.
 
 ## Plan
 
-1. **Tactic.** State the contract triple with `AxiomsBeforeProcedureDecl` added to its
-   precondition, so the axioms are available as Strata's notion of correctness assumes
-   them. A theorem to write takes a proved triple to the part of that notion about runs
-   that finish; the part about runs that do not also needs termination. Apply the rules
+1. **Tactic.** Prove Strata's contract triple. Its precondition has the axioms declared
+   before the procedure, as Strata's notion of correctness assumes them, and
+   `contract_of_contractTriple` takes a proved triple to the part of that notion about
+   runs that finish; the part about runs that do not also needs termination. Apply the rules
    backwards and discharge their side conditions: `exitsCoveredByBlocks`, and `PostWF` for
    a block that declares nothing, by evaluation on the concrete AST; `PostWF` for a block
    with declarations from `denoteEval_congr`, since a postcondition does not read the
@@ -90,8 +91,9 @@ build, on a stable target.
    - A model exists for a program's factory with its axioms, built on the carrier
      (Decisions). This rules out a vacuous triple, and proves the `nat` bridge axioms of
      the intended `nat` instead of assuming them.
-   - `contractTriple` and `call_of_contract` carry the axioms, so a callee's proof may
-     use them.
+   - At a call, the callee's axioms are shown in the callee's entry store
+     (`call_of_contract` asks for them). For closed axioms this follows from the caller's
+     entry; that lemma is to write.
    - Function preconditions and termination of recursive functions, which the solver path
      checks, stated beside the triple.
    - Rules for nondeterministic `if` and `while`.
@@ -196,14 +198,15 @@ kernel checks that proof for each program.
 ## Strata changes for this route
 
 This branch pins the `integration/lean-route` branch of the fork: Strata main plus the
-pull requests below that are still open. The pin returns to strata-org/Strata when they
-merge.
+pull requests below that are still open, strata-org/Strata#1493 and
+strata-org/Strata#1483. The pin returns to strata-org/Strata when they merge.
 
 | Change | State | Used by |
 | --- | --- | --- |
 | strata-org/Strata#1498: rules `init_nondet`, `havoc`, `assume`, `assert`, and the forms of the last two that read a condition by evaluation | merged | step 1 |
 | strata-org/Strata#1492: public unfolding lemmas for quantifiers and binders | merged | quantifier lifting in step 2 |
-| strata-org/Strata#1493: datatypes in the SMT denotation, with the generic carrier | open, not reviewed | the SMT path now, the model of step 4 later |
+| strata-org/Strata#1499: the contract triple assumes the axioms declared before the procedure, and a proved triple gives the contract of Strata's notion of correctness | merged | step 1 |
+| strata-org/Strata#1493: datatypes in the SMT denotation, with the generic carrier | open, in review | the SMT path now, the model of step 4 later |
 | strata-org/Strata#1496: `Map` and `Sequence` statements had no execution, and models did not have to satisfy their axioms | closed, fixed upstream by the denotational evaluation | step 2 |
 | strata-org/Strata#1490: the SMT path refuses the VCs its denotation does not cover | merged | Goal |
 
