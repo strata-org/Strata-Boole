@@ -1178,12 +1178,9 @@ def toCoreProgram (p : Boole.Program) (gctx : GlobalContext := {}) (fileName : S
     let mut modMap : Std.HashMap String (List (Core.Expression.Ident × Lambda.LMonoTy)) := {}
     for cmd in cmds do
       match cmd with
-      | .command_var _ b =>
-        match b with
-        | .bind_mk _ ⟨_, n⟩ _ ty =>
-          match (toCoreMonoType ty).run' { gctx := gctx } with
-          | .ok mty => varTypes := varTypes.insert n mty
-          | .error _ => pure ()
+      | .command_var _ (.bind_mk _ ⟨_, n⟩ _ ty) =>
+          let mty ← (toCoreMonoType ty).run' { fileName := fileName, gctx := gctx }
+          varTypes := varTypes.insert n mty
       | .boole_procedure _ nameAnn _ _ _ _ specAnn _ =>
         let mods ← collectModifiesFromSpec fileName nameAnn.val specAnn.val varTypes
         if !mods.isEmpty then modMap := modMap.insert nameAnn.val mods
