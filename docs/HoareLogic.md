@@ -156,10 +156,11 @@ contracts pass `contractChecksTyped`, and caller and callee see the same factory
 
 - `nat` is used only through its library and those axioms, so the proof should need no
   datatype reasoning and does not wait on step 4.
-- The callee is trusted, with body `assume false`. A call runs the callee's body, so
-  every obligation of the caller after the first call holds vacuously. The benchmark
-  needs a body that can run, such as assigning an arbitrary value and assuming the
-  `ensures`: a change to the benchmark and its translation, not to Strata.
+- The callee is trusted. Its body gives the result an arbitrary value and assumes each
+  `ensures` (`assume [trusted_k]`), so a call can run and what the callee promises is
+  its contract. A body `assume false` would also meet the contract, but a call runs the
+  callee's body, and every obligation of the caller after the first call would hold
+  vacuously.
 - Lifted goals stay within what lean-smt closes (`Int`, `Bool`, `BitVec`): sequences as
   a length and an index function, `nat` through `nat.toInt`.
 

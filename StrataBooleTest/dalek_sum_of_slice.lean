@@ -152,7 +152,10 @@ spec {
   ensures is_canonical_scalar(result);
 }
 {
-  assume false;
+  havoc result;
+  assume [trusted_0]: Scalar_obeys_add_spec ==> result == Scalar_add_spec(self, _rhs);
+  assume [trusted_1]: nat_toInt(scalar_as_nat(result)) == nat_toInt(group_canonical(nat_add(scalar_as_nat(self), scalar_as_nat(_rhs))));
+  assume [trusted_2]: is_canonical_scalar(result);
 };
 procedure sum_of_slice (scalars : Sequence Scalar) returns (result : Scalar)
 spec {
@@ -243,11 +246,11 @@ Obligation: Scalar_add_ensures_4_9637
 Property: assert
 Result: ✅ pass
 
-Obligation: sum_of_slice_pre_sum_of_slice_requires_6_9783_calls_Sequence.select_0
+Obligation: sum_of_slice_pre_sum_of_slice_requires_5_10058_calls_Sequence.select_0
 Property: out-of-bounds access check
 Result: ✅ pass
 
-Obligation: sum_of_slice_post_sum_of_slice_ensures_9_9995_calls_sum_of_scalars_0
+Obligation: sum_of_slice_post_sum_of_slice_ensures_8_10270_calls_sum_of_scalars_0
 Property: assert
 Result: ✅ pass
 
@@ -315,15 +318,15 @@ Obligation: insertLoopInvAssert_arbitrary_iter_maintain_invariant_loop_7_5
 Property: assert
 Result: ✅ pass
 
-Obligation: sum_of_slice_ensures_7_9902
+Obligation: sum_of_slice_ensures_6_10177
 Property: assert
 Result: ✅ pass
 
-Obligation: sum_of_slice_ensures_8_9956
+Obligation: sum_of_slice_ensures_7_10231
 Property: assert
 Result: ✅ pass
 
-Obligation: sum_of_slice_ensures_9_9995
+Obligation: sum_of_slice_ensures_8_10270
 Property: assert
 Result: ✅ pass
 -/
