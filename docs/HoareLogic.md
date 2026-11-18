@@ -92,8 +92,10 @@ build, on a stable target.
      (Decisions). This rules out a vacuous triple, and proves the `nat` bridge axioms of
      the intended `nat` instead of assuming them.
    - At a call, the callee's axioms are shown in the callee's entry store
-     (`call_of_contract` asks for them). For closed axioms this follows from the caller's
-     entry; that lemma is to write.
+     (`call_of_contract` asks for them). For axioms that read no variable and a callee
+     declared no later than the caller, they follow from the caller's entry
+     (`AxiomsBeforeProcedureDecl.callee`, strata-org/Strata#1501), and
+     `Hoare.frame_factory` carries the caller's entry assumption to each call.
    - Function preconditions and termination of recursive functions, which the solver path
      checks, stated beside the triple.
    - Rules for nondeterministic `if` and `while`.
@@ -207,6 +209,7 @@ strata-org/Strata#1483. The pin returns to strata-org/Strata when they merge.
 | strata-org/Strata#1498: rules `init_nondet`, `havoc`, `assume`, `assert`, and the forms of the last two that read a condition by evaluation | merged | step 1 |
 | strata-org/Strata#1492: public unfolding lemmas for quantifiers and binders | merged | quantifier lifting in step 2 |
 | strata-org/Strata#1499: the contract triple assumes the axioms declared before the procedure, and a proved triple gives the contract of Strata's notion of correctness | merged | step 1 |
+| strata-org/Strata#1501: the callee's axioms at a call from the caller's entry, and a frame rule for facts about the factory | open | calls in step 1 |
 | strata-org/Strata#1493: datatypes in the SMT denotation, with the generic carrier | open, in review | the SMT path now, the model of step 4 later |
 | strata-org/Strata#1496: `Map` and `Sequence` statements had no execution, and models did not have to satisfy their axioms | closed, fixed upstream by the denotational evaluation | step 2 |
 | strata-org/Strata#1490: the SMT path refuses the VCs its denotation does not cover | merged | Goal |
