@@ -119,6 +119,13 @@ then the benchmark below.
 - Goals over Lean values come from lifting, not from a monadic encoding, so
   `Std.Do`/`mvcgen` is off the path.
 - Failure is never vacuous: a construct the tactic cannot handle leaves its goal open.
+- Termination is a separate proof. The tactic proves the partial triple. Strata main has
+  total-correctness triples since November 2026 (`Core.Logic.HoareTotal`,
+  `Procedure.contractTripleTotal`, a `while_rule` with a natural-number measure), and
+  `TripleWith.of_partial_of_true` gives the total triple from the partial one and a total
+  triple with postcondition `True`. So termination needs only a measure per loop, reuses
+  the partial proof unchanged, and follows the benchmark. It needs a pin that includes
+  these triples.
 - Datatypes: keep Strata's approach of stating their laws as conditions on every model,
   and supply the model from one generic carrier, a single inductive of constructor
   applications with a well-sortedness predicate (`DT.Carrier`, strata-org/Strata#1493,
@@ -219,9 +226,6 @@ only. Nothing of step 4 has a pull request yet; its shape is the last two open q
 
 ## Open questions
 
-- Termination: `while_rule` is partial correctness, while Strata's notion of correctness
-  also covers runs that never finish. Add a total-correctness rule, or check `decreases`
-  separately?
 - `cover` is a reachability check, not a Hoare fact. How to state it?
 - Goal names: carry the program's clause names into the goals the tactic leaves.
 - Datatypes and program models in the Hoare logic (step 4): no upstream test uses either,
