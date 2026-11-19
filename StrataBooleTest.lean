@@ -14,6 +14,7 @@ import StrataBooleTest.demo
 import StrataBooleTest.deterministic
 import StrataBooleTest.find_max
 import StrataBooleTest.find_max_verus
+import StrataBooleTest.for_loop_init
 import StrataBooleTest.format_program
 import StrataBooleTest.function_definitions
 import StrataBooleTest.nat_native
@@ -23,6 +24,7 @@ import StrataBooleTest.lemmas_and_axioms
 import StrataBooleTest.local_functions
 import StrataBooleTest.nat_detection
 import StrataBooleTest.global_readonly_call
+import StrataBooleTest.unsupported_global
 import StrataBooleTest.grammar_extensions
 import StrataBooleTest.insertion_sort
 import StrataBooleTest.loop_simple

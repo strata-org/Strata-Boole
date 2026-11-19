@@ -824,11 +824,12 @@ private def toCoreStmt (s : BooleDDM.Statement SourceRange) : TranslateM Core.St
     return .init (mkIdent n) (.forAll [] funcTy) (.det lambda) (← toCoreMetaData m)
   | .for_statement m v init guard step invs body =>
     let (id, ty) ← toCoreMonoBind v
+    let initExpr ← toCoreExpr init
     withBVars [id.name] do
       let body ← withBVars [] (toCoreBlock body)
       lowerFor
         m id ty
-        (← toCoreExpr init)
+        initExpr
         (← toCoreExpr guard)
         (← toCoreExpr step)
         none
@@ -837,9 +838,9 @@ private def toCoreStmt (s : BooleDDM.Statement SourceRange) : TranslateM Core.St
   | .for_to_by_statement m v init limit ⟨_, step?⟩ ⟨_, decr?⟩ invs body =>
     let (id, ty) ← toCoreMonoBind v
     let (leOp, addOp, _, one) := forArithOps ty
+    let initExpr ← toCoreExpr init
     let limitExpr ← toCoreExpr limit
     withBVars [id.name] do
-      let initExpr ← toCoreExpr init
       let guard := mkCoreApp leOp [.fvar booleLoc id none, limitExpr]
       let stepExpr ← ((match step? with
         | none => pure one
@@ -854,9 +855,9 @@ private def toCoreStmt (s : BooleDDM.Statement SourceRange) : TranslateM Core.St
   | .for_down_to_by_statement m v init limit ⟨_, step?⟩ ⟨_, decr?⟩ invs body =>
     let (id, ty) ← toCoreMonoBind v
     let (leOp, _, subOp, one) := forArithOps ty
+    let initExpr ← toCoreExpr init
     let limitExpr ← toCoreExpr limit
     withBVars [id.name] do
-      let initExpr ← toCoreExpr init
       let guard := mkCoreApp leOp [limitExpr, .fvar booleLoc id none]
       let stepExpr ← ((match step? with
         | none => pure one
@@ -1192,12 +1193,9 @@ def toCoreProgram (p : Boole.Program) (gctx : GlobalContext := {}) (fileName : S
     let mut modMap : Std.HashMap String (List (Core.Expression.Ident × Lambda.LMonoTy)) := {}
     for cmd in cmds do
       match cmd with
-      | .command_var _ b =>
-        match b with
-        | .bind_mk _ ⟨_, n⟩ _ ty =>
-          match (toCoreMonoType ty).run' { gctx := gctx } with
-          | .ok mty => varTypes := varTypes.insert n mty
-          | .error _ => pure ()
+      | .command_var _ (.bind_mk _ ⟨_, n⟩ _ ty) =>
+          let mty ← (toCoreMonoType ty).run' { fileName := fileName, gctx := gctx }
+          varTypes := varTypes.insert n mty
       | .boole_procedure _ nameAnn _ _ _ _ specAnn _ =>
         let mods ← collectModifiesFromSpec fileName nameAnn.val specAnn.val varTypes
         if !mods.isEmpty then modMap := modMap.insert nameAnn.val mods
