@@ -86,8 +86,9 @@ build, on a stable target.
    procedures, as in `hoare_max2.lean`. A reflection command on a fork branch wraps this.
 4. **The model, in Strata.** Not needed to prove a triple, needed to trust one.
    - Datatypes: constructors, testers and destructors enter the visible factory
-     (`Lambda.genBlockFactory` generates them), and the model's datatype laws, today
-     disjointness and injectivity, gain inversion and induction.
+     (`Program.factoryBeforeProcedure` folds with `Decl.addToRuntimeFactory`,
+     strata-org/Strata#1502), and the model's datatype laws, today disjointness and
+     injectivity, gain inversion and induction.
    - A model exists for a program's factory with its axioms, built on the carrier
      (Decisions). This rules out a vacuous triple, and proves the `nat` bridge axioms of
      the intended `nat` instead of assuming them.
@@ -217,6 +218,7 @@ strata-org/Strata#1483. The pin returns to strata-org/Strata when they merge.
 | strata-org/Strata#1492: public unfolding lemmas for quantifiers and binders | merged | quantifier lifting in step 2 |
 | strata-org/Strata#1499: the contract triple assumes the axioms declared before the procedure, and a proved triple gives the contract of Strata's notion of correctness | merged | step 1 |
 | strata-org/Strata#1501: the callee's axioms at a call from the caller's entry, and a frame rule for facts about the factory | open | calls in step 1 |
+| strata-org/Strata#1502: the constructors, testers and destructors of a datatype in the factory visible to a procedure | open | datatypes in step 4 |
 | strata-org/Strata#1493: datatypes in the SMT denotation, with the generic carrier | open, in review | the SMT path now, the model of step 4 later |
 | strata-org/Strata#1496: `Map` and `Sequence` statements had no execution, and models did not have to satisfy their axioms | closed, fixed upstream by the denotational evaluation | step 2 |
 | strata-org/Strata#1490: the SMT path refuses the VCs its denotation does not cover | merged | Goal |
