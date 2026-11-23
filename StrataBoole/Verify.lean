@@ -427,10 +427,10 @@ private partial def patOfAst(exTy : LMonoTy) : BooleDDM.Pattern SourceRange → 
     let some dt := (← get).ctorTypes[c]?
       | throwAt m s!"Unknown constructor '{c}' in pattern"
     let some ctor := dt.constrs.find? (·.name.name == c)
-      | throwAt m s!""
+      | throwAt m s!"Constructor '{c}' not found in constructor list of datatype '{dt.name}'"
     -- get type of expr
     let .tcons tyName tyArgs := exTy
-      | throwAt m s!""
+      | throwAt m s!"Pattern for constructor '{c}' requires a datatype value, got {repr exTy}"
     unless tyName == dt.name do throwAt m s!"Constructor '{c}' belongs to '{dt.name}' but the expected type is '{tyName}'"
     unless dt.typeArgs.length == tyArgs.length && ctor.args.length == args.size do throwAt m s!"Constructor '{c}' expects '{ctor.args.length}' arguments"
 
