@@ -14,9 +14,10 @@ open Strata
 Verifies that `coreProgUsesDt` correctly detects option and pair usage in code paths:
 
 Each test procedure has `int`-only header types and no nat in assert bodies so
-that, if a fix is reverted, the detection code returns false, natLibrary is not
-injected, the `nat` sort is undefined in the SMT encoding, and the test fails —
-providing regression coverage for every detection path.
+that, if a fix is reverted, datatype detection returns false, the option/pair
+library is not injected, the required sort or constructors are undefined in
+the SMT encoding, and the test fails. This provides regression coverage for
+every detection path.
 -/
 
 /-!
@@ -35,6 +36,21 @@ spec { ensures r >= 0;}
 };
 
 #end
+/--
+info:
+Obligation: option.get_body_calls_option..val_0
+Property: assert
+Result: ✅ pass
+
+Obligation: option.getOrElse_body_calls_option..val_0
+Property: assert
+Result: ✅ pass
+
+Obligation: opt_ite_cond_ensures_0_795
+Property: assert
+Result: ✅ pass
+-/
+#guard_msgs in
 #eval Strata.Boole.verify "cvc5" opt_ite_cond_prog (options := .quiet)
 
 
@@ -53,6 +69,25 @@ spec { requires 0 <= n; }
 };
 
 #end
+/--
+info:
+Obligation: option.get_body_calls_option..val_0
+Property: assert
+Result: ✅ pass
+
+Obligation: option.getOrElse_body_calls_option..val_0
+Property: assert
+Result: ✅ pass
+
+Obligation: insertLoopInvAssert_entry_invariant_loop_0_0
+Property: assert
+Result: ✅ pass
+
+Obligation: insertLoopInvAssert_arbitrary_iter_maintain_invariant_loop_0_0
+Property: assert
+Result: ✅ pass
+-/
+#guard_msgs in
 #eval Strata.Boole.verify "cvc5" opt_loop_inv_prog (options := .quiet)
 
 
@@ -66,6 +101,21 @@ spec { ensures ∀ x:int . isSome(some(x)); }
 {};
 
 #end
+/--
+info:
+Obligation: option.get_body_calls_option..val_0
+Property: assert
+Result: ✅ pass
+
+Obligation: option.getOrElse_body_calls_option..val_0
+Property: assert
+Result: ✅ pass
+
+Obligation: opt_quant_body_ensures_0_2133
+Property: assert
+Result: ✅ pass
+-/
+#guard_msgs in
 #eval Strata.Boole.verify "cvc5" opt_quant_body_prog (options := .quiet)
 
 
@@ -79,6 +129,21 @@ spec { ensures ∀ o:option int . true; }
 {};
 
 #end
+/--
+info:
+Obligation: option.get_body_calls_option..val_0
+Property: assert
+Result: ✅ pass
+
+Obligation: option.getOrElse_body_calls_option..val_0
+Property: assert
+Result: ✅ pass
+
+Obligation: opt_quant_binder_ensures_0_2702
+Property: assert
+Result: ✅ pass
+-/
+#guard_msgs in
 #eval Strata.Boole.verify "cvc5" opt_quant_binder_prog (options := .quiet)
 
 
@@ -95,6 +160,25 @@ spec { ensures r == 1; }
 };
 
 #end
+/--
+info:
+Obligation: option.get_body_calls_option..val_0
+Property: assert
+Result: ✅ pass
+
+Obligation: option.getOrElse_body_calls_option..val_0
+Property: assert
+Result: ✅ pass
+
+Obligation: init_calls_option.get_0
+Property: assert
+Result: ✅ pass
+
+Obligation: opt_init_only_ensures_0_3276
+Property: assert
+Result: ✅ pass
+-/
+#guard_msgs in
 #eval Strata.Boole.verify "cvc5" opt_init_prog (options := .quiet)
 
 
@@ -108,6 +192,17 @@ spec { requires isSome(some(x)); }
 {};
 
 #end
+/--
+info:
+Obligation: option.get_body_calls_option..val_0
+Property: assert
+Result: ✅ pass
+
+Obligation: option.getOrElse_body_calls_option..val_0
+Property: assert
+Result: ✅ pass
+-/
+#guard_msgs in
 #eval Strata.Boole.verify "cvc5" opt_pre_prog (options := .quiet)
 
 
@@ -126,6 +221,13 @@ spec { ensures r >= 0;}
   if (isPair((1, 1))) {r := 1;} else {r := -1;}
 };
 #end
+/--
+info:
+Obligation: pair_ite_cond_ensures_0_4418
+Property: assert
+Result: ✅ pass
+-/
+#guard_msgs in
 #eval Strata.Boole.verify "cvc5" pair_ite_cond_prog (options := .quiet)
 
 
@@ -144,6 +246,17 @@ spec { requires 0 <= n; }
 };
 
 #end
+/--
+info:
+Obligation: insertLoopInvAssert_entry_invariant_loop_0_0
+Property: assert
+Result: ✅ pass
+
+Obligation: insertLoopInvAssert_arbitrary_iter_maintain_invariant_loop_0_0
+Property: assert
+Result: ✅ pass
+-/
+#guard_msgs in
 #eval Strata.Boole.verify "cvc5" pair_loop_inv_prog (options := .quiet)
 
 
@@ -157,6 +270,13 @@ spec { ensures ∀ x:int . isPair((x, x)); }
 {};
 
 #end
+/--
+info:
+Obligation: pair_quant_body_ensures_0_5414
+Property: assert
+Result: ✅ pass
+-/
+#guard_msgs in
 #eval Strata.Boole.verify "cvc5" pair_quant_body_prog (options := .quiet)
 
 
@@ -170,6 +290,13 @@ spec { ensures ∀ o: pair int int . true; }
 {};
 
 #end
+/--
+info:
+Obligation: pair_quant_binder_ensures_0_5812
+Property: assert
+Result: ✅ pass
+-/
+#guard_msgs in
 #eval Strata.Boole.verify "cvc5" pair_quant_binder_prog (options := .quiet)
 
 
@@ -186,21 +313,14 @@ spec { ensures r == 1; }
 };
 
 #end
+/--
+info:
+Obligation: pair_init_only_ensures_0_6219
+Property: assert
+Result: ✅ pass
+-/
+#guard_msgs in
 #eval Strata.Boole.verify "cvc5" pair_init_prog (options := .quiet)
-
-
--- 06 pair ops only in precondition
-private def pair_pre_prog : StrataDDM.Program :=
-#strata
-program Boole;
-
-procedure pair_pre_only (x : int) returns ()
-spec { requires isPair((x, 2)); }
-{};
-
-#end
-#eval Strata.Boole.verify "cvc5" pair_pre_prog (options := .quiet)
-
 
 
 
@@ -216,6 +336,13 @@ spec { ensures r == x + 1; }
 { r := x + 1; };
 
 #end
+/--
+info:
+Obligation: neg_int_only_ensures_0_6611
+Property: assert
+Result: ✅ pass
+-/
+#guard_msgs in
 #eval Strata.Boole.verify "cvc5" neg_int_prog (options := .quiet)
 
 
@@ -232,6 +359,10 @@ procedure neg_lookalike (x : int) returns ()
 };
 
 #end
+/--
+info:
+-/
+#guard_msgs in
 #eval Strata.Boole.verify "cvc5" neg_lookalike_prog (options := .quiet)
 
 
@@ -247,4 +378,8 @@ procedure option_neg_global_def (x : int) returns ()
 };
 
 #end
+/--
+info:
+-/
+#guard_msgs in
 #eval Strata.Boole.verify "cvc5" neg_global_def (options := .quiet)

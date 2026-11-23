@@ -1,7 +1,24 @@
+/-
+  Copyright Strata Contributors
+
+  SPDX-License-Identifier: Apache-2.0 OR MIT
+-/
 import StrataBoole.MetaVerifier
 
 open Strata
 
+/--
+# Native pair test
+
+Covers:
+- `pair A B` construction with `(a, b)`
+- `isPair`
+- `fst`
+- `snd`
+
+TODO:
+  - Lean verification condition generation path for parameterized option/pair
+-/
 private def testOptionAndTuples : StrataDDM.Program :=
 
 #strata
@@ -27,23 +44,23 @@ procedure p(a : int, b : int) {
 #end
 /--
 info:
-Obligation: assert_0_236
+Obligation: assert_0_507
 Property: assert
 Result: ✅ pass
 
-Obligation: assert_1_257
+Obligation: assert_1_528
 Property: assert
 Result: ✅ pass
 
-Obligation: assert_2_280
+Obligation: assert_2_551
 Property: assert
 Result: ✅ pass
 
-Obligation: assert_3_342
+Obligation: assert_3_613
 Property: assert
 Result: ✅ pass
 
-Obligation: assert_4_369
+Obligation: assert_4_640
 Property: assert
 Result: ✅ pass
 -/

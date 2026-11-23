@@ -11,7 +11,17 @@ open Strata
 /--
   lowers to `r:= if(isSome(o)) then get(o) * get(o) else 0;`
 -/
-private def match_expr_sugar :=
+
+/-
+# pattern matching expression
+Each pattern option lowers to datatype testers as if condition and variables instantiated in if body.
+Pattern options nested into if then else statements. Top constructor level checked for exhaustiveness.
+
+TODO:
+  - nested-pattern exhaustiveness check
+-/
+
+private def pat_match_expr :=
 #strata
 program Boole;
 procedure match_expr_sugar (o : option int) returns(r : int)
@@ -40,17 +50,32 @@ spec{
   };
 };
 
-// // currently not recognized as exhaustive
-// procedure exhaustiveness_gap(t : Triple int int (option int)) returns(r : int)
-// spec{
-//  ensures r >= 0;
-// }
-// {
-//   r := match t {
-//     MkTriple(_, _, some(v : int)) => v * v,
-//     MkTriple(_, _, none) => 1
-//   };
-// };
-
 #end
-#eval Strata.Boole.verify "cvc5" match_expr_sugar (options := .quiet)
+/--
+info:
+Obligation: option.get_body_calls_option..val_0
+Property: assert
+Result: ✅ pass
+
+Obligation: option.getOrElse_body_calls_option..val_0
+Property: assert
+Result: ✅ pass
+
+Obligation: set_r_calls_option..val_0
+Property: assert
+Result: ✅ pass
+
+Obligation: set_r_calls_option..val_1
+Property: assert
+Result: ✅ pass
+
+Obligation: match_expr_sugar_ensures_0_611
+Property: assert
+Result: ✅ pass
+
+Obligation: match_expr_exhaustiveness_ensures_1_886
+Property: assert
+Result: ✅ pass
+-/
+#guard_msgs in
+#eval Strata.Boole.verify "cvc5" pat_match_expr (options := .quiet)

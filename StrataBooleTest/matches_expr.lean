@@ -8,6 +8,15 @@ import StrataBoole.MetaVerifier
 
 open Strata
 
+/-
+# Pattern matching conditions
+covers positive matches, intentional failures, nested patterns, user datatypes, quantifiers,
+precedence, and Lean VC generation for a non-generic datatype.
+
+TODO:
+  - Lean verification condition generation path for parameterized option/pair
+-/
+
 private def simple_matches : StrataDDM.Program :=
 #strata
 program Boole;
@@ -28,17 +37,20 @@ spec{
 procedure match_wild (
   p : pair int bool,
   o : option int,
-  dp : pair (pair int bool) (pair bool int)
+  dp : pair (pair int bool) (pair bool int),
+  op : option (pair int int)
 )
 spec{
   requires p == (2, true);
   requires o == some(1);
   requires dp == ((1, true), (false, 2));
+  requires op == some((1, 2));
 }
 {
   assert (p matches (_, b: bool) && b);
   assert (o matches some(_));
   assert (dp matches ((a: int, _), (_, b: int )) && a < b);
+  assert (op matches some((_, a: int)) && a == 2);
 };
 #end
 
@@ -52,31 +64,39 @@ Obligation: option.getOrElse_body_calls_option..val_0
 Property: assert
 Result: ✅ pass
 
-Obligation: assert_assert_3_380_calls_option..val_0
+Obligation: assert_assert_3_658_calls_option..val_0
 Property: assert
 Result: ✅ pass
 
-Obligation: assert_3_380
+Obligation: assert_3_658
 Property: assert
 Result: ✅ pass
 
-Obligation: assert_4_426
+Obligation: assert_4_704
 Property: assert
 Result: ✅ pass
 
-Obligation: assert_5_458
+Obligation: assert_5_736
 Property: assert
 Result: ✅ pass
 
-Obligation: assert_9_737
+Obligation: assert_10_1076
 Property: assert
 Result: ✅ pass
 
-Obligation: assert_10_777
+Obligation: assert_11_1116
 Property: assert
 Result: ✅ pass
 
-Obligation: assert_11_807
+Obligation: assert_12_1146
+Property: assert
+Result: ✅ pass
+
+Obligation: assert_assert_13_1206_calls_option..val_0
+Property: assert
+Result: ✅ pass
+
+Obligation: assert_13_1206
 Property: assert
 Result: ✅ pass
 -/
@@ -117,31 +137,31 @@ Obligation: option.getOrElse_body_calls_option..val_0
 Property: assert
 Result: ✅ pass
 
-Obligation: assert_4_1930
+Obligation: assert_4_2475
 Property: assert
 Result: ❌ fail
 
-Obligation: assert_assert_5_1980_calls_option..val_0
+Obligation: assert_assert_5_2525_calls_option..val_0
 Property: assert
 Result: ✅ pass
 
-Obligation: assert_5_1980
+Obligation: assert_5_2525
 Property: assert
 Result: ❌ fail
 
-Obligation: assert_6_2026
+Obligation: assert_6_2571
 Property: assert
 Result: ❌ fail
 
-Obligation: assert_7_2053
+Obligation: assert_7_2598
 Property: assert
 Result: ❌ fail
 
-Obligation: assert_8_2094
+Obligation: assert_8_2639
 Property: assert
 Result: ❌ fail
 
-Obligation: assert_9_2129
+Obligation: assert_9_2674
 Property: assert
 Result: ❌ fail
 -/
@@ -168,7 +188,7 @@ spec{
 #end
 /--
 info:
-Obligation: assert_1_3169
+Obligation: assert_1_3714
 Property: assert
 Result: ✅ pass
 -/
@@ -207,11 +227,11 @@ Obligation: option.getOrElse_body_calls_option..val_0
 Property: assert
 Result: ✅ pass
 
-Obligation: assert_assert_0_3950_calls_option..val_0
+Obligation: assert_assert_0_4495_calls_option..val_0
 Property: assert
 Result: ✅ pass
 
-Obligation: assert_0_3950
+Obligation: assert_0_4495
 Property: assert
 Result: ❌ fail
 -/
@@ -241,15 +261,15 @@ Obligation: option.getOrElse_body_calls_option..val_0
 Property: assert
 Result: ✅ pass
 
-Obligation: assert_assert_1_4637_calls_option..val_0
+Obligation: assert_assert_1_5182_calls_option..val_0
 Property: assert
 Result: ✅ pass
 
-Obligation: assert_assert_1_4637_calls_option..val_1
+Obligation: assert_assert_1_5182_calls_option..val_1
 Property: assert
 Result: ✅ pass
 
-Obligation: assert_1_4637
+Obligation: assert_1_5182
 Property: assert
 Result: ✅ pass
 -/
@@ -267,7 +287,7 @@ procedure s4 (i : int, j : int)
 #end
 /--
 info:
-Obligation: assert_0_5333
+Obligation: assert_0_5878
 Property: assert
 Result: ✅ pass
 -/
@@ -294,11 +314,11 @@ Obligation: option.getOrElse_body_calls_option..val_0
 Property: assert
 Result: ✅ pass
 
-Obligation: assert_0_5687
+Obligation: assert_0_6232
 Property: assert
 Result: ✅ pass
 
-Obligation: assert_1_5730
+Obligation: assert_1_6275
 Property: assert
 Result: ✅ pass
 -/
@@ -330,11 +350,11 @@ Obligation: option.getOrElse_body_calls_option..val_0
 Property: assert
 Result: ✅ pass
 
-Obligation: assert_assert_1_6345_calls_option..val_0
+Obligation: assert_assert_1_6890_calls_option..val_0
 Property: assert
 Result: ✅ pass
 
-Obligation: assert_1_6345
+Obligation: assert_1_6890
 Property: assert
 Result: ✅ pass
 -/
@@ -343,8 +363,7 @@ Result: ✅ pass
 
 
 /-
-  test for VC generation with Core Datatype
-  (VC condition generation not working for option, pair, user defined datatypes)
+  Test for Lean VC generation with a Core datatype
 -/
 private def testvc := #strata
 program Boole;
@@ -356,7 +375,7 @@ procedure match_quantified (s : Sequence int)
 #end
 /--
 info:
-Obligation: assert_0_7060
+Obligation: assert_0_7531
 Property: assert
 Result: ✅ pass
 -/

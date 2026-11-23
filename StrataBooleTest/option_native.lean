@@ -1,7 +1,26 @@
+/-
+  Copyright Strata Contributors
+
+  SPDX-License-Identifier: Apache-2.0 OR MIT
+-/
 import StrataBoole.MetaVerifier
 
 open Strata
 
+/--!
+# Native option test.
+
+Covers:
+- `option T` construction with `some(e)` and `none<T>`
+- `isSome`
+- `isNone`
+- `get`
+- `getOrElse`
+- Intentionally failing case of `get(r)` for an unconstrained option
+
+TODO:
+  - Lean verification condition generation path for parameterized option/pair
+-/
 private def testOptionAndTuples : StrataDDM.Program :=
 
 #strata
@@ -41,31 +60,31 @@ Obligation: option.getOrElse_body_calls_option..val_0
 Property: assert
 Result: ✅ pass
 
-Obligation: assert_0_278
+Obligation: assert_0_654
 Property: assert
 Result: ✅ pass
 
-Obligation: assert_1_311
+Obligation: assert_1_687
 Property: assert
 Result: ✅ pass
 
-Obligation: assert_2_344
+Obligation: assert_2_720
 Property: assert
 Result: ✅ pass
 
-Obligation: assert_3_378
+Obligation: assert_3_754
 Property: assert
 Result: ✅ pass
 
-Obligation: assert_assert_4_488_calls_option.get_0
+Obligation: assert_assert_4_864_calls_option.get_0
 Property: assert
 Result: ✅ pass
 
-Obligation: assert_4_488
+Obligation: assert_4_864
 Property: assert
 Result: ✅ pass
 
-Obligation: assert_5_515
+Obligation: assert_5_891
 Property: assert
 Result: ✅ pass
 

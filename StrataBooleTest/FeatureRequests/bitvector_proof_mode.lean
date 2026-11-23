@@ -15,46 +15,10 @@ Near-upstream anchors:
 - Verus context: LEB128 encodes integers as a sequence of bytes where bit 7
   is a continuation flag and bits [6:0] carry data. The proof of
   `lemma_spec_parse_low_7_bits` discharges two bitvector identities
-  via `by (bit_vector)`:
     assert(take_low_7_bits!(take_low_7_bits!(s0)) == take_low_7_bits!(s0))
       by (bit_vector);
     assert(take_low_7_bits!(rest << 7 | take_low_7_bits!(s0) as UInt)
       == take_low_7_bits!(s0)) by (bit_vector);
-- Gap: Boole has no `by (bit_vector)` proof block. Both identities must be
-  stated as explicit axioms rather than discharged automatically.
-- Remaining gap: a proof-mode block that routes pure bitvector sub-goals to
-  a bitvector decision procedure without explicit axioms.
--/
-
-private def bitvectorProofModeSeed : StrataDDM.Program :=
-#strata
-program Boole;
-
-// function low7(b: bv W8) : bv W8;
-// axiom (∀ b: bv W8 . low7(b) == b & bv{8}(127));
-//
-// procedure leb128_low7_seed(s: Map int (bv W8), len: int) returns ()
-// spec {
-//   requires 0 < len;
-//   ensures leb128_parse_low7(s, len) == low7(s[0]);
-// }
-// {
-//   if s[0] & bv{8}(128) != bv{8}(0) {
-//     // continuation byte
-//     assert low7(rest << 7 | low7(s[0])) == low7(s[0]) by (bit_vector);
-//   } else {
-//     // terminal byte
-//     assert low7(low7(s[0])) == low7(s[0]) by (bit_vector);
-//   };
-// };
-#end
-
-/-
-- Source: VeruSAGE-Bench Vest
-    `regular__leb128__impl2__lemma_spec_parse_low_7_bits.rs`
-Verus context: LEB128 encodes integers as a sequence of bytes where bit 7
-  is a continuation flag and bits [6:0] carry data. Lemma: for non-empty `s`,
-  `spec_parse(s) matches Some((_, x)) ==> take_low_7_bits!(x) == take_low_7_bits!(s[0])`
 
 - `bitvectorProofModeSeedRewrite`: translation of rust spec with lemma.
   The flags `recursiveFnsAsDefineFunRec`, `fmf-fun` make cvc5 unfold the definition
@@ -62,10 +26,11 @@ Verus context: LEB128 encodes integers as a sequence of bytes where bit 7
   obligations are unknown. Termination is shown by the next program.
 - `bitvectorProofModeRecursionSeed`: shows `spec_parse_rec` termination.
 
-Translation:
-- `take_low_7_bits!` -> `low7` (bv8), `low7_64` (bv64 -> bv8)
-- `n_bit_max_unsigned!(57)` -> literal `144115188075855871` (2^57 - 1)
-- `n < usize::MAX` -> `n < 18446744073709551615` (64-bit)
+*not neccessary? - not in original spec*
+- Gap: Boole has no `by (bit_vector)` proof block. Both identities must be
+  stated as explicit axioms rather than discharged automatically.
+- Remaining gap: a proof-mode block that routes pure bitvector sub-goals to
+  a bitvector decision procedure without explicit axioms.
 -/
 
 private def bitvectorProofModeSeedRewrite : StrataDDM.Program :=
@@ -92,9 +57,11 @@ decreases Sequence.length(s)
     if is_high_8_bit(Sequence.select(s, 0))
       then match spec_parse_rec(Sequence.dropFirst(s)) {
         some((n: int, v2: bv W64)) =>
-          if n < 18446744073709551615 && bv{64}(0) < v2 && v2 <= as_bv64(144115188075855871)
-            then some((n + 1, (v2 << bv{64}(7)) | as_bv64(as_uint(low7(Sequence.select(s, 0))))))
-            else none<pair int (bv W64)>,
+          if n < 18446744073709551615            // usize::MAX (64 bit)
+            && bv{64}(0) < v2
+            && v2 <= as_bv64(144115188075855871) // n_bit_max_unsigned!(8 * uint_size!() - 7)
+              then some((n + 1, (v2 << bv{64}(7)) | as_bv64(as_uint(low7(Sequence.select(s, 0))))))
+              else none<pair int (bv W64)>,
         none => none<pair int (bv W64)>
       }
     else some((1, as_bv64(as_uint(low7(Sequence.select(s, 0))))))
@@ -104,7 +71,7 @@ decreases Sequence.length(s)
 procedure leb128_low7_seed(s: Sequence (bv W8)) returns ()
 spec {
   requires Sequence.length(s) != 0;
-  ensures spec_parse_rec(s) matches some((_, x : bv W64)) ==>
+  ensures [ensures_bv]: spec_parse_rec(s) matches some((_, x : bv W64)) ==>
     let s0 : bv W8 := Sequence.select(s, 0) in
     low7_64(x) == low7(s0);
 }
@@ -225,15 +192,15 @@ Obligation: spec_parse_rec_terminates_11
 Property: assert
 Result: ❓ unknown
 
-Obligation: leb128_low7_seed_post_leb128_low7_seed_ensures_1_3544_calls_option..val_0
+Obligation: leb128_low7_seed_post_ensures_bv_calls_option..val_0
 Property: assert
 Result: ✅ pass
 
-Obligation: leb128_low7_seed_post_leb128_low7_seed_ensures_1_3544_calls_Sequence.select_1
+Obligation: leb128_low7_seed_post_ensures_bv_calls_Sequence.select_1
 Property: out-of-bounds access check
 Result: ✅ pass
 
-Obligation: leb128_low7_seed_ensures_1_3544
+Obligation: ensures_bv
 Property: assert
 Result: ✅ pass
 -/
