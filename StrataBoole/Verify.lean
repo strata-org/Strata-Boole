@@ -1444,80 +1444,6 @@ def getProgram (p : StrataDDM.Program) : Except Message Boole.Program := do
   | .ok prog => return prog
   | .error e => throw (Message.fromString e)
 
--- Returns true if `ty` mentions the `nat` or `pos` sort anywhere (including nested).
-private def lMonoTyHasNatOrPos : Lambda.LMonoTy → Bool
-  | .tcons "nat" _ | .tcons "pos" _ => true
-  | .tcons _ args => args.attach.any fun ⟨a, _⟩ => lMonoTyHasNatOrPos a
-  | _ => false
-
-private def lTyHasNatOrPos : Lambda.LTy → Bool
-  | .forAll _ ty => lMonoTyHasNatOrPos ty
-
--- Returns true if `expr` contains any nat/pos operator call.
--- Used to catch nat usage in spec (requires/ensures) expressions and function bodies
--- where the surface types may be int (e.g. `ensures nat.toInt(nat.fromInt(x)) == x`).
-private def lExprUsesNatOrPos : Core.Expression.Expr → Bool
-  | .op _ id _           => ["nat.toInt", "nat.fromInt", "nat.add", "nat.sub", "nat.mul",
-                              "nat.div",  "nat.mod",     "nat.lt",  "nat.le",  "nat.gt",
-                              "nat.ge",   "pos.toInt",   "pos.fromInt"].contains id.name
-  | .app _ f x           => lExprUsesNatOrPos f || lExprUsesNatOrPos x
-  | .ite _ c t e         => lExprUsesNatOrPos c || lExprUsesNatOrPos t || lExprUsesNatOrPos e
-  | .eq _ a b            => lExprUsesNatOrPos a || lExprUsesNatOrPos b
-  | .abs _ _ _ body      => lExprUsesNatOrPos body
-  | .quant _ _ _ _ tr b  => lExprUsesNatOrPos tr || lExprUsesNatOrPos b
-  | _                    => false
-
--- Recursively scan a statement list for nat/pos-typed local variable declarations.
--- This catches `var z : nat := ...` inside procedure bodies that wouldn't appear
--- in the procedure's header input/output types.
-private def stmtListHasNatOrPos : List Core.Statement → Bool
-  | [] => false
-  | s :: rest =>
-    let here := match s with
-      | .cmd (.cmd (.init _ ty (.det e) _)) => lTyHasNatOrPos ty || lExprUsesNatOrPos e
-      | .cmd (.cmd (.init _ ty _ _))    => lTyHasNatOrPos ty
-      | .cmd (.cmd (.assert _ b _))     => lExprUsesNatOrPos b
-      | .cmd (.cmd (.assume _ b _))     => lExprUsesNatOrPos b
-      | .cmd (.cmd (.cover _ b _))      => lExprUsesNatOrPos b
-      | .cmd (.cmd (.set _ (.det e) _)) => lExprUsesNatOrPos e
-      | .block _ inner _                => stmtListHasNatOrPos inner
-      | .ite (.det c) thenb elseb _     =>
-          lExprUsesNatOrPos c || stmtListHasNatOrPos thenb || stmtListHasNatOrPos elseb
-      | .ite .nondet thenb elseb _      =>
-          stmtListHasNatOrPos thenb || stmtListHasNatOrPos elseb
-      | .loop (.det g) meas invs body _ =>
-          lExprUsesNatOrPos g
-          || meas.any lExprUsesNatOrPos
-          || invs.any (fun (_, e) => lExprUsesNatOrPos e)
-          || stmtListHasNatOrPos body
-      | .loop .nondet _ invs body _     =>
-          invs.any (fun (_, e) => lExprUsesNatOrPos e) || stmtListHasNatOrPos body
-      | _                               => false
-    here || stmtListHasNatOrPos rest
-
--- Returns true if any function, procedure, or datatype in `cp` references nat/pos.
--- Scans: input/output types, local variable types (body), spec expressions
--- (requires/ensures), and function body expressions — so `ensures nat.toInt(n) >= 0`
--- on an int-typed procedure correctly triggers natLibrary injection.
-private def coreProgUsesNatOrPos (cp : Core.Program) : Bool :=
-  cp.decls.any fun decl => match decl with
-    | .func f _ => f.inputs.values.any lMonoTyHasNatOrPos
-               || lMonoTyHasNatOrPos f.output
-               || f.body.any lExprUsesNatOrPos
-    | .recFuncBlock fs _ => fs.any fun f =>
-        f.inputs.values.any lMonoTyHasNatOrPos
-        || lMonoTyHasNatOrPos f.output
-        || f.body.any lExprUsesNatOrPos
-    | .proc p _ => p.header.inputs.values.any lMonoTyHasNatOrPos
-                || p.header.outputs.values.any lMonoTyHasNatOrPos
-                || (match p.body with
-                   | .structured ss => stmtListHasNatOrPos ss
-                   | .cfg _ => false)
-                || p.spec.preconditions.values.any  (fun c => lExprUsesNatOrPos c.expr)
-                || p.spec.postconditions.values.any (fun c => lExprUsesNatOrPos c.expr)
-    | .type (.data block) _ => block.any fun dt =>
-        dt.constrs.any fun c => c.args.any fun (_, ty) => lMonoTyHasNatOrPos ty
-    | _ => false
 
 -- ── Programmatic binary-nat preamble ─────────────────────────────────────────
 -- Builds the binary-nat library (pos/nat datatypes + arithmetic functions +
@@ -1844,6 +1770,24 @@ private def coreProgUsesDt (cp : Core.Program) (tyTest : Lambda.LMonoTy → Bool
   | .type (.data block) _ => block.any fun dt => dt.constrs.any fun c => c.args.any fun(_, ty) => tyTest ty
   | _ => false
 
+private def natOpNames : List String := [
+  "nat.toInt", "nat.fromInt",
+  "nat.add", "nat.sub", "nat.mul", "nat.div", "nat.mod",
+  "nat.lt", "nat.le", "nat.gt", "nat.ge",
+  "pos.toInt", "pos.fromInt"
+]
+-- Returns true if `ty` mentions the `nat` or `pos` sort anywhere (including nested).
+private def lMonoTyHasNatOrPos : Lambda.LMonoTy → Bool
+  | .tcons "nat" _ | .tcons "pos" _ => true
+  | .tcons _ args => args.attach.any fun ⟨a, _⟩ => lMonoTyHasNatOrPos a
+  | _ => false
+
+-- Returns true if any function, procedure, or datatype in `cp` references nat/pos.
+-- Scans: input/output types, local variable types (body), spec expressions
+-- (requires/ensures), and function body expressions — so `ensures nat.toInt(n) >= 0`
+-- on an int-typed procedure correctly triggers natLibrary injection.
+private def coreProgUsesNatOrPos (cp : Core.Program) : Bool :=
+  coreProgUsesDt cp lMonoTyHasNatOrPos natOpNames
 
 /-- Prepend the binary nat library to a Core program that uses grammar-level `nat`/`pos`.
     Skipped when the user declared `nat`/`pos` themselves (the global context takes
