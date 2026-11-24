@@ -39,22 +39,25 @@ semantics:
 - `Procedure.contractTriple`: `requires` and `ensures` as the triple to prove, with `old`
   snapshots and typed parameters and clauses. Its factory is Core's operators plus the
   functions declared before the procedure, with or without body
-  (`Program.factoryBeforeProcedure`). Datatype declarations add nothing to it. Its
+  (`Program.factoryBeforeProcedure`). Datatype declarations add their constructors,
+  testers and destructors on Strata main (strata-org/Strata#1502), nothing on this pin. Its
   precondition assumes the axioms declared before the procedure
   (`AxiomsBeforeProcedureDecl`), since strata-org/Strata#1499.
 - Strata's notion of correctness, `ProcedureAssertsValidOnTraces.denote`: every assertion
   on every run is valid and the postconditions hold, from entry environments satisfying
   the axioms declared before the procedure (`AxiomsBeforeProcedureDecl`).
-  `Strata/Transform/SpecHoareConnection.lean` takes a triple to assertion validity on
-  every run, given termination.
+  On Strata main the partial triple also asks that the assertions of every finite
+  execution hold, finished or not, so a proved contract triple gives all of this notion
+  (`procedureAssertsValidOnTraces_of_contractTriple`) without a termination premise. The
+  rules kept their signatures; only proofs that unfold the triple change.
 - Denotational evaluation (since November 2026): `Expression.eval` is `LExpr.denoteEval`
   over the factory and a model of it, and stores hold semantic values. Lifting lemmas
   exist for `+`, `-`, `*` and the comparisons on `int`, three `bv16` operators, free
   variables, `==` and `if` (`IntEvalProps.lean`, `BitVecEvalProps.lean`), with a generic
   one for any binary operator that has a concrete evaluation (`eval_app2_op`).
 
-Its tests prove some twenty procedures by hand, with `native_decide` for facts about the
-AST; none uses axioms, datatypes, maps or sequences. There is no automation and its
+Its tests prove procedures by hand, with `native_decide` for facts about the AST, among
+them ones with axioms, datatypes, maps and sequences. There is no automation and its
 authors plan none: the triple is their specification of partial correctness, and
 generating verification conditions against it is open to others. So the tactic is ours to
 build, on a stable target.
@@ -62,9 +65,10 @@ build, on a stable target.
 ## Plan
 
 1. **Tactic.** Prove Strata's contract triple. Its precondition has the axioms declared
-   before the procedure, as Strata's notion of correctness assumes them, and
-   `contract_of_contractTriple` takes a proved triple to the part of that notion about
-   runs that finish; the part about runs that do not also needs termination. Apply the rules
+   before the procedure, as Strata's notion of correctness assumes them, and a proved
+   triple gives all of that notion (`procedureAssertsValidOnTraces_of_contractTriple`, on
+   Strata main; on this pin `contract_of_contractTriple` gives the part about runs that
+   finish). Apply the rules
    backwards and discharge their side conditions: `exitsCoveredByBlocks`, and `PostWF` for
    a block that declares nothing, by evaluation on the concrete AST; `PostWF` for a block
    with declarations from `denoteEval_congr`, since a postcondition does not read the
@@ -91,14 +95,17 @@ build, on a stable target.
      injectivity, gain inversion and induction.
    - A model exists for a program's factory with its axioms, built on the carrier
      (Decisions). This rules out a vacuous triple, and proves the `nat` bridge axioms of
-     the intended `nat` instead of assuming them.
+     the intended `nat` instead of assuming them. A model holds every function to its
+     body, so termination of recursive functions belongs here: a terminating definition
+     always has a solution, a non-terminating one may have none.
    - At a call, the callee's axioms are shown in the callee's entry store
      (`call_of_contract` asks for them). For axioms that read no variable and a callee
      declared no later than the caller, they follow from the caller's entry
      (`AxiomsBeforeProcedureDecl.callee`, strata-org/Strata#1501), and
      `Hoare.frame_factory` carries the caller's entry assumption to each call.
-   - Function preconditions and termination of recursive functions, which the solver path
-     checks, stated beside the triple.
+   - Function preconditions, stated beside the triple. A precondition is an annotation and
+     a function stays total, so the triple holds without it; the checks the solver path
+     makes, such as sequence bounds, are a separate property.
    - Rules for nondeterministic `if` and `while`.
 5. **Boole semantics.** A Boole interpreter proved to agree with `toCoreProgram`, so that
    Boole has a meaning in its own terms and the lowering is proved, not trusted. It
@@ -147,7 +154,7 @@ then the benchmark below.
 | `Map`, `Sequence`, `Set`, `string` | constrained in every model; lifting to add (step 2) |
 | functions, with or without body | in the model |
 | `axiom` | through `AxiomsBeforeProcedureDecl` (step 1); assumed until step 4 |
-| datatypes, `nat` | not in the model: constructors are unconstrained symbols (step 4) |
+| datatypes, `nat` | not in the model on this pin: constructors are unconstrained symbols. Strata main adds constructors, testers and destructors to the visible factory (strata-org/Strata#1502); inversion and induction to add (step 4) |
 
 ## Target: `dalek_sum_of_slice`
 
@@ -182,9 +189,11 @@ written:
 | Trusted today | Removed by |
 | --- | --- |
 | the Boole to Core lowering | step 5 |
-| the program's axioms, and that a model of the program with them exists | step 4 |
-| function preconditions and termination, which the triple does not state | step 4 |
+| the program's axioms, and that a model of the program with them exists, which for recursive functions includes their termination | step 4 |
 | the Lean compiler, through `native_decide` on facts about the AST | kernel-checked facts in the tactic |
+
+Function preconditions and the termination of loops are not assumed: the partial triple
+does not claim them, and each is a separate proof (step 4 and Decisions).
 
 The solver path trusts the lowering and the axioms too, and in addition Strata's
 transformation pipeline, the SMT encoding and the solver. The tactic needs no adequacy
@@ -210,7 +219,9 @@ kernel checks that proof for each program.
 
 This branch pins the `integration/lean-route` branch of the fork: Strata main plus the
 pull requests below that are still open, strata-org/Strata#1493 and
-strata-org/Strata#1483. The pin returns to strata-org/Strata when they merge.
+strata-org/Strata#1483. The pin returns to strata-org/Strata when they merge. Changes
+merged after the pin, among them strata-org/Strata#1502 and the total-correctness triples,
+arrive with that bump.
 
 | Change | State | Used by |
 | --- | --- | --- |
@@ -218,22 +229,24 @@ strata-org/Strata#1483. The pin returns to strata-org/Strata when they merge.
 | strata-org/Strata#1492: public unfolding lemmas for quantifiers and binders | merged | quantifier lifting in step 2 |
 | strata-org/Strata#1499: the contract triple assumes the axioms declared before the procedure, and a proved triple gives the contract of Strata's notion of correctness | merged | step 1 |
 | strata-org/Strata#1501: the callee's axioms at a call from the caller's entry, and a frame rule for facts about the factory | open | calls in step 1 |
-| strata-org/Strata#1502: the constructors, testers and destructors of a datatype in the factory visible to a procedure | open | datatypes in step 4 |
+| strata-org/Strata#1502: the constructors, testers and destructors of a datatype in the factory visible to a procedure | merged | datatypes in step 4 |
 | strata-org/Strata#1493: datatypes in the SMT denotation, with the generic carrier | open, in review | the SMT path now, the model of step 4 later |
 | strata-org/Strata#1496: `Map` and `Sequence` statements had no execution, and models did not have to satisfy their axioms | closed, fixed upstream by the denotational evaluation | step 2 |
 | strata-org/Strata#1490: the SMT path refuses the VCs its denotation does not cover | merged | Goal |
 
 The integration branch also carries strata-org/Strata#1483, which concerns the solver path
-only. Nothing of step 4 has a pull request yet; its shape is the last two open questions.
+only. Of step 4, the datatype functions are merged (strata-org/Strata#1502); the rest has
+no pull request yet.
 
 ## Open questions
 
 - `cover` is a reachability check, not a Hoare fact. How to state it?
 - Goal names: carry the program's clause names into the goals the tactic leaves.
-- Datatypes and program models in the Hoare logic (step 4): no upstream test uses either,
-  so agree the shape with Strata before building.
-- Trusted procedures: `Triple` runs a callee's body, while Strata also has a
-  contract-based call semantics (`EvalCmdExtContractE`). Should a triple over it exist?
+- Program models (step 4): how to show that a model of a program's factory and axioms
+  exists. Agree the shape with Strata before building.
+- Trusted procedures: `Triple` runs a callee's body, so a trusted callee needs a body that
+  assumes its contract (Target). That body can go once Core's semantics gives a bodyless
+  procedure a meaning.
 
 ## Sources
 
