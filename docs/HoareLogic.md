@@ -88,10 +88,10 @@ build, on a stable target.
    `#strata program Boole` block as a Lean term, and the triple is stated on its
    procedures, as in `hoare_max2.lean`. A reflection command on a fork branch wraps this.
 4. **The model, in Strata.** Not needed to prove a triple, needed to trust one.
-   - Datatypes: constructors, testers and destructors enter the visible factory
-     (`Program.factoryBeforeProcedure` folds with `Decl.addToRuntimeFactory`,
-     strata-org/Strata#1502), and the model's datatype laws, today disjointness and
-     injectivity, gain inversion and induction.
+   - Datatypes: done upstream. Constructors, testers and destructors are in the visible
+     factory (`Program.factoryBeforeProcedure` folds with `Decl.addToRuntimeFactory`,
+     strata-org/Strata#1502), and the model's datatype laws are disjointness, injectivity,
+     inversion and induction.
    - A model exists for a program's factory with its axioms, built on the carrier
      (Decisions). This rules out a vacuous triple, and proves the `nat` bridge axioms of
      the intended `nat` instead of assuming them. A model holds every function to its
@@ -152,7 +152,7 @@ then the benchmark below.
 | `Map`, `Sequence`, `Set`, `string` | constrained in every model; lifting to add (step 2) |
 | functions, with or without body | in the model |
 | `axiom` | through `AxiomsBeforeProcedureDecl` (step 1); assumed until step 4 |
-| datatypes, `nat` | constructors, testers and destructors in the visible factory (strata-org/Strata#1502), with disjointness and injectivity; inversion and induction to add (step 4) |
+| datatypes, `nat` | constructors, testers and destructors in the visible factory (strata-org/Strata#1502), with disjointness, injectivity, inversion and induction |
 
 ## Target: `dalek_sum_of_slice`
 

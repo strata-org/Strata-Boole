@@ -15,6 +15,8 @@ public import Strata.DL.Lambda.LExpr
 import Strata.DL.Lambda.LExprWF
 public import Strata.DL.Imperative.Stmt
 import Strata.Util.Tactics
+import StrataDDM.Util.DecimalRat
+import Strata.Languages.Core.DDMTransform.FracLit
 
 public section
 
@@ -258,6 +260,7 @@ private def toCoreMonoType (t : Boole.Type) : TranslateM Lambda.LMonoTy := do
   | .arrow _ a b => return .arrow (← toCoreMonoType a) (← toCoreMonoType b)
   | .bool _ => return .bool
   | .int _ => return .int
+  | .real _ => return .real
   | .string _ => return .string
   | .bv _ (.W1 _)   => return .bitvec 1
   | .bv _ (.W8 _)   => return .bitvec 8
@@ -329,6 +332,10 @@ private def toCoreTypedUn (m : SourceRange) (ty : Boole.Type) (op : String) (a :
     let iop : Core.Expression.Expr := .op booleLoc ⟨s!"Int.{op}", ()⟩ none
     return .app booleLoc iop a
   | .nat _ => throwAt m s!"'nat' does not support unary negation"
+  | .real _ =>
+    match op with
+    | "Neg" => return .app booleLoc Core.realNegOp a
+    | _ => throwAt m s!"Unsupported real operation: {op}"
   | _ => toCoreBvUn m ty op a
 
 -- Bitvector comparison operators use unsigned variants by default (Le→ULe, etc.).
@@ -345,6 +352,18 @@ private def toCoreTypedBin (m : SourceRange) (ty : Boole.Type) (op : String) (a 
     return mkCoreApp iop [a, b]
   | .nat _ =>
     return mkCoreApp (.op booleLoc ⟨s!"nat.{op.toLower}", ()⟩ none) [a, b]
+  | .real _ =>
+    let realOp ← match op with
+      | "Add" => pure Core.realAddOp
+      | "Sub" => pure Core.realSubOp
+      | "Mul" => pure Core.realMulOp
+      | "Div" => pure Core.realDivOp
+      | "Le"  => pure Core.realLeOp
+      | "Lt"  => pure Core.realLtOp
+      | "Ge"  => pure Core.realGeOp
+      | "Gt"  => pure Core.realGtOp
+      | _ => throwAt m s!"Unsupported real operation: {op}"
+    return mkCoreApp realOp [a, b]
   | _ => toCoreBvBin m ty (toBvCmpOp op) a b
 
 private def toCoreExtensionalEq
@@ -454,6 +473,12 @@ private def toCoreExpr (e : Boole.Expr) : TranslateM Core.Expression.Expr := do
   | .bv32Lit _ ⟨_, n⟩ => return .bitvecConst booleLoc 32 n
   | .bv64Lit _ ⟨_, n⟩ => return .bitvecConst booleLoc 64 n
   | .bv128Lit _ ⟨_, n⟩ => return .bitvecConst booleLoc 128 n
+  | .realLit _ ⟨_, d⟩ =>
+    return .rationalConst booleLoc (StrataDDM.Decimal.toRat d)
+  | .fracLit m ⟨_, num⟩ ⟨_, den⟩ =>
+    if den == 0 then
+      throwAt m "fracLit: denominator must be non-zero"
+    return .rationalConst booleLoc (Core.FracLit.fracDecode num den)
   | .natToInt _ ⟨_, n⟩ => return .intConst booleLoc (Int.ofNat n)
   | .if _ _ c t f => return .ite booleLoc (← toCoreExpr c) (← toCoreExpr t) (← toCoreExpr f)
   | .map_get _ _ _ a i => return mkCoreApp Core.mapSelectOp [← toCoreExpr a, ← toCoreExpr i]
@@ -585,6 +610,23 @@ private def toCoreExpr (e : Boole.Expr) : TranslateM Core.Expression.Expr := do
   | .nat_le  _ a b => return mkCoreApp (.op booleLoc (mkIdent "nat.le")  none) [← toCoreExpr a, ← toCoreExpr b]
   | .nat_gt  _ a b => return mkCoreApp (.op booleLoc (mkIdent "nat.gt")  none) [← toCoreExpr a, ← toCoreExpr b]
   | .nat_ge  _ a b => return mkCoreApp (.op booleLoc (mkIdent "nat.ge")  none) [← toCoreExpr a, ← toCoreExpr b]
+  | .unaryArithReal _ (.real_neg _) a =>
+    return .app booleLoc Core.realNegOp (← toCoreExpr a)
+  | .binaryArithBasicReal _ f a b =>
+    let op := match f with
+      | .real_add _ => Core.realAddOp
+      | .real_sub _ => Core.realSubOp
+      | .real_mul _ => Core.realMulOp
+    return mkCoreApp op [← toCoreExpr a, ← toCoreExpr b]
+  | .binaryArithDivModReal _ (.real_div _) a b =>
+    return mkCoreApp Core.realDivOp [← toCoreExpr a, ← toCoreExpr b]
+  | .binaryCmpBaseReal _ f a b =>
+    let op := match f with
+      | .real_le _ => Core.realLeOp
+      | .real_lt _ => Core.realLtOp
+      | .real_ge _ => Core.realGeOp
+      | .real_gt _ => Core.realGtOp
+    return mkCoreApp op [← toCoreExpr a, ← toCoreExpr b]
   | _ => throw (Message.fromString s!"Unsupported expression: {repr e}")
   termination_by (SizeOf.sizeOf e, 3)
 
