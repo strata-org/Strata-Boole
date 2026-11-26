@@ -1787,20 +1787,30 @@ private def lMonoTyHasNatOrPos : Lambda.LMonoTy → Bool
 private def coreProgUsesNatOrPos (cp : Core.Program) : Bool :=
   coreProgUsesDt cp lMonoTyHasNatOrPos natOpNames
 
-/-- Prepend the binary nat library to a Core program that uses grammar-level `nat`/`pos`.
-    Skipped when the user declared `nat`/`pos` themselves (the global context takes
+/-- Prepend the binary nat, pair and option libraries to a Core program that uses grammar-level `nat`/`pos`/`pair`/`option`.
+    Skipped when the user declared `nat`/`pos`/`pair`/`option` themselves (the global context takes
     precedence) and when the program does not mention them, so unrelated programs get no
     quantified axioms. `typeCheck`, `verify` and the `gen_smt_vcs_boole` path all go through
     this, so they see the same program. -/
-def withNatPreamble (gctx : StrataDDM.GlobalContext) (cp : Core.Program) : Core.Program :=
+def withDtPreambles (gctx : StrataDDM.GlobalContext) (cp : Core.Program) : Core.Program :=
   let hasUserNatDecl := (gctx.findIndex? "nat").isSome || (gctx.findIndex? "pos").isSome
-  if hasUserNatDecl || !coreProgUsesNatOrPos cp then cp
+  let cp := if hasUserNatDecl || !coreProgUsesNatOrPos cp then cp
   else { cp with decls := natCorePreamble ++ cp.decls }
+
+  let usesPair := coreProgUsesDt cp (lMonoTyHasDt "pair") pairOpNames
+  let hasUserPairDecl := (gctx.findIndex? "pair").isSome
+  let cp := if hasUserPairDecl || !usesPair then cp
+  else { cp with decls := pairCorePreamble ++ cp.decls }
+
+  let usesOption := coreProgUsesDt cp (lMonoTyHasDt "option") optionOpNames
+  let hasUserOptionDecl := (gctx.findIndex? "option").isSome
+  if hasUserOptionDecl || !usesOption then cp
+  else { cp with decls := optionCorePreamble ++ cp.decls }
 
 def typeCheck (p : StrataDDM.Program) (options : Core.VerifyOptions := .default) : Except Message Core.Program := do
   let prog ← getProgram p
   let coreProg ← toCoreProgram prog p.globalContext
-  Core.typeCheck options (withNatPreamble p.globalContext coreProg)
+  Core.typeCheck options (withDtPreambles p.globalContext coreProg)
 
 -- ── Validate-Candidate: pure-Lean nat arithmetic ─────────────────────────────
 -- When the incremental SMT solver returns `unknown (some m)` for a nat-using
@@ -2068,24 +2078,15 @@ def verify
     | .error e =>
       throw <| IO.Error.userError (toString (e.format (some ictx.fileMap)))
     | .ok cp =>
-      -- Auto-inject the binary nat library when grammar-level nat/pos types are used.
-      let usesNatOrPos := coreProgUsesNatOrPos cp
-      let cp := withNatPreamble env.globalContext cp
-
-      let usesPair := coreProgUsesDt cp (lMonoTyHasDt "pair") pairOpNames
-      let hasUserPairDecl := (env.globalContext.findIndex? "pair").isSome
-      let cp ← if hasUserPairDecl || !usesPair then pure cp else pure { cp with decls := pairCorePreamble ++ cp.decls }
-
-      let usesOption := coreProgUsesDt cp (lMonoTyHasDt "option") optionOpNames
-      let hasUserOptionDecl := (env.globalContext.findIndex? "option").isSome
-      let cp ← if hasUserOptionDecl || !usesOption then pure cp else pure { cp with decls := optionCorePreamble ++ cp.decls }
+      -- Auto-inject the binary nat, pair and option libraries when grammar-level nat/pos types are used.
+      let cp := withDtPreambles env.globalContext cp
 
       -- Wire the nat candidate-validation phase whenever nat/pos types are in use.
       -- Intentionally NOT conditioned on a user nat/pos declaration (unlike
-      -- `withNatPreamble`): `prepend`-based programs put nat/pos into globalContext
+      -- `withDtPreambles`): `prepend`-based programs put nat/pos into globalContext
       -- but still need candidate validation. natCandidatePhase is a no-op for
       -- opaque/non-algebraic nat since termToLeanPos/Nat won't parse those model entries.
-      let usesGrammarNat := usesNatOrPos
+      let usesGrammarNat := coreProgUsesNatOrPos cp
       let externalPhases : List Core.AbstractedPhase :=
         if usesGrammarNat then [natCandidatePhase] else []
       -- `Core.verify` takes the procedure filter through `VerifyOptions`; a
