@@ -68,3 +68,4 @@ import StrataBooleTest.pair_native
 import StrataBooleTest.option_pair_detection
 import StrataBooleTest.match_expr
 import StrataBooleTest.matches_expr
+import StrataBooleTest.variable_bind_test_getbvarexpr
