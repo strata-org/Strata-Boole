@@ -29,6 +29,7 @@ import StrataBooleTest.grammar_extensions
 import StrataBooleTest.insertion_sort
 import StrataBooleTest.loop_simple
 import StrataBooleTest.procedure_signatures
+import StrataBooleTest.real_lowering
 import StrataBooleTest.quicksort
 import StrataBooleTest.square_matrix_multiply
 import StrataBooleTest.stack_array_based
