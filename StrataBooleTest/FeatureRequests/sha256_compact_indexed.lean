@@ -223,7 +223,8 @@ spec {
 };
 #end
 
-/-- info:
+/--
+info:
 Obligation: Seq_lib_insert_bv32_body_calls_Sequence.take_0
 Property: out-of-bounds access check
 Result: ✅ pass
@@ -240,11 +241,11 @@ Obligation: assert_3_3867
 Property: assert
 Result: ✅ pass
 
-Obligation: insertLoopInvAssert_entry_invariant_loop_49_0
+Obligation: insertLoopInvAssert_entry_invariant_loop_59_0
 Property: assert
 Result: ✅ pass
 
-Obligation: insertLoopInvAssert_entry_invariant_loop_49_1
+Obligation: insertLoopInvAssert_entry_invariant_loop_59_1
 Property: assert
 Result: ✅ pass
 
@@ -280,11 +281,11 @@ Obligation: set_res_calls_Sequence.update_4
 Property: out-of-bounds access check
 Result: ✅ pass
 
-Obligation: insertLoopInvAssert_arbitrary_iter_maintain_invariant_loop_49_0
+Obligation: insertLoopInvAssert_arbitrary_iter_maintain_invariant_loop_59_0
 Property: assert
 Result: ✅ pass
 
-Obligation: insertLoopInvAssert_arbitrary_iter_maintain_invariant_loop_49_1
+Obligation: insertLoopInvAssert_arbitrary_iter_maintain_invariant_loop_59_1
 Property: assert
 Result: ✅ pass
 
@@ -324,15 +325,15 @@ Obligation: set_h_calls_Sequence.select_0
 Property: out-of-bounds access check
 Result: ✅ pass
 
-Obligation: insertLoopInvAssert_entry_invariant_loop_50_0
+Obligation: insertLoopInvAssert_entry_invariant_loop_60_0
 Property: assert
 Result: ✅ pass
 
-Obligation: insertLoopInvAssert_entry_invariant_loop_50_1
+Obligation: insertLoopInvAssert_entry_invariant_loop_60_1
 Property: assert
 Result: ✅ pass
 
-Obligation: insertLoopInvAssert_entry_invariant_loop_50_2
+Obligation: insertLoopInvAssert_entry_invariant_loop_60_2
 Property: assert
 Result: ✅ pass
 
@@ -348,7 +349,7 @@ Obligation: callElimAssert_rotate_right_requires_1_3773_3
 Property: assert
 Result: ✅ pass
 
-Obligation: callElimAssert_rotate_right_requires_1_3773_7
+Obligation: callElimAssert_rotate_right_requires_1_3773_8
 Property: assert
 Result: ✅ pass
 
@@ -360,11 +361,11 @@ Obligation: set_w2_calls_Sequence.select_0
 Property: out-of-bounds access check
 Result: ✅ pass
 
-Obligation: callElimAssert_rotate_right_requires_1_3773_11
+Obligation: callElimAssert_rotate_right_requires_1_3773_13
 Property: assert
 Result: ✅ pass
 
-Obligation: callElimAssert_rotate_right_requires_1_3773_15
+Obligation: callElimAssert_rotate_right_requires_1_3773_18
 Property: assert
 Result: ✅ pass
 
@@ -384,15 +385,15 @@ Obligation: set_block_local_calls_Sequence.update_0
 Property: out-of-bounds access check
 Result: ✅ pass
 
-Obligation: callElimAssert_rotate_right_requires_1_3773_19
-Property: assert
-Result: ✅ pass
-
 Obligation: callElimAssert_rotate_right_requires_1_3773_23
 Property: assert
 Result: ✅ pass
 
-Obligation: callElimAssert_rotate_right_requires_1_3773_27
+Obligation: callElimAssert_rotate_right_requires_1_3773_28
+Property: assert
+Result: ✅ pass
+
+Obligation: callElimAssert_rotate_right_requires_1_3773_33
 Property: assert
 Result: ✅ pass
 
@@ -400,27 +401,27 @@ Obligation: set_t1_calls_Sequence.select_0
 Property: out-of-bounds access check
 Result: ✅ pass
 
-Obligation: callElimAssert_rotate_right_requires_1_3773_31
+Obligation: callElimAssert_rotate_right_requires_1_3773_38
 Property: assert
 Result: ✅ pass
 
-Obligation: callElimAssert_rotate_right_requires_1_3773_35
+Obligation: callElimAssert_rotate_right_requires_1_3773_43
 Property: assert
 Result: ✅ pass
 
-Obligation: callElimAssert_rotate_right_requires_1_3773_39
+Obligation: callElimAssert_rotate_right_requires_1_3773_48
 Property: assert
 Result: ✅ pass
 
-Obligation: insertLoopInvAssert_arbitrary_iter_maintain_invariant_loop_50_0
+Obligation: insertLoopInvAssert_arbitrary_iter_maintain_invariant_loop_60_0
 Property: assert
 Result: ✅ pass
 
-Obligation: insertLoopInvAssert_arbitrary_iter_maintain_invariant_loop_50_1
+Obligation: insertLoopInvAssert_arbitrary_iter_maintain_invariant_loop_60_1
 Property: assert
 Result: ✅ pass
 
-Obligation: insertLoopInvAssert_arbitrary_iter_maintain_invariant_loop_50_2
+Obligation: insertLoopInvAssert_arbitrary_iter_maintain_invariant_loop_60_2
 Property: assert
 Result: ✅ pass
 
@@ -432,59 +433,59 @@ Obligation: set_state_out_calls_Sequence.update_1
 Property: out-of-bounds access check
 Result: ✅ pass
 
-Obligation: set_state_out_calls_Sequence.select_0
+Obligation: set_state_out_calls_Sequence.select_0_1
 Property: out-of-bounds access check
 Result: ✅ pass
 
-Obligation: set_state_out_calls_Sequence.update_1
+Obligation: set_state_out_calls_Sequence.update_1_1
 Property: out-of-bounds access check
 Result: ✅ pass
 
-Obligation: set_state_out_calls_Sequence.select_0
+Obligation: set_state_out_calls_Sequence.select_0_2
 Property: out-of-bounds access check
 Result: ✅ pass
 
-Obligation: set_state_out_calls_Sequence.update_1
+Obligation: set_state_out_calls_Sequence.update_1_2
 Property: out-of-bounds access check
 Result: ✅ pass
 
-Obligation: set_state_out_calls_Sequence.select_0
+Obligation: set_state_out_calls_Sequence.select_0_3
 Property: out-of-bounds access check
 Result: ✅ pass
 
-Obligation: set_state_out_calls_Sequence.update_1
+Obligation: set_state_out_calls_Sequence.update_1_3
 Property: out-of-bounds access check
 Result: ✅ pass
 
-Obligation: set_state_out_calls_Sequence.select_0
+Obligation: set_state_out_calls_Sequence.select_0_4
 Property: out-of-bounds access check
 Result: ✅ pass
 
-Obligation: set_state_out_calls_Sequence.update_1
+Obligation: set_state_out_calls_Sequence.update_1_4
 Property: out-of-bounds access check
 Result: ✅ pass
 
-Obligation: set_state_out_calls_Sequence.select_0
+Obligation: set_state_out_calls_Sequence.select_0_5
 Property: out-of-bounds access check
 Result: ✅ pass
 
-Obligation: set_state_out_calls_Sequence.update_1
+Obligation: set_state_out_calls_Sequence.update_1_5
 Property: out-of-bounds access check
 Result: ✅ pass
 
-Obligation: set_state_out_calls_Sequence.select_0
+Obligation: set_state_out_calls_Sequence.select_0_6
 Property: out-of-bounds access check
 Result: ✅ pass
 
-Obligation: set_state_out_calls_Sequence.update_1
+Obligation: set_state_out_calls_Sequence.update_1_6
 Property: out-of-bounds access check
 Result: ✅ pass
 
-Obligation: set_state_out_calls_Sequence.select_0
+Obligation: set_state_out_calls_Sequence.select_0_7
 Property: out-of-bounds access check
 Result: ✅ pass
 
-Obligation: set_state_out_calls_Sequence.update_1
+Obligation: set_state_out_calls_Sequence.update_1_7
 Property: out-of-bounds access check
 Result: ✅ pass
 
@@ -496,11 +497,11 @@ Obligation: compress_pre_compress_requires_16_8638_calls_Sequence.select_0
 Property: out-of-bounds access check
 Result: ✅ pass
 
-Obligation: insertLoopInvAssert_entry_invariant_loop_51_0
+Obligation: insertLoopInvAssert_entry_invariant_loop_61_0
 Property: assert
 Result: ✅ pass
 
-Obligation: insertLoopInvAssert_entry_invariant_loop_51_1
+Obligation: insertLoopInvAssert_entry_invariant_loop_61_1
 Property: assert
 Result: ✅ pass
 
@@ -508,20 +509,21 @@ Obligation: init_calls_Sequence.select_0
 Property: out-of-bounds access check
 Result: ✅ pass
 
-Obligation: callElimAssert_to_u32s_requires_4_4106_42
+Obligation: callElimAssert_to_u32s_requires_4_4106_52
 Property: assert
 Result: ✅ pass
 
-Obligation: callElimAssert_compress_u32_requires_10_5085_47
+Obligation: callElimAssert_compress_u32_requires_10_5085_57
 Property: assert
 Result: ✅ pass
 
-Obligation: insertLoopInvAssert_arbitrary_iter_maintain_invariant_loop_51_0
+Obligation: insertLoopInvAssert_arbitrary_iter_maintain_invariant_loop_61_0
 Property: assert
 Result: ✅ pass
 
-Obligation: insertLoopInvAssert_arbitrary_iter_maintain_invariant_loop_51_1
+Obligation: insertLoopInvAssert_arbitrary_iter_maintain_invariant_loop_61_1
 Property: assert
-Result: ✅ pass-/
+Result: ✅ pass
+-/
 #guard_msgs in
 #eval Strata.Boole.verify "cvc5" sha256_compact_indexed_program (options := .quiet)

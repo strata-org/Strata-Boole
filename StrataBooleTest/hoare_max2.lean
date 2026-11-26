@@ -69,7 +69,7 @@ abbrev cond : E := geE (.fvar Core.valueLoc xV intTy) (.fvar Core.valueLoc yV in
 /-- Metadata and labels of the statements and clauses, read off the program so the shapes
     below are exact. -/
 def max2Body : Core.Statements :=
-  match max2Proc.body with | .structured ss => ss | _ => []
+  match max2Proc.body with | .structured ss _ => ss | _ => []
 def md4 : Imperative.MetaData Core.Expression :=
   match max2Body with | [.block _ _ md] => md | _ => #[]
 def md3 : Imperative.MetaData Core.Expression :=
@@ -83,7 +83,7 @@ theorem max2_body_eq : max2Proc.body = .structured
     [.block "max2"
       [.ite (.det cond)
         [.cmd (.cmd (.set rV (.det (.fvar Core.valueLoc xV intTy)) md1))]
-        [.cmd (.cmd (.set rV (.det (.fvar Core.valueLoc yV intTy)) md2))] md3] md4] := by
+        [.cmd (.cmd (.set rV (.det (.fvar Core.valueLoc yV intTy)) md2))] md3] md4] false := by
   native_decide
 
 def lbl0 : Core.CoreLabel :=
@@ -133,7 +133,7 @@ theorem inputs_of_cond (ρ : Imperative.Env Core.Expression) {b : Bool}
       some (SemValue.ofBool ρ.factory.model.tcInterp b)) :
     ρ.factory.factory = Core.Factory ∧
       ∃ a c : Int, ρ.store xV = some (intV ρ.factory a) ∧ ρ.store yV = some (intV ρ.factory c) := by
-  obtain ⟨-, hfac, -, hin⟩ := hpre
+  obtain ⟨-, hfac, -, hin, -⟩ := hpre
   refine ⟨hfac, ?_⟩
   obtain ⟨vx, hx, hsx⟩ := hin xV (.tcons "int" []) (by rw [max2_inputs]; simp)
   obtain ⟨vy, hy, hsy⟩ := hin yV (.tcons "int" []) (by rw [max2_inputs]; simp)
@@ -192,7 +192,7 @@ theorem max2_post (ρ : Imperative.Env Core.Expression) (a b c : Int)
 
 theorem max2_triple : Core.Logic.Hoare.Procedure.contractTriple max2Core params "max2" := by
   refine Core.Logic.Hoare.Procedure.contractTriple_of_core_typed max2Core params "max2" max2Proc _
-    max2_findProc max2_body_eq max2_checksTyped ?_
+    max2_findProc max2_body_eq max2_checksTyped ?_ (hmono := by native_decide)
   rw [max2_factory]
   -- the procedure block, then the labelled block
   refine Core.Logic.Hoare.block max2Core.findProcByString? params ?_

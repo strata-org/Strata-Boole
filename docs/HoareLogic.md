@@ -40,14 +40,14 @@ semantics:
   snapshots and typed parameters and clauses. Its factory is Core's operators plus the
   functions declared before the procedure, with or without body
   (`Program.factoryBeforeProcedure`). Datatype declarations add their constructors,
-  testers and destructors on Strata main (strata-org/Strata#1502), nothing on this pin. Its
+  testers and destructors (strata-org/Strata#1502). Its
   precondition assumes the axioms declared before the procedure
   (`AxiomsBeforeProcedureDecl`), since strata-org/Strata#1499.
 - Strata's notion of correctness, `ProcedureAssertsValidOnTraces.denote`: every assertion
   on every run is valid and the postconditions hold, from entry environments satisfying
   the axioms declared before the procedure (`AxiomsBeforeProcedureDecl`).
-  On Strata main the partial triple also asks that the assertions of every finite
-  execution hold, finished or not, so a proved contract triple gives all of this notion
+  The partial triple also asks that the assertions of every finite execution hold,
+  finished or not, so a proved contract triple gives all of this notion
   (`procedureAssertsValidOnTraces_of_contractTriple`) without a termination premise. The
   rules kept their signatures; only proofs that unfold the triple change.
 - Denotational evaluation (since November 2026): `Expression.eval` is `LExpr.denoteEval`
@@ -66,9 +66,8 @@ build, on a stable target.
 
 1. **Tactic.** Prove Strata's contract triple. Its precondition has the axioms declared
    before the procedure, as Strata's notion of correctness assumes them, and a proved
-   triple gives all of that notion (`procedureAssertsValidOnTraces_of_contractTriple`, on
-   Strata main; on this pin `contract_of_contractTriple` gives the part about runs that
-   finish). Apply the rules
+   triple gives all of that notion (`procedureAssertsValidOnTraces_of_contractTriple`).
+   Apply the rules
    backwards and discharge their side conditions: `exitsCoveredByBlocks`, and `PostWF` for
    a block that declares nothing, by evaluation on the concrete AST; `PostWF` for a block
    with declarations from `denoteEval_congr`, since a postcondition does not read the
@@ -127,13 +126,12 @@ then the benchmark below.
 - Goals over Lean values come from lifting, not from a monadic encoding, so
   `Std.Do`/`mvcgen` is off the path.
 - Failure is never vacuous: a construct the tactic cannot handle leaves its goal open.
-- Termination is a separate proof. The tactic proves the partial triple. Strata main has
+- Termination is a separate proof. The tactic proves the partial triple. Strata has
   total-correctness triples since November 2026 (`Core.Logic.HoareTotal`,
   `Procedure.contractTripleTotal`, a `while_rule` with a natural-number measure), and
   `TripleWith.of_partial_of_true` gives the total triple from the partial one and a total
   triple with postcondition `True`. So termination needs only a measure per loop, reuses
-  the partial proof unchanged, and follows the benchmark. It needs a pin that includes
-  these triples.
+  the partial proof unchanged, and follows the benchmark.
 - Datatypes: keep Strata's approach of stating their laws as conditions on every model,
   and supply the model from one generic carrier, a single inductive of constructor
   applications with a well-sortedness predicate (`DT.Carrier`, strata-org/Strata#1493,
@@ -154,7 +152,7 @@ then the benchmark below.
 | `Map`, `Sequence`, `Set`, `string` | constrained in every model; lifting to add (step 2) |
 | functions, with or without body | in the model |
 | `axiom` | through `AxiomsBeforeProcedureDecl` (step 1); assumed until step 4 |
-| datatypes, `nat` | not in the model on this pin: constructors are unconstrained symbols. Strata main adds constructors, testers and destructors to the visible factory (strata-org/Strata#1502); inversion and induction to add (step 4) |
+| datatypes, `nat` | constructors, testers and destructors in the visible factory (strata-org/Strata#1502), with disjointness and injectivity; inversion and induction to add (step 4) |
 
 ## Target: `dalek_sum_of_slice`
 
@@ -218,10 +216,8 @@ kernel checks that proof for each program.
 ## Strata changes for this route
 
 This branch pins the `integration/lean-route` branch of the fork: Strata main plus the
-pull requests below that are still open, strata-org/Strata#1493 and
-strata-org/Strata#1483. The pin returns to strata-org/Strata when they merge. Changes
-merged after the pin, among them strata-org/Strata#1502 and the total-correctness triples,
-arrive with that bump.
+pull requests below that are still open, strata-org/Strata#1501, strata-org/Strata#1493
+and strata-org/Strata#1483. The pin returns to strata-org/Strata when they merge.
 
 | Change | State | Used by |
 | --- | --- | --- |

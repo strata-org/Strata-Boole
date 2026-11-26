@@ -67,13 +67,13 @@ private def callHelper (p : StrataDDM.Program) : Except String (List String) := 
     match d with
     | .proc p _ =>
       -- CFG bodies: call extraction not yet implemented for unstructured programs.
-      let stmts := match p.body with | .structured ss => ss | .cfg _ => []
+      let stmts := match p.body with | .structured ss _ => ss | .cfg _ _ | .abstract => []
       stmts.findSome? fun
         | .block _ stmts _ => stmts.findSome? fun
-          | .cmd (.call pname args _) =>
+          | .cmd (.call pname _ args _) =>
             some s!"call {pname}({", ".intercalate (args.map fmtCallArg)})"
           | _ => none
-        | .cmd (.call pname args _) =>
+        | .cmd (.call pname _ args _) =>
           some s!"call {pname}({", ".intercalate (args.map fmtCallArg)})"
         | _ => none
     | _ => none
@@ -115,49 +115,51 @@ spec
 /-- info: Except.ok ["call inc(inout(g), inout(z), in(5))"] -/
 #guard_msgs in #eval callHelper callerPgm
 
-/-- info: [Strata.Core] Type checking succeeded.
+/--
+info: [Strata.Core] Type checking succeeded.
 
 
 VCs:
-Label: inc_ensures_1_2593
+Label: inc_ensures_1_2613
 Property: assert
 Assumptions:
-inc_requires_0_2575: int.gt(z@1, 0)
+inc_requires_0_2595: int.gt(z@1, 0)
 Obligation:
 true
 
-Label: callElimAssert_inc_requires_0_2575_6
+Label: callElimAssert_inc_requires_0_2595_6
 Property: assert
 Assumptions:
-main_caller_requires_2_2709: z@2 == 10
-main_caller_requires_3_2729: g@2 == 0
+main_caller_requires_2_2729: z@2 == 10
+main_caller_requires_3_2749: g@2 == 0
 Obligation:
 int.gt(z@2, 0)
 
-Label: main_caller_ensures_4_2748
+Label: main_caller_ensures_4_2768
 Property: assert
 Assumptions:
-main_caller_requires_2_2709: z@2 == 10
-main_caller_requires_3_2729: g@2 == 0
-callElimAssume_inc_ensures_1_2593_7: g@3 == int.add(int.add(g@2, 5), z@3)
+main_caller_requires_2_2729: z@2 == 10
+main_caller_requires_3_2749: g@2 == 0
+$__callElimAssume_inc_ensures_1_2613_7: g@3 == int.add(int.add(g@2, 5), z@3)
 Obligation:
 g@3 == 15
 
 ---
 info:
-Obligation: inc_ensures_1_2593
+Obligation: inc_ensures_1_2613
 Property: assert
 Result: ✅ pass
 
-Obligation: callElimAssert_inc_requires_0_2575_6
+Obligation: callElimAssert_inc_requires_0_2595_6
 Property: assert
 Result: ✅ pass
 
-Obligation: main_caller_ensures_4_2748
+Obligation: main_caller_ensures_4_2768
 Property: assert
 Result: ❓ unknown
 Model:
-(g@3, 5) (g@2, 0) (z@2, 10) (z@3, 0)-/
+(g@3, 5) (g@2, 0) (z@2, 10) (z@3, 0)
+-/
 #guard_msgs in
 #eval Strata.Boole.verify "cvc5" callerPgm
 

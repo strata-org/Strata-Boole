@@ -40,11 +40,12 @@ theorem loopSimple_smtVCsCorrectBoole : smtVCsCorrectBoole loopSimple := by
   gen_smt_vcs_boole
   all_goals (try grind)
 
-/-- info: 'loopSimple_smtVCsCorrectBoole' depends on axioms: [propext,
+/--
+info: 'loopSimple_smtVCsCorrectBoole' depends on axioms: [propext,
  Classical.choice,
- Lean.ofReduceBool,
- Lean.trustCompiler,
  Quot.sound,
- loopSimple_smtVCsCorrectBoole._genSMTVCsBoole_tcbBridge_1_3]-/
+ loopSimple_smtVCsCorrectBoole._genSMTVCsBoole_tcbBridge_1_2,
+ loopSimple_smtVCsCorrectBoole._native.native_decide.ax_1_1]
+-/
 #guard_msgs in
 #print axioms loopSimple_smtVCsCorrectBoole

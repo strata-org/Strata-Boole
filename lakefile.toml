@@ -9,15 +9,15 @@ weakLeanArgs = ["--tstack=32768"]
 name = "Strata"
 # On this branch Strata is the `integration/lean-route` branch of the fork: Strata main
 # plus the open PRs the Lean route needs (datatype denotation, checked-to-total sequence
-# pass). It moves back to strata-org/Strata when they merge. A fixed commit, not a branch
-# name, so `lake update` cannot move it.
+# pass, the callee's axioms at a call). It moves back to strata-org/Strata when they merge.
+# A fixed commit, not a branch name, so `lake update` cannot move it.
 git = "https://github.com/kondylidou/Strata"
-rev = "07dfdf5c8"
+rev = "8699200985076f3eceb29d9b224c3c90768a95ef"
 
 [[require]]
 name = "smt"
 git = "https://github.com/ufmg-smite/lean-smt"
-rev = "db545bebe"
+rev = "cbec5bd226c79d80ce0c2d2ea28e1e6359c5f207"
 
 
 [[lean_lib]]

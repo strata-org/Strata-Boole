@@ -775,7 +775,7 @@ private def toCoreStmt (s : BooleDDM.Statement SourceRange) : TranslateM Core.St
     let globalsPrefix ← constructProcArgsPrefix n
     let userIn := (← args.toList.mapM toCoreExpr).map Imperative.CallArg.inArg
     let userOut := (lhs.toList.map (mkIdent ·.val)).map Imperative.CallArg.outArg
-    return Core.Statement.call n (globalsPrefix ++ userIn ++ userOut) (← toCoreMetaData m)
+    return Core.Statement.call n none (globalsPrefix ++ userIn ++ userOut) (← toCoreMetaData m)
   | .call_statement m _ ⟨_, n⟩ ⟨_, callArgs⟩ => do
     -- Reject Core-only out/inout call argument syntax in Boole.
     -- Boole uses `call lhs := f(args)` for calls with outputs.
@@ -791,7 +791,7 @@ private def toCoreStmt (s : BooleDDM.Statement SourceRange) : TranslateM Core.St
       match ca with
       | .callArgExpr _ e => return some (Imperative.CallArg.inArg (← toCoreExpr e))
       | _ => return none  -- unreachable: out/inout rejected above
-    return Core.Statement.call n (globalsPrefix ++ userIn) (← toCoreMetaData m)
+    return Core.Statement.call n none (globalsPrefix ++ userIn) (← toCoreMetaData m)
   | .block_statement m _ ⟨_, l⟩ b =>
     return .block l (← withBVars [] (toCoreBlock b)) (← toCoreMetaData m)
   | .exit_statement m _ ⟨_, l⟩ =>
@@ -1004,6 +1004,7 @@ private def translateProcedureDecl
     (outputs : ListMap Core.CoreIdent Lambda.LMonoTy)
     (spec? : Option (BooleDDM.Spec SourceRange))
     (body? : Option (BooleDDM.Block SourceRange))
+    (isOpaque : Bool := false)
     : TranslateM (List Core.Decl) := do
   let (modifiesTyped, readOnlyGlobals) ← getGlobalParamPrefix n
   let allInputs := modifiesTyped ++ readOnlyGlobals ++ inputs
@@ -1027,7 +1028,7 @@ private def translateProcedureDecl
   return [.proc {
     header := { name := mkIdent n, typeArgs := tys, inputs := allInputs, outputs := allOutputs }
     spec := spec
-    body := .structured body
+    body := .structured body isOpaque
   } .empty]
 
 private def toCoreDecls (cmd : BooleDDM.Command SourceRange) : TranslateM (List Core.Decl) := do
@@ -1041,15 +1042,15 @@ private def toCoreDecls (cmd : BooleDDM.Command SourceRange) : TranslateM (List 
         | none => pure []
         | some os => (monoDeclListToList os).mapM toCoreMonoBind
       translateProcedureDecl m n tys inputs outputs specAnn.val bodyAnn.val
-  | .command_procedure m _ nameAnn targsAnn ins specAnn bodyAnn =>
+  | .command_procedure m _ nameAnn targsAnn ins specAnn opqAnn bodyAnn =>
     let n := nameAnn.val
     if let some (param, kind) := hasOutOrInoutBinding ins then
       throwAt m s!"Boole procedure '{n}': '{kind}' modifier on parameter '{param}' is not supported. Use 'returns' syntax instead, e.g. 'procedure {n}(...) returns ({param} : T)'."
     let tys := match targsAnn.val with | none => [] | some ts => typeArgsToList ts
     withTypeBVars tys do
       let inputs ← (bindingsToList ins).mapM toCoreBinding
-      translateProcedureDecl m n tys inputs [] specAnn.val bodyAnn.val
-  | .command_cfg_procedure m _ nameAnn _ _ _ _ =>
+      translateProcedureDecl m n tys inputs [] specAnn.val bodyAnn.val opqAnn.val.isSome
+  | .command_cfg_procedure m _ nameAnn _ _ _ _ _ =>
     throwAt m s!"Boole procedure '{nameAnn.val}': CFG-form procedure bodies (`cfg ENTRY \{ ... }`) are not supported in Boole; use a structured body."
   | .command_typedecl _ _ ⟨_, n⟩ ⟨_, args?⟩ =>
     let params := match args? with
@@ -1164,7 +1165,7 @@ private def toCoreDecls (cmd : BooleDDM.Command SourceRange) : TranslateM (List 
     return [.proc {
       header := { name := mkIdent topLevelBlockProcedureName, typeArgs := [], inputs := [], outputs := [] }
       spec := { preconditions := [], postconditions := [] }
-      body := .structured (← toCoreBlock b)
+      body := .structured (← toCoreBlock b) false
     } .empty]
   | .command_datatypes _ _ ⟨_, decls⟩ =>
     let datatypes ← decls.toList.mapM toCoreDatatypeDecl
@@ -1199,7 +1200,7 @@ def toCoreProgram (p : Boole.Program) (gctx : GlobalContext := {}) (fileName : S
       | .boole_procedure _ nameAnn _ _ _ _ specAnn _ =>
         let mods ← collectModifiesFromSpec fileName nameAnn.val specAnn.val varTypes
         if !mods.isEmpty then modMap := modMap.insert nameAnn.val mods
-      | .command_procedure _ _ nameAnn _ _ specAnn _ =>
+      | .command_procedure _ _ nameAnn _ _ specAnn _ _ =>
         let mods ← collectModifiesFromSpec fileName nameAnn.val specAnn.val varTypes
         if !mods.isEmpty then modMap := modMap.insert nameAnn.val mods
       | _ => pure ()
@@ -1294,8 +1295,8 @@ private def coreProgUsesNatOrPos (cp : Core.Program) : Bool :=
     | .proc p _ => p.header.inputs.values.any lMonoTyHasNatOrPos
                 || p.header.outputs.values.any lMonoTyHasNatOrPos
                 || (match p.body with
-                   | .structured ss => stmtListHasNatOrPos ss
-                   | .cfg _ => false)
+                   | .structured ss _ => stmtListHasNatOrPos ss
+                   | .cfg _ _ | .abstract => false)
                 || p.spec.preconditions.values.any  (fun c => lExprUsesNatOrPos c.expr)
                 || p.spec.postconditions.values.any (fun c => lExprUsesNatOrPos c.expr)
     | .type (.data block) _ => block.any fun dt =>
@@ -1716,22 +1717,22 @@ private partial def evalExpr
       | _                        => none
   | _ => none
 
--- Returns `true` when (1) the obligation expression evaluates to any value and
+-- Returns `true` when (1) the obligation evaluates to the value the query asks for and
 -- (2) no ground path-condition assumption evaluates to `false`.
 -- Condition (2) rejects broken candidates: partial assignments from a timed-out
 -- solver where e.g. `toInt(a) = 73` is asserted but the candidate has `a = N0`.
 -- Quantified assumptions (bridge axioms) can't be evaluated and are skipped.
 private def validateNatModel
-    (obligation : Imperative.ProofObligation Core.Expression)
+    (obligation : Imperative.ProofObligation Core.Expression) (holds : Bool)
     (m : Imperative.SMT.Model Core.Expression.Ident) : Bool :=
   let model  := buildEvalModel m
   let defMap := buildDefMap obligation.assumptions
-  -- Require the obligation to evaluate to false: obligation.obligation is P (the
-  -- assertion being checked). The SMT query asserts NOT(P) looking for a model
-  -- where P fails. A valid counterexample has P = false in the candidate model.
-  -- Accepting VBool true (P holds) would promote a non-counterexample to .sat.
+  -- Require the obligation P (the assertion being checked) to evaluate to what the
+  -- query asks: false for the validity query, which asserts NOT(P) looking for a
+  -- counterexample, true for the satisfiability query (`holds`). Accepting the other
+  -- value would promote a candidate that is no model of the query.
   let obligationOk := match evalExpr model defMap obligation.obligation with
-    | some (EvalVal.VBool false) => true
+    | some (EvalVal.VBool b) => b == holds
     | _ => false
   let groundAssumptionsHold := obligation.assumptions.all fun path =>
     path.all fun entry =>
@@ -1748,7 +1749,8 @@ private def validateNatModel
 -- AbstractedPhase that promotes concrete-nat unknown candidates to counterexamples.
 private def natCandidatePhase : Core.AbstractedPhase where
   name := "natCandidateValidation"
-  getValidation := fun obligation => .modelToValidate (validateNatModel obligation)
+  getValidation := fun obligation => .modelToValidate fun holds m =>
+    if validateNatModel obligation holds m then some m else none
 
 open Lean.Parser in
 def verify
