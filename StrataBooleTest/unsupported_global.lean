@@ -9,19 +9,13 @@ import StrataBoole.MetaVerifier
 /-!
 # Unsupported global types must fail lowering
 
-Boole encodes each top-level `var` as an implicit parameter of every
-procedure. The only place that registers those globals is the pre-pass in
-`toCoreProgram`: it lowers the declared type with `toCoreMonoType` and inserts
-the name into `globalVarTypes`.
+Boole encodes each top-level variable as an implicit procedure parameter.
+Failure to lower its type must be propagated, rather than silently omitting
+the variable from the Core program.
 
-The old pre-pass discarded a type-lowering error and continued. An unused
-`var g : real` therefore produced a Core program whose procedures had no `g`
-parameter — the same Core shape as a program that never declared `g`. The
-pre-pass now propagates that error, so lowering fails at the declaration.
-
-The empty procedure is intentional. The body never mentions `g`, so no later
-check can mask a silent drop; the only evidence of retention is the Core
-parameter list.
+`bv bool` deliberately supplies a value type where a bitvector width is
+required. It remains invalid independently of support for real, Set or regex.
+The empty procedure ensures no later use of the global can mask its omission.
 -/
 
 namespace Strata
@@ -32,13 +26,13 @@ private def lower (p : StrataDDM.Program) : Except String Core.Program := do
   (Boole.toCoreProgram prog p.globalContext).mapError fun e =>
     toString (e.format none)
 
-/-! ## Rejection: a global whose type Core cannot lower -/
+/-! ## Rejection: an invalid bitvector width on an unused global -/
 
--- `g` is unused. Before the fix, lowering succeeded and `noop` had no inputs.
-private def unusedRealGlobal :=
+-- The type-lowering error must be reported even though g is unused.
+private def invalidGlobalVariable :=
 #strata
 program Boole;
-var g : real;
+var g : bv bool;
 procedure noop() returns () {};
 #end
 
@@ -46,7 +40,7 @@ procedure noop() returns () {};
 /-- info: Except.error "Unsupported Boole type" -/
 #guard_msgs in
 #eval show Except String Unit from
-  match lower unusedRealGlobal with
+  match lower invalidGlobalVariable with
   | .error e =>
     if (e.splitOn "Unsupported Boole type").length > 1 then
       .error "Unsupported Boole type"
