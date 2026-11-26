@@ -39,7 +39,7 @@ function spec_serialize(v: Value) : Sequence (bv W8);
 procedure theorem_serialize_parse_roundtrip (v: Value) returns()
 spec{
   free ensures spec_parse(spec_serialize(v)) matches some((n : int, v': Value))
-    && n == Sequence.length(spec_serialize(v)) &&  v' == v;
+    && (n == Sequence.length(spec_serialize(v)) &&  v' == v);
 };
 
 
@@ -72,7 +72,7 @@ Obligation: theorem_serialize_parse_roundtrip_post_theorem_serialize_parse_round
 Property: assert
 Result: ✅ pass
 
-Obligation: parse_surjective_seed_post_parse_surjective_seed_ensures_1_1511_calls_option..val_0
+Obligation: parse_surjective_seed_post_parse_surjective_seed_ensures_1_1513_calls_option..val_0
 Property: assert
 Result: ✅ pass
 
@@ -84,7 +84,7 @@ Obligation: assume_callElimAssume_theorem_serialize_parse_roundtrip_ensures_0_12
 Property: assert
 Result: ✅ pass
 
-Obligation: parse_surjective_seed_ensures_1_1511
+Obligation: parse_surjective_seed_ensures_1_1513
 Property: assert
 Result: ✅ pass
 -/

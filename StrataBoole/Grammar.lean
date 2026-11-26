@@ -240,9 +240,9 @@ op pattern_some(val : Pattern) : Pattern => "some(" val ")";
 op pattern_ctor(name: Ident, args: CommaSepBy Pattern) : Pattern => name "(" args ")";
 
 fn matches_expr_and(T: Type, expr: T, pattern : Pattern, @[scope(pattern)] cond : bool) : bool =>
-  @[prec(3)] expr:15 " matches " pattern " && " cond:0;
+  @[prec(15)] expr:15 " matches " pattern " && " cond:9;
 fn matches_expr_impl(T: Type, expr: T, pattern : Pattern, @[scope(pattern)] cond : bool) : bool =>
-  @[prec(3)] expr:15 " matches " pattern " ==> " cond:0;
+  @[prec(15)] expr:15 " matches " pattern " ==> " cond:4;
 fn matches_expr(T: Type, expr: T, pattern : Pattern) : bool =>
   @[prec(15)] expr " matches " pattern;
 

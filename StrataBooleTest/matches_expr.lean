@@ -198,23 +198,33 @@ Result: ✅ pass
 
 
 /--
-  Tests for precedence of matches (assumes longest match style rule when parsing)
-  (@[prec(3)] expr:15 " matches " pattern " && " body:0;)
+  Tests for precedence of matches
+  (@[prec(15)] expr:15 " matches " pattern " && " body:9;)
+  (@[prec(15)] expr:15 " matches " pattern " ==> " body:4;)
 
-   - body:0 is greedy + result is prec(3) so below all other connectives
-   -> matches has to be parenthesised when left of connective
+  - scoped `&&` guard parses at same precedence as a conjunction:
+   an unparenthesized `||` is outside the match.
+   Parentheses put it inside the body so pattern variables are in scope.
 
+  - && condition accepts && at precedence 10 but stops before || at 8 and ==> at 5,
+   the implication condition at 4 can include a ==> chain.
 
   (@[prec(15)] expr " matches " pattern;)
    - above all connectives -> binds tighter than `<==>`,
 
 -/
--- body is greedy so parses as o matches some(x) && (x > 0 ==> isSome(o)) : fail
-private def greedy_body := #strata
+private def matches_or_precedence := #strata
 program Boole;
-procedure s1 (o : option int)
+procedure matches_or_precedence (o : option int, b : bool, o2 : option int)
+spec{
+  requires o == none<int>;
+  requires o2 == some(0);
+  requires b;
+}
 {
-  assert o matches some(x : int) && x > 0 ==> isSome(o);
+  assert o matches some(x : int) && x > 0 || b;
+  assert !(o matches some(x : int) && (x > 0 || b));
+  assert o2 matches some(x : int) && (x > 0 || b);
 };
 #end
 /--
@@ -227,28 +237,46 @@ Obligation: option.getOrElse_body_calls_option..val_0
 Property: assert
 Result: ✅ pass
 
-Obligation: assert_assert_0_4495_calls_option..val_0
+Obligation: assert_assert_3_4754_calls_option..val_0
 Property: assert
 Result: ✅ pass
 
-Obligation: assert_0_4495
+Obligation: assert_3_4754
 Property: assert
-Result: ❌ fail
+Result: ✅ pass
+
+Obligation: assert_assert_4_4802_calls_option..val_0
+Property: assert
+Result: ✅ pass
+
+Obligation: assert_4_4802
+Property: assert
+Result: ✅ pass
+
+Obligation: assert_assert_5_4855_calls_option..val_0
+Property: assert
+Result: ✅ pass
+
+Obligation: assert_5_4855
+Property: assert
+Result: ✅ pass
 -/
 #guard_msgs in
-#eval Strata.Boole.verify "cvc5" greedy_body (options := .quiet)
+#eval Strata.Boole.verify "cvc5" matches_or_precedence (options := .quiet)
 
-
--- Body spans `&&`: matches ∧ (c ∧ d), so `x` has to be instantiated : pass
-private def greedy_body2 := #strata
+private def matches_chain := #strata
 program Boole;
-
-procedure s2 (o : option int, d : bool)
+procedure matches_chain (o : option int, b : bool, n : option int)
 spec{
   requires o == some(1);
+  requires b;
+  requires n == none<int>;
 }
 {
   assert o matches some(x : int) && x > 0 && x < 2;
+  assert n matches some(x : int) ==> true ==> false;
+  assert n matches some(x : int) && x > 0 ==> b;
+  assert !(n matches some(x : int) && (x > 0 ==> b));
 };
 #end
 /--
@@ -261,20 +289,40 @@ Obligation: option.getOrElse_body_calls_option..val_0
 Property: assert
 Result: ✅ pass
 
-Obligation: assert_assert_1_5182_calls_option..val_0
+Obligation: assert_assert_3_5831_calls_option..val_0
 Property: assert
 Result: ✅ pass
 
-Obligation: assert_assert_1_5182_calls_option..val_1
+Obligation: assert_assert_3_5831_calls_option..val_1
 Property: assert
 Result: ✅ pass
 
-Obligation: assert_1_5182
+Obligation: assert_3_5831
+Property: assert
+Result: ✅ pass
+
+Obligation: assert_4_5883
+Property: assert
+Result: ✅ pass
+
+Obligation: assert_assert_5_5936_calls_option..val_0
+Property: assert
+Result: ✅ pass
+
+Obligation: assert_5_5936
+Property: assert
+Result: ✅ pass
+
+Obligation: assert_assert_6_5985_calls_option..val_0
+Property: assert
+Result: ✅ pass
+
+Obligation: assert_6_5985
 Property: assert
 Result: ✅ pass
 -/
 #guard_msgs in
-#eval Strata.Boole.verify "cvc5" greedy_body2 (options := .quiet)
+#eval Strata.Boole.verify "cvc5" matches_chain (options := .quiet)
 
 
 -- `i + j` (prec 25) needs no parentheses : pass
@@ -287,7 +335,7 @@ procedure s4 (i : int, j : int)
 #end
 /--
 info:
-Obligation: assert_0_5878
+Obligation: assert_0_7043
 Property: assert
 Result: ✅ pass
 -/
@@ -314,11 +362,11 @@ Obligation: option.getOrElse_body_calls_option..val_0
 Property: assert
 Result: ✅ pass
 
-Obligation: assert_0_6232
+Obligation: assert_0_7397
 Property: assert
 Result: ✅ pass
 
-Obligation: assert_1_6275
+Obligation: assert_1_7440
 Property: assert
 Result: ✅ pass
 -/
@@ -350,11 +398,11 @@ Obligation: option.getOrElse_body_calls_option..val_0
 Property: assert
 Result: ✅ pass
 
-Obligation: assert_assert_1_6890_calls_option..val_0
+Obligation: assert_assert_1_8055_calls_option..val_0
 Property: assert
 Result: ✅ pass
 
-Obligation: assert_1_6890
+Obligation: assert_1_8055
 Property: assert
 Result: ✅ pass
 -/
@@ -375,7 +423,7 @@ procedure match_quantified (s : Sequence int)
 #end
 /--
 info:
-Obligation: assert_0_7531
+Obligation: assert_0_8696
 Property: assert
 Result: ✅ pass
 -/
