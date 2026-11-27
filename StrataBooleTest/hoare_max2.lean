@@ -13,8 +13,8 @@ The first procedure proved on the Lean route of `docs/HoareLogic.md`: a Boole bl
 lowered to Core inside Lean, whose contract is proved by applying Core's Hoare rules.
 Everything the tactic of step 1 will automate is written out once here. Expressions are
 evaluated denotationally, so the values of variables are semantic values and the
-evaluation lemmas of `Strata.Languages.Core.IntEvalProps` and `StrataBoole.HoareLift`
-turn each rule's goal into a fact about integers.
+evaluation lemmas of `Strata.Languages.Core.IntEvalProps`, `BoolEvalProps` and
+`StrataBoole.HoareLift` turn each rule's goal into a fact about integers.
 -/
 
 open Strata Lambda Core HoareLift

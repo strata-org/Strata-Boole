@@ -78,11 +78,20 @@ build, on a stable target.
    of the `StrataBoole/Deep/` experiment (fork branch `exp/deep-embedding`), retargeted to
    Strata's `Triple`.
 2. **Lifting.** Turn each goal into a proposition over Lean values: a store slot of type
-   `int` is an `Int`, and evaluating an operator on values is the Lean operation. Done:
-   Strata's lemmas, plus `Bool.And`, `Bool.Or` and `==` on integers in
-   `StrataBoole/HoareLift.lean`. To write: the other Boolean connectives, `div` and `mod`,
-   the `bv` operators and conversions, `Map` and `Sequence` operators (from the factory
-   axioms), quantifiers, and user functions (a function equals its body in every model).
+   `int` is an `Int`, and evaluating an operator on values is the Lean operation. These are
+   lemmas in Strata, next to its `IntEvalProps`.
+   - Done: the integer operators and comparisons, equality and conditionals.
+   - In review: the Boolean connectives, `Sequence.length`, `select` and `select!` with the
+     facts their axioms give in every model, and that the factory of any procedure
+     resolves the built-ins as `Core.Factory` does (strata-org/Strata#1506); `div` and
+     `mod` at a non-zero divisor (strata-org/Strata#1507).
+   - To write: user functions (a function equals its body in every model), the use of a
+     quantified hypothesis, and the program's axioms as Lean facts. The `bv` operators and
+     conversions and `Map` follow when a program needs them.
+
+   `StrataBoole/HoareLift.lean` holds what Strata does not have yet, today the Boolean of
+   an equality between integers.
+
    This is `core_lift` of the same experiment.
 3. **Boole entry.** `Strata.Boole.typeCheck` gives the type-checked Core program of a
    `#strata program Boole` block as a Lean term, and the triple is stated on its
@@ -166,11 +175,14 @@ contracts pass `contractChecksTyped`, and caller and callee see the same factory
 | It uses | Step |
 | --- | --- |
 | a `for` loop with six invariants and a `call`, `exit`, `assume`, two declarations without initialiser | 1 |
-| integer arithmetic with `div` and `mod`, `&&`, `==>`, `<=` and `as_uint` on `bv W8`, `Sequence` `select`, `select!` and `length`, quantifiers, thirteen functions | 2 |
+| `&&`, `==>`, `<=`, `<`, `Sequence` `select` and `length`, a quantified `requires` and invariant, functions to unfold (`Scalar_add_req`, `scalar_congruent_nat` and those they call) | 2 |
 | 19 axioms, 12 of them the `nat` library's | assumed until 4 |
 
 - `nat` is used only through its library and those axioms, so the proof should need no
   datatype reasoning and does not wait on step 4.
+- `as_uint`, `select!` and the byte arithmetic occur only in the body of `u8_32_as_nat`,
+  which the proof does not open. `Int.Mod` enters through the `nat` library's axiom for
+  `nat.mod`, not through the procedure.
 - The callee is trusted. Its body gives the result an arbitrary value and assumes each
   `ensures` (`assume [trusted_k]`), so a call can run and what the callee promises is
   its contract. A body `assume false` would also meet the contract, but a call runs the
@@ -202,8 +214,8 @@ kernel checks that proof for each program.
 
 - `max2` is proved against Strata's triple by hand (`StrataBooleTest/hoare_max2.lean`):
   `contractTriple_of_core_typed`, then `block`, `block`, `ite` and `set`, side conditions
-  by `native_decide`, operators lifted with Strata's lemmas and
-  `StrataBoole/HoareLift.lean`. It is the specification of the tactic for straight-line
+  by `native_decide`, operators lifted with Strata's lemmas (`IntEvalProps`,
+  `BoolEvalProps`) and `StrataBoole/HoareLift.lean`. It is the specification of the tactic for straight-line
   bodies with `if`. The tactic is not started; `Deep/` has one against its own semantics,
   with `max2` and a counting loop.
 - What the hand proof settled: under the module system, facts about factory entries need
@@ -216,8 +228,9 @@ kernel checks that proof for each program.
 ## Strata changes for this route
 
 This branch pins the `integration/lean-route` branch of the fork: Strata main plus the
-pull requests below that are still open, strata-org/Strata#1501, strata-org/Strata#1493
-and strata-org/Strata#1483. The pin returns to strata-org/Strata when they merge.
+pull requests below that are still open, strata-org/Strata#1501, strata-org/Strata#1493,
+strata-org/Strata#1506, strata-org/Strata#1507 and strata-org/Strata#1483. The pin returns
+to strata-org/Strata when they merge.
 
 | Change | State | Used by |
 | --- | --- | --- |
@@ -227,6 +240,8 @@ and strata-org/Strata#1483. The pin returns to strata-org/Strata when they merge
 | strata-org/Strata#1501: the callee's axioms at a call from the caller's entry, and a frame rule for facts about the factory | open | calls in step 1 |
 | strata-org/Strata#1502: the constructors, testers and destructors of a datatype in the factory visible to a procedure | merged | datatypes in step 4 |
 | strata-org/Strata#1493: datatypes in the SMT denotation, with the generic carrier | open, in review | the SMT path now, the model of step 4 later |
+| strata-org/Strata#1506: evaluation lemmas for sequences and the Boolean connectives, and the built-ins in the factory of any procedure | open | step 2 |
+| strata-org/Strata#1507: evaluation lemmas for integer division and remainder | open | step 2 |
 | strata-org/Strata#1496: `Map` and `Sequence` statements had no execution, and models did not have to satisfy their axioms | closed, fixed upstream by the denotational evaluation | step 2 |
 | strata-org/Strata#1490: the SMT path refuses the VCs its denotation does not cover | merged | Goal |
 
