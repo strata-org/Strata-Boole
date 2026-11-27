@@ -38,6 +38,8 @@ dialect Boole;
 // The binary nat encoding is automatically injected into the SMT query by
 // `Strata.Boole.verify` when grammar-level nat is detected.
 type nat;
+type pair (a: Type, b : Type);
+type option (T : Type);
 
 import Core;
 
@@ -209,6 +211,46 @@ fn seq_drop_first (A : Type, s : Sequence A) : Sequence A =>
   "Sequence.dropFirst" "(" s ")";
 fn seq_subrange (A : Type, s : Sequence A, lo : int, hi : int) : Sequence A =>
   "Sequence.subrange" "(" s ", " lo ", " hi ")";
+
+// -- Option + Pair
+// -- Option
+fn option_some   (T: Type, elem: T)   : option T => "some(" elem ")";
+fn option_none   (T: Type)            : option T => "none<" T ">";
+fn option_isSome (T: Type, o : option T) : bool  => "isSome(" o ")";
+fn option_isNone (T: Type, o : option T) : bool  => "isNone(" o")";
+fn option_get    (T: Type, o : option T) : T     => "get(" o ")";
+fn option_getOrElse (T: Type, o : option T, d : T) : T => "getOrElse(" o ", " d ")";
+
+// -- Pair
+fn pair_mk  (A: Type, B: Type, a: A, b: B)   : pair A B => "(" a ", " b ")";
+fn pair_isPair (A: Type, B : Type, p : pair A B ) : bool => "isPair(" p ")";
+fn pair_fst (A: Type, B: Type, p: pair A B ) : A => "fst(" p ")";
+fn pair_snd (A: Type, B: Type, p: pair A B ) : B => "snd(" p ")";
+
+category Pattern;
+op pattern_wild : Pattern => "_";
+op pattern_none : Pattern => "none";
+@[declare(x, tp)]
+op pattern_var(x : Ident, tp: Type) : Pattern => x ":" tp;
+@[scope(b)]
+op pattern_pair(a : Pattern, @[scope(a)] b : Pattern) : Pattern => "(" a ", " b ")";
+@[scope(val)]
+op pattern_some(val : Pattern) : Pattern => "some(" val ")";
+@[scope(args)]
+op pattern_ctor(name: Ident, args: CommaSepBy Pattern) : Pattern => name "(" args ")";
+
+fn matches_expr_and(T: Type, expr: T, pattern : Pattern, @[scope(pattern)] cond : bool) : bool =>
+  @[prec(15)] expr:15 " matches " pattern " && " cond:9;
+fn matches_expr_impl(T: Type, expr: T, pattern : Pattern, @[scope(pattern)] cond : bool) : bool =>
+  @[prec(15)] expr:15 " matches " pattern " ==> " cond:4;
+fn matches_expr(T: Type, expr: T, pattern : Pattern) : bool =>
+  @[prec(15)] expr " matches " pattern;
+
+category MatchRest;
+op match_tail_arm (pat: Pattern, @[scope(pat)] body : Expr) : MatchRest => ", " pat " => " body:0;
+
+fn match_expr (R: Type, T: Type, expr: T, pat : Pattern, @[scope(pat)] body : R, rest : Seq MatchRest) : R =>
+  @[prec(3)] "match " expr:15 " { " pat " => " body:0 rest " }";
 
 
 category Step;

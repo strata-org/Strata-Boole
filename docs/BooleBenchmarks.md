@@ -162,9 +162,9 @@ seeds live in
 | 5 | #15 `[u8; 32]` byte arrays | ○ open | Same as B2; SMT backend resolved by PR #795 |
 | 2 | `reduce()` spec function | ✓ done | Axiom pattern verified in [`scalar_reduce.lean`](../StrataTest/Languages/Boole/FeatureRequests/scalar_reduce.lean); `u8_64_as_group_canonical` can now use recursive form (#1167 merged); manual axioms unchanged |
 | 2 | `is_uniform_scalar` axiom | ○ open | Probabilistic postcondition needs abstract `is_uniform_bytes`/`is_uniform_scalar` predicates as Boole axioms |
-| 3 | #14 `Option<EdwardsPoint>` return | ○ open | Boole has no native `Option<T>` type and no `matches` destructuring in spec clauses; see [`option_matches.lean`](../StrataTest/Languages/Boole/FeatureRequests/option_matches.lean) |
+| 3 | #14 `Option<EdwardsPoint>` return | ○ open | Native Boole `option T` and `matches` lowering are implemented. Lean proof-mode VC coverage remains TODO. See [`option_matches.lean`](../StrataBooleTest/FeatureRequests/option_matches.lean) |
 | 3 | `field_square` / `sqrt_ratio_i` axioms | ○ open | Needed for the full decompress body |
-| 4 | Pair return type | ○ open | `invsqrt()` returns `(bool, FieldElement51)`; needs tuple/pair type support in Boole |
+| 4 | Pair return type | ○ open | Native Boole `pair A B`, `(a, b)`, `fst`, `snd`, and `isPair` are implemented. Lean proof-mode VC coverage remains TODO |
 | 4 | Field op axioms | ○ open | `add`, `sub`, `square`, `invsqrt`, `conditional_negate`, `as_bytes` — each needs a Boole axiom |
 | 5 | Inline `let`-block postcondition | ✓ done | Implemented; see [`embedded_postcondition.lean`](../StrataTest/Languages/Boole/embedded_postcondition.lean) |
 | 5 | Montgomery ladder invariant | ○ open | Needs Montgomery curve differential addition axioms (Costello-Smith 2017, eq. 4); loop structure demonstrated in [`montgomery_loop_invariant.lean`](../StrataTest/Languages/Boole/FeatureRequests/montgomery_loop_invariant.lean) |

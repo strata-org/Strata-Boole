@@ -64,3 +64,9 @@ import StrataBooleTest.FeatureRequests.scalar_reduce
 import StrataBooleTest.FeatureRequests.seq_empty_literal
 import StrataBooleTest.FeatureRequests.sha256_compact_indexed
 import StrataBooleTest.CoreTests.DefineFunRecTests
+import StrataBooleTest.option_native
+import StrataBooleTest.pair_native
+import StrataBooleTest.option_pair_detection
+import StrataBooleTest.match_expr
+import StrataBooleTest.matches_expr
+import StrataBooleTest.variable_bind_test_getbvarexpr

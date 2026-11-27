@@ -76,6 +76,30 @@ several that are now fully implemented; a few have moved to
   - Counterexamples: `natCandidatePhase` validates cvc5's candidate model and promotes it to `❌ fail`.
   - Gap: `pos.toInt`/`pos.fromInt` are UF + axioms, not `define-fun-rec`, so cvc5 cannot evaluate them during model search and some false obligations return `❓ unknown` (sound, no model). `nat_counterexample.lean` Test 2. Fix, both parts needed: the encoder's `define-fun-rec` opt-in (Strata #1478) and a re-query of the unknown obligation without axioms that uses it (Strata-Boole follow-up).
   - Benchmarks: [`nat_native.lean`](../StrataBooleTest/nat_native.lean), [`nat_detection.lean`](../StrataBooleTest/nat_detection.lean), [`nat_counterexample.lean`](../StrataBooleTest/nat_counterexample.lean), [`nat_counterexample_extended.lean`](../StrataBooleTest/nat_counterexample_extended.lean).
+- **`option`, `pair` and `matches` in spec expressions** (Gap #14)
+  - Grammar-level types `option T`, with `some(e)`, `none<T>`, `isSome`, `isNone`, `get`, `getOrElse`,
+    and `pair A B` with `(a, b)`, `fst`, `snd`, `isPair`. As for `nat`, the datatypes are injected only when they are used.
+  - Pattern matching conditions `e matches P`, `e matches P && body` and `e matches P ==> body`, with patterns `_`, `none`, `x : T`, `some(p)`, `(p, q)` and `C(p, ...)` for user datatypes. Patterns can be nested.
+    - Lowering to testers on selector paths and pattern variables are substituted by their selector paths in the body:
+    - `e matches P(x)` → `isP(e)`
+    - `e matches P(x) && body` → `isP(e) ∧ body[x := sel_P(e)]`
+    - `e matches P(x) ==> body` → `isP(e) ==> body[x := sel_P(e)]`
+  - Pattern matching expression lowering to nested if then else expressions, with testers as conditions and pattern variables substituted in expression through selector paths.
+    - `match e { P(x) => expr, pat2 => expr2, _ => def_expr}` → `if (isP(e)) then expr[x := sel_P(e)] else (if (isP2(e)) then expr2[x := sel_P(e)] else def_expr)`
+  - Pattern variables must carry a type annotation, which is checked against the field type.
+  - Top level constructor patterns are checked for exhaustiveness. Incomplete patterns throw an error and require a wildcard pattern with a default expression.
+  - Gaps:
+    - VC generation for the Lean verification path with `gen_smt_vcs_boole` when parameterized datatypes `option T` or `pair A B` are used.
+    - exhaustiveness checking for nested constructor patterns
+  - Tests:
+    - [`pair_native.lean`](../StrataBooleTest/pair_native.lean): native pair construction and operations.
+    - [`option_native.lean`](../StrataBooleTest/option_native.lean): constructors, testers, getters, and invalid `get`.
+    - [`option_pair_detection.lean`](../StrataBooleTest/option_pair_detection.lean): on-demand option/pair datatype injection across expression positions.
+    - [`matches_expr.lean`](../StrataBooleTest/matches_expr.lean): positive, negative, nested, quantified, and precedence cases.
+    - [`match_expr.lean`](../StrataBooleTest/match_expr.lean): match-expression lowering and top-level exhaustiveness behavior.
+    - [`option_matches.lean`](../StrataBooleTest/FeatureRequests/option_matches.lean): end-to-end option/pair spec example.
+  - Benchmarks: [`option_matches.lean`](../StrataBooleTest/FeatureRequests/option_matches.lean), [`option_native.lean`](../StrataBooleTest/option_native.lean), [`pair_native.lean`](../StrataBooleTest/pair_native.lean), [`matches_expr.lean`](../StrataBooleTest/matches_expr.lean)
+
 
 ## Semantic preservation requests
 
@@ -95,7 +119,7 @@ several that are now fully implemented; a few have moved to
 11. **Sequence slicing**: Implemented. Int-based termination for recursive seq functions: implemented (#1167).
 12. **Generic/category typing cleanup**: Reduce `nat`/`int`/bitvector width mismatches and generic type-shape mismatches in the type-checker.
 13. **Struct/record types with named field access**: `type T := { f1: A, f2: B }` declarations, `.field` accessor expressions, struct literal construction, and quantification over fixed-size field arrays (e.g. `∀ i < 5 . fe.limbs[i] < 2^51`). Used in every dalek spec function.
-14. **`Option<T>` in spec functions**: Native `Option<T>` return type so fallible spec functions can be represented faithfully; currently encoded as `is_some` flag plus component functions. Every Vest parser returns `Option<(int, T)>`.
+14. **`Option<T>` in spec functions**: Implemented. Remaining: Lean VC generation in Core for parameterized datatypes and nested constructor pattern exhaustiveness.
 15. **Fixed-size array `[T; N]` syntax** (#795): SMT backend resolved by PR #795. Remaining Boole-syntax gaps:
     - **Repeat initializer `[expr; N]`**: `[0u32; 16]` — lower to a constant-valued Map.
     - **Array literal `[x, y, z, ...]`**: `K32: [u32; 64] = [0x428a2f98, ...]` — compact literal syntax.
@@ -161,5 +185,5 @@ The table below tracks all seeds regardless of location.
 | [`scalar_reduce.lean`](../StrataBooleTest/FeatureRequests/scalar_reduce.lean) | `reduce()` spec axiom for B2 (`Scalar::from_bytes_mod_order_wide`) | dalek-lite `scalar.rs` | Implemented (#1075) |
 | [`struct_field_access.lean`](../StrataBooleTest/FeatureRequests/struct_field_access.lean) | Struct/record field access (#13) | dalek-lite `field_specs.rs`, `edwards_specs.rs` | Active |
 | [`trait_spec_methods.lean`](../StrataBooleTest/FeatureRequests/trait_spec_methods.lean) | Trait / interface with spec methods (#21) | VeruSAGE-Bench Vest `SecureSpecCombinator` | Active |
-| [`option_matches.lean`](../StrataBooleTest/FeatureRequests/option_matches.lean) | `Option<T>` in spec functions (#14) | VeruSAGE-Bench Vest `SecureSpecCombinator`, `leb128` | Active |
+| [`option_matches.lean`](../StrataBooleTest/FeatureRequests/option_matches.lean) | `Option<T>` in spec functions (#14) | VeruSAGE-Bench Vest `SecureSpecCombinator`, `leb128` | Implemented: Boole `option`, `pair`, and `matches` lowering to testers and selectors. Lean proof-mode VC coverage and nested exhaustiveness TODO |
 | [`sha256_compact_indexed.lean`](../StrataBooleTest/FeatureRequests/sha256_compact_indexed.lean) | Iterator protocol lowering (#23), array syntax (#15), slice types (#16), `bv` rotate primitives (#28) | RustCrypto SHA-256 compact port (indexed `Sequence` encoding) | Active — all 17 VCs pass (#1075); open gaps: iterator protocol (#23), array syntax (#15), slice types (#16) |
