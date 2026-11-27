@@ -68,3 +68,9 @@ import StrataBooleTest.hoare_lift_forall
 import StrataBooleTest.hoare_max2
 import StrataBooleTest.dalek_sum_of_slice
 import StrataBooleTest.generic_datatypes
+import StrataBooleTest.option_native
+import StrataBooleTest.pair_native
+import StrataBooleTest.option_pair_detection
+import StrataBooleTest.match_expr
+import StrataBooleTest.matches_expr
+import StrataBooleTest.variable_bind_test_getbvarexpr

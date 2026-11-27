@@ -59,6 +59,7 @@ structure TranslateState where
       `getFVarIsOp` as the `command_var` carve-out for op-vs-var
       classification. -/
   globalVarTypes : Std.HashMap String Lambda.LMonoTy := {}
+  ctorTypes : Std.HashMap String (Lambda.LDatatype Unit) := {}
 
 abbrev TranslateM := StateT TranslateState (Except Message)
 
@@ -188,9 +189,11 @@ private theorem getFVarIsOp_spec (st : TranslateState) (m : SourceRange) (i : Na
 private def getBVarExpr (m : SourceRange) (i : Nat) : TranslateM Core.Expression.Expr := do
   let xs := (← get).bvars
   if i < xs.size then
+    let binders := (xs.extract (xs.size - i) xs.size).foldl
+      (fun n e => match e with | .bvar _ _ => n + 1 | _ => n) 0
     match xs[(xs.size - i - 1)]? with
-    | some (.bvar _ _) => return (.bvar booleLoc i)
-    | some e => return e
+    | some (.bvar _ _) => return (.bvar booleLoc binders)
+    | some e => return Lambda.LExpr.liftBVars binders e
     | none => throwAt m s!"Unknown bound variable with index {i}"
   else
     throwAt m s!"Unknown bound variable with index {i}"
@@ -247,6 +250,8 @@ private def typeRange : Boole.Type → SourceRange
   | .Sequence m _ => m
   | .Set m _ => m
   | .nat m => m
+  | .pair m _ _ => m
+  | .option m _ => m
 
 private def toCoreMonoType (t : Boole.Type) : TranslateM Lambda.LMonoTy := do
   match t with
@@ -272,6 +277,8 @@ private def toCoreMonoType (t : Boole.Type) : TranslateM Lambda.LMonoTy := do
   | .Sequence _ elem => return .tcons "Sequence" [← toCoreMonoType elem]
   -- Grammar-level binary nat types (injected into SMT by verify when no user decl exists)
   | .nat _ => return .tcons "nat" []
+  | .pair _ a b => return .tcons "pair" [← toCoreMonoType b, ← toCoreMonoType a]
+  | .option _ t => return .tcons "option" [← toCoreMonoType t]
   | _ => throwAt (typeRange t) s!"Unsupported Boole type: {repr t}"
 
 private def toCoreType (t : Boole.Type) : TranslateM Core.Expression.Ty := do
@@ -394,6 +401,164 @@ private def oldifyExpr (inoutNames : List String) : Core.Expression.Expr → Cor
   | .quant m k n ty trig body => .quant m k n ty (oldifyExpr inoutNames trig) (oldifyExpr inoutNames body)
   | .abs m n ty body => .abs m n ty (oldifyExpr inoutNames body)
   | e => e
+
+
+private inductive Pattern where
+  | wild (ty : Lambda.LMonoTy)
+  | none (ty : Lambda.LMonoTy)
+  | var (ty : Lambda.LMonoTy)
+  | pair (a : Pattern) (b : Pattern)
+  | some (v : Pattern)
+  | ctor (tester: String) (accs : List String) (args: List Pattern)
+  deriving Inhabited
+
+/-- Instantiate type parameters in a type -/
+private def substTy (m : List (String × Lambda.LMonoTy)) : Lambda.LMonoTy → Lambda.LMonoTy
+  | .ftvar n    => (m.lookup n).getD (.ftvar n)
+  | .tcons c as => .tcons c (as.map (substTy m))
+  | t           => t
+
+/--
+  Elaborate surface pattern into a `Pattern`
+  recursively checks the pattern against the exprected Core Type `exTy`
+  throws error on mismatch
+
+    .pattern_ctor looks up the constructor name `c` in `ctorTypes`
+-/
+private partial def patOfAst(exTy : LMonoTy) : BooleDDM.Pattern SourceRange → TranslateM Pattern
+  | .pattern_wild _ => return .wild exTy
+  | .pattern_none m =>
+    match exTy with
+      | .tcons "option" [ty] => return .none ty
+      | _ => throwAt m s!"Pattern variable type mismatch: expected {repr exTy}"
+  | .pattern_var m _ decTy => do
+    let actualCore ← toCoreMonoType decTy
+    if exTy != actualCore then
+      throwAt m s!"Pattern variable type mismatch: expected {repr exTy}, got {repr decTy}"
+    else
+      return .var (← toCoreMonoType decTy)
+  | .pattern_pair m a b =>
+    match exTy with
+      | .tcons "pair" [leftTy, rightTy] =>
+        return .pair (← patOfAst leftTy a) (← patOfAst rightTy b)
+      | _ =>
+        throwAt m s!"Pair pattern expects a matching Pair type, got {repr exTy}"
+  | .pattern_some m v   =>
+    match exTy with
+      | .tcons "option" [ty] => return .some (← patOfAst ty v)
+      | _ => throwAt m s!"Option pattern expects a matching Option type, got {repr exTy}"
+  | .pattern_ctor m ⟨_, c⟩ ⟨_, args⟩ => do
+    -- get type of pattern from existing constructor types
+    let some dt := (← get).ctorTypes[c]?
+      | throwAt m s!"Unknown constructor '{c}' in pattern"
+    let some ctor := dt.constrs.find? (·.name.name == c)
+      | throwAt m s!"Constructor '{c}' not found in constructor list of datatype '{dt.name}'"
+    -- get type of expr
+    let .tcons tyName tyArgs := exTy
+      | throwAt m s!"Pattern for constructor '{c}' requires a datatype value, got {repr exTy}"
+    unless tyName == dt.name do throwAt m s!"Constructor '{c}' belongs to '{dt.name}' but the expected type is '{tyName}'"
+    unless dt.typeArgs.length == tyArgs.length && ctor.args.length == args.size do throwAt m s!"Constructor '{c}' expects '{ctor.args.length}' arguments"
+
+    let sub := dt.typeArgs.zip tyArgs
+    let patternType := args.toList.zip (ctor.args.map (·.2))
+    let pats ← patternType.mapM fun (p, fty) => patOfAst (substTy sub fty) p
+    let accs := ctor.args.map fun (id, _) => s!"{dt.name}..{id.name}"
+    return .ctor ctor.testerName accs pats
+
+/--
+  `p.lower s` matches the pattern `p` against the target expression `e` and
+  returns a list of testers and variable bindings per Pattern
+  `tests` : constructor testers recursively applied to e
+  `binds` : selector paths of named variables in `p`
+-/
+private partial def Pattern.lower (e: Core.Expression.Expr) :
+  Pattern → List Core.Expression.Expr × List Core.Expression.Expr
+  | .wild _ => ([], [])
+  | .var _  => ([], [e])
+  | .none _ => ([mkCoreApp (.op booleLoc (mkIdent "option..isNone") Option.none) [e]], [])
+  | .some v =>
+    let (tests, binds) := v.lower (mkCoreApp (.op booleLoc (mkIdent "option..val") Option.none) [e])
+    (mkCoreApp (.op booleLoc (mkIdent "option..isSome") Option.none) [e] :: tests, binds)
+  | .pair a b =>
+    let (tests1, binds1) := a.lower (mkCoreApp (.op booleLoc (mkIdent "pair..fst") Option.none) [e])
+    let (tests2, binds2) := b.lower (mkCoreApp (.op booleLoc (mkIdent "pair..snd") Option.none) [e])
+    (tests1 ++ tests2, binds1 ++ binds2)
+  | .ctor tester accs args =>
+    let rs  := (accs.zip args).map fun (acc, p) =>
+      p.lower (mkCoreApp (.op booleLoc (mkIdent acc) Option.none) [e])
+    (mkCoreApp (.op booleLoc (mkIdent tester) Option.none) [e] :: rs.flatMap (·.1), rs.flatMap (·.2))
+
+
+private def conj : List Core.Expression.Expr → Core.Expression.Expr
+  | [] => .true booleLoc
+  | [e] => e
+  | e :: es => mkCoreApp Core.boolAndOp [e, conj es]
+
+private def lowerArms (e: Core.Expression.Expr) : List (Pattern × TranslateM Core.Expression.Expr) → TranslateM Core.Expression.Expr
+  | [] => throw (Message.fromString "match: no arms")
+  | [(p, b)] =>
+    let (_, binds) := p.lower e
+    withBVarExprs binds.toArray b
+  | (p, b) :: rest =>
+    let (tests, binds) := p.lower e
+    return .ite booleLoc (conj tests) (← withBVarExprs binds.toArray b) (← lowerArms e rest)
+
+private def getTypeName : Lambda.LMonoTy → String
+  | .tcons name _ => name
+  | .ftvar name => name
+  | .bitvec _ => "bitvector"
+
+/--
+  checks whether pattern matches any possible value
+-/
+private def Pattern.isIrrefutable : Pattern → Bool
+| .wild _ => true
+| .var _ => true
+| .pair a b => isIrrefutable a && isIrrefutable b
+| _ => false
+
+/--
+  pattern matching is exhaustive if
+  - any pattern in `pats` is irrefutable e.g. wildcard `_`,
+  - the scrutinees type `ty` is an `option` and `pats` contains `none` and
+    `some(p)` with `p` irrefutable, or
+  - `ty` is a user datatype and every constructor has at least one pattern
+    naming it whose arguments are all irrefutable
+
+  throws an error otherwise
+
+  missing: recursive exhaustiveness check for nested constructors
+   (check is currently sound but incomplete)
+-/
+private def checkExhaustiveness
+  (m : SourceRange)
+  (ty : LMonoTy)
+  (pats : List Pattern)
+: TranslateM Unit := do
+  if (pats.any (·.isIrrefutable)) then return
+
+  let hasSomeAndNone := pats.any (fun | .some v => v.isIrrefutable | _ => false)
+                     && pats.any (fun | .none _ => true | _ => false)
+
+  let state ← get
+  let expCtors : Option (LDatatype Unit) :=
+   match ty with
+    | .tcons typeName _ =>
+        (state.ctorTypes.toList.find? fun (_, dt) => dt.name == typeName).map (·.2)
+    | _ => none
+
+  let hasAllCtors :=
+    match expCtors with
+    | some dt => dt.constrs.all fun ctor =>
+        pats.any fun
+          | .ctor tester _ args =>
+              tester == ctor.testerName && args.all (·.isIrrefutable)
+          | _ => false
+    | none => false
+
+  unless hasSomeAndNone || hasAllCtors do
+    throwAt m s!"Pattern match on {getTypeName ty} was not exhaustive, add _ => ..."
+
 
 -- Termination: the size of the argument, then a rank. The rank only matters for the two
 -- calls on an argument of the same size: `toCoreExpr e` asks `toCoreQuantExpr? e`
@@ -610,6 +775,57 @@ private def toCoreExpr (e : Boole.Expr) : TranslateM Core.Expression.Expr := do
   | .nat_le  _ a b => return mkCoreApp (.op booleLoc (mkIdent "nat.le")  none) [← toCoreExpr a, ← toCoreExpr b]
   | .nat_gt  _ a b => return mkCoreApp (.op booleLoc (mkIdent "nat.gt")  none) [← toCoreExpr a, ← toCoreExpr b]
   | .nat_ge  _ a b => return mkCoreApp (.op booleLoc (mkIdent "nat.ge")  none) [← toCoreExpr a, ← toCoreExpr b]
+  | .pair_mk _ _ _ a b   => return mkCoreApp (.op booleLoc (mkIdent "MkPair") none) [← toCoreExpr a, ← toCoreExpr b]
+  | .pair_fst _ _ _ t    => return mkCoreApp (.op booleLoc (mkIdent "pair..fst") none) [← toCoreExpr t]
+  | .pair_snd _ _ _ t    => return mkCoreApp (.op booleLoc (mkIdent "pair..snd") none) [← toCoreExpr t]
+  | .pair_isPair _ _ _ p => return mkCoreApp (.op booleLoc (mkIdent "pair..isMkPair") none) [← toCoreExpr p]
+  | .option_some _ _ e   => return mkCoreApp (.op booleLoc (mkIdent "some") none) [← toCoreExpr e]
+  | .option_none _ t     => return mkCoreApp (.op booleLoc (mkIdent "none") (some (.tcons "option" [← toCoreMonoType t]))) []
+  | .option_isSome _ _ o => return mkCoreApp (.op booleLoc (mkIdent "option..isSome") none) [← toCoreExpr o]
+  | .option_isNone _ _ o => return mkCoreApp (.op booleLoc (mkIdent "option..isNone") none) [← toCoreExpr o]
+  | .option_get _ _ o    => return mkCoreApp (.op booleLoc (mkIdent "option.get") none) [← toCoreExpr o]
+  | .option_getOrElse _ _ o d => return mkCoreApp (.op booleLoc (mkIdent "option.getOrElse") none) [← toCoreExpr o, ← toCoreExpr d]
+  /-  Lowering of `matches`
+        e matches P(x : T)            ==>  isP(e)
+        e matches P(x : T) && body    ==>  isP(e) ∧ body[x := sel_P(e)]
+        e matches P(x : T) ==> body   ==>  isP(e) ==> body[x := sel_P(e)]
+    `patOfAst` type-checks the pattern against the type of `e`-/
+  | .matches_expr_and _ matchTy e p body => do
+    let pat ← patOfAst (← toCoreMonoType matchTy) p
+    let (tests, binds) := pat.lower (← toCoreExpr e)
+    let body' ←  withBVarExprs binds.toArray (toCoreExpr body)
+    return conj (tests ++ [body'])
+  | .matches_expr_impl _ matchTy e p body => do
+    let pat ← patOfAst (← toCoreMonoType matchTy) p
+    let (tests, binds) := pat.lower (← toCoreExpr e)
+    let body' ←  withBVarExprs binds.toArray (toCoreExpr body)
+      return mkCoreApp Core.boolImpliesOp [conj tests, body']
+  | .matches_expr _ matchTy e p => do
+    let pat ← patOfAst (← toCoreMonoType matchTy) p
+    let (tests, _) := pat.lower (← toCoreExpr e)
+    return conj tests
+  /-
+  Lowering of `match`
+    match e { P1(x : T) => b1, ..., Pn => bn, _ => b }
+    lowers to
+    `ite(is_P1(e), b1[x := sel_P1(e)], ...  ite tests_Pn(e), bn[binds_Pn(e)], b))`
+
+    `tests` list of testers joined with `∧`
+    `binds` list of selectors
+    last arm becomes else
+    `checkExhaustive` checks exhaustiveness of patterns and throws error on violation
+    `patOfAst`typechecks `e` against each Pattern `Pi`
+    Core's `resolve` checks that result type of each arm is the same
+  -/
+  | .match_expr m _ matchTy e p b ⟨_, r⟩  => do
+    let arms := (p , b) :: r.toList.map (fun | .match_tail_arm _ p b =>(p, b))
+    let exTy ← toCoreMonoType matchTy
+    let pats ← arms.mapM fun (p, _) => patOfAst exTy p
+    let bodys := toCoreBodies b r
+    checkExhaustiveness m exTy pats
+    let arms' := pats.zip bodys
+    let e' ← toCoreExpr e
+    lowerArms e' arms'
   | .unaryArithReal _ (.real_neg _) a =>
     return .app booleLoc Core.realNegOp (← toCoreExpr a)
   | .binaryArithBasicReal _ f a b =>
@@ -629,6 +845,13 @@ private def toCoreExpr (e : Boole.Expr) : TranslateM Core.Expression.Expr := do
     return mkCoreApp op [← toCoreExpr a, ← toCoreExpr b]
   | _ => throw (Message.fromString s!"Unsupported expression: {repr e}")
   termination_by (SizeOf.sizeOf e, 3)
+
+private def toCoreBodies (b : Boole.Expr) (r : Array (BooleDDM.MatchRest SourceRange)) :
+    List (TranslateM Core.Expression.Expr) :=
+  match r with
+  | ⟨[]⟩ => [toCoreExpr b]
+  | ⟨.match_tail_arm _ _ b' :: rest⟩ => toCoreExpr b :: toCoreBodies b' ⟨rest⟩
+  termination_by (SizeOf.sizeOf b + SizeOf.sizeOf r, 0)
 
 end
 
@@ -1231,8 +1454,9 @@ def formatProgram (prog : Boole.Program) (gctx : GlobalContext) (dialects : Dial
 def toCoreProgram (p : Boole.Program) (gctx : GlobalContext := {}) (fileName : String := "") : Except Message Core.Program := do
   match p with
   | .prog _ ⟨_, cmds⟩ =>
-    -- Pre-pass: collect global variable types and modifies info.
+    -- Pre-pass: collect global variable types, constructor types and modifies info.
     let mut varTypes : Std.HashMap String Lambda.LMonoTy := {}
+    let mut ctorTypes : Std.HashMap String (Lambda.LDatatype Unit) := {}
     let mut modMap : Std.HashMap String (List (Core.Expression.Ident × Lambda.LMonoTy)) := {}
     for cmd in cmds do
       match cmd with
@@ -1245,12 +1469,18 @@ def toCoreProgram (p : Boole.Program) (gctx : GlobalContext := {}) (fileName : S
       | .command_procedure _ _ nameAnn _ _ specAnn _ _ =>
         let mods ← collectModifiesFromSpec fileName nameAnn.val specAnn.val varTypes
         if !mods.isEmpty then modMap := modMap.insert nameAnn.val mods
+      | .command_datatypes _ _ ⟨_, decls⟩ =>
+        ctorTypes := decls.foldl (init := ctorTypes) fun acc d =>
+        match (toCoreDatatypeDecl d).run' { gctx := gctx } with
+        | .ok dt => dt.constrs.foldl (init := acc) fun acc c => acc.insert c.name.name dt
+        | .error _ => acc
       | _ => pure ()
     let init : TranslateState := {
       fileName := fileName
       gctx := gctx
       modifiesMap := modMap
       globalVarTypes := varTypes
+      ctorTypes := ctorTypes
     }
     let act : TranslateM Core.Program := do
       let decls := (← cmds.mapM toCoreDecls).toList.flatten
@@ -1270,80 +1500,6 @@ def getProgram (p : StrataDDM.Program) : Except Message Boole.Program := do
   | .ok prog => return prog
   | .error e => throw (Message.fromString e)
 
--- Returns true if `ty` mentions the `nat` or `pos` sort anywhere (including nested).
-private def lMonoTyHasNatOrPos : Lambda.LMonoTy → Bool
-  | .tcons "nat" _ | .tcons "pos" _ => true
-  | .tcons _ args => args.attach.any fun ⟨a, _⟩ => lMonoTyHasNatOrPos a
-  | _ => false
-
-private def lTyHasNatOrPos : Lambda.LTy → Bool
-  | .forAll _ ty => lMonoTyHasNatOrPos ty
-
--- Returns true if `expr` contains any nat/pos operator call.
--- Used to catch nat usage in spec (requires/ensures) expressions and function bodies
--- where the surface types may be int (e.g. `ensures nat.toInt(nat.fromInt(x)) == x`).
-private def lExprUsesNatOrPos : Core.Expression.Expr → Bool
-  | .op _ id _           => ["nat.toInt", "nat.fromInt", "nat.add", "nat.sub", "nat.mul",
-                              "nat.div",  "nat.mod",     "nat.lt",  "nat.le",  "nat.gt",
-                              "nat.ge",   "pos.toInt",   "pos.fromInt"].contains id.name
-  | .app _ f x           => lExprUsesNatOrPos f || lExprUsesNatOrPos x
-  | .ite _ c t e         => lExprUsesNatOrPos c || lExprUsesNatOrPos t || lExprUsesNatOrPos e
-  | .eq _ a b            => lExprUsesNatOrPos a || lExprUsesNatOrPos b
-  | .abs _ _ _ body      => lExprUsesNatOrPos body
-  | .quant _ _ _ _ tr b  => lExprUsesNatOrPos tr || lExprUsesNatOrPos b
-  | _                    => false
-
--- Recursively scan a statement list for nat/pos-typed local variable declarations.
--- This catches `var z : nat := ...` inside procedure bodies that wouldn't appear
--- in the procedure's header input/output types.
-private def stmtListHasNatOrPos : List Core.Statement → Bool
-  | [] => false
-  | s :: rest =>
-    let here := match s with
-      | .cmd (.cmd (.init _ ty (.det e) _)) => lTyHasNatOrPos ty || lExprUsesNatOrPos e
-      | .cmd (.cmd (.init _ ty _ _))    => lTyHasNatOrPos ty
-      | .cmd (.cmd (.assert _ b _))     => lExprUsesNatOrPos b
-      | .cmd (.cmd (.assume _ b _))     => lExprUsesNatOrPos b
-      | .cmd (.cmd (.cover _ b _))      => lExprUsesNatOrPos b
-      | .cmd (.cmd (.set _ (.det e) _)) => lExprUsesNatOrPos e
-      | .block _ inner _                => stmtListHasNatOrPos inner
-      | .ite (.det c) thenb elseb _     =>
-          lExprUsesNatOrPos c || stmtListHasNatOrPos thenb || stmtListHasNatOrPos elseb
-      | .ite .nondet thenb elseb _      =>
-          stmtListHasNatOrPos thenb || stmtListHasNatOrPos elseb
-      | .loop (.det g) meas invs body _ =>
-          lExprUsesNatOrPos g
-          || meas.any lExprUsesNatOrPos
-          || invs.any (fun (_, e) => lExprUsesNatOrPos e)
-          || stmtListHasNatOrPos body
-      | .loop .nondet _ invs body _     =>
-          invs.any (fun (_, e) => lExprUsesNatOrPos e) || stmtListHasNatOrPos body
-      | _                               => false
-    here || stmtListHasNatOrPos rest
-
--- Returns true if any function, procedure, or datatype in `cp` references nat/pos.
--- Scans: input/output types, local variable types (body), spec expressions
--- (requires/ensures), and function body expressions — so `ensures nat.toInt(n) >= 0`
--- on an int-typed procedure correctly triggers natLibrary injection.
-private def coreProgUsesNatOrPos (cp : Core.Program) : Bool :=
-  cp.decls.any fun decl => match decl with
-    | .func f _ => f.inputs.values.any lMonoTyHasNatOrPos
-               || lMonoTyHasNatOrPos f.output
-               || f.body.any lExprUsesNatOrPos
-    | .recFuncBlock fs _ => fs.any fun f =>
-        f.inputs.values.any lMonoTyHasNatOrPos
-        || lMonoTyHasNatOrPos f.output
-        || f.body.any lExprUsesNatOrPos
-    | .proc p _ => p.header.inputs.values.any lMonoTyHasNatOrPos
-                || p.header.outputs.values.any lMonoTyHasNatOrPos
-                || (match p.body with
-                   | .structured ss _ => stmtListHasNatOrPos ss
-                   | .cfg _ _ | .abstract => false)
-                || p.spec.preconditions.values.any  (fun c => lExprUsesNatOrPos c.expr)
-                || p.spec.postconditions.values.any (fun c => lExprUsesNatOrPos c.expr)
-    | .type (.data block) _ => block.any fun dt =>
-        dt.constrs.any fun c => c.args.any fun (_, ty) => lMonoTyHasNatOrPos ty
-    | _ => false
 
 -- ── Programmatic binary-nat preamble ─────────────────────────────────────────
 -- Builds the binary-nat library (pos/nat datatypes + arithmetic functions +
@@ -1529,20 +1685,190 @@ private def natCorePreamble : List Core.Decl :=
   , mkFunc    "nat.ge"  ab boolTy (app2 (op' "Int.Ge") toIntA toIntB)
   ]
 
-/-- Prepend the binary nat library to a Core program that uses grammar-level `nat`/`pos`.
-    Skipped when the user declared `nat`/`pos` themselves (the global context takes
+private def pairCorePreamble : List Core.Decl :=
+  let a : LMonoTy := .ftvar "a"
+  let b : LMonoTy := .ftvar "b"
+  let decl : LDatatype Unit :=
+    { name := "pair",
+      typeArgs := ["a", "b"],
+      constrs := [{ name := ⟨"MkPair", ()⟩,
+                    args := [(⟨"fst", ()⟩, a), (⟨"snd", ()⟩, b)],
+                    testerName := "pair..isMkPair" }],
+      constrs_ne := by simp }
+  [.type (.data [decl]) .empty]
+
+private def pairOpNames : List String :=
+  [ "MkPair", "pair..isMkPair", "pair..fst", "pair..snd"]
+
+
+
+private def optionCorePreamble : List Core.Decl :=
+  let T : LMonoTy := .ftvar "T"
+  let op' (n : String) : Core.Expression.Expr := .op booleLoc ⟨n, ()⟩ none
+  let fvar' (n : String) : Core.Expression.Expr := .fvar booleLoc ⟨n, ()⟩ none
+  let getFunc : Core.Decl := .func {
+    name := ⟨"option.get", ()⟩,
+    typeArgs := ["T"],
+    inputs := [(⟨"o", ()⟩, (.tcons "option" [T]))],
+    output := T,
+    body := some (.app booleLoc (op' "option..val") (fvar' "o")),
+    attr := #[],
+    axioms := [],
+    preconditions := [⟨.app booleLoc (op' "option..isSome") (fvar' "o"), booleLoc⟩],
+    measure := none
+  } .empty
+
+  let getOrElseFunc : Core.Decl := .func {
+    name := ⟨"option.getOrElse", ()⟩,
+    typeArgs := ["T"],
+    inputs := [(⟨"o", ()⟩, (.tcons "option" [T])), (⟨"default", ()⟩, T)],
+    output := T,
+    body := some (.ite booleLoc (.app booleLoc (op' "option..isSome") (fvar' "o"))
+      (.app booleLoc (op' "option..val") (fvar' "o")) (fvar' "default")),
+    attr := #[], axioms := [], preconditions := [], measure := none
+  } .empty
+
+  let decl : LDatatype Unit := {
+    name := "option",
+    typeArgs := ["T"],
+    constrs := [{
+      name := ⟨"none", ()⟩,
+      args := [],
+      testerName := "option..isNone"
+    },
+    {
+      name := ⟨"some", ()⟩,
+      args := [(⟨"val", () ⟩, T)],
+      testerName := "option..isSome"
+    }],
+    constrs_ne := by simp
+  }
+
+  [.type (.data [decl]) .empty, getFunc, getOrElseFunc]
+
+private def optionOpNames : List String :=
+  [ "some", "none", "option..isSome", "option..isNone", "option..val"]
+
+
+-- Returns true if `ty` mentions a sort with name `name` (including nested)
+mutual
+private def lMonoTyHasDt (name : String) : Lambda.LMonoTy → Bool
+  | .tcons n args => n == name || lMonoTyHasDtList name args
+  | _ => false
+
+private def lMonoTyHasDtList (name : String) : List Lambda.LMonoTy → Bool
+  | [] => false
+  | t :: ts => lMonoTyHasDt name t || lMonoTyHasDtList name ts
+end
+
+-- Returns true if `expr` contains any operator call in `ops` of the type checked in `tyTest`.
+-- Used to catch datatype usage in spec (requires/ensures) expressions and function bodies
+private def lExprUsesDt (tyTest : Lambda.LMonoTy → Bool) (ops : List String) : Core.Expression.Expr → Bool
+  | .op _ id ty           => ops.contains id.name || ty.any tyTest
+  | .app _ f x           => lExprUsesDt tyTest ops f || lExprUsesDt tyTest ops x
+  | .ite _ c t e         => lExprUsesDt tyTest ops c || lExprUsesDt tyTest ops t || lExprUsesDt tyTest ops e
+  | .eq _ a b            => lExprUsesDt tyTest ops a || lExprUsesDt tyTest ops b
+  | .abs _ _ ty body      => lExprUsesDt tyTest ops body || ty.any tyTest
+  | .quant _ _ _ ty tr b  => lExprUsesDt tyTest ops tr || lExprUsesDt tyTest ops b || ty.any tyTest
+  | _                    => false
+
+-- Recursively scan a statement list for local variable declarations for the datatype with a tester function.
+-- This catches `var z : datatype := ...` inside procedure bodies that wouldn't appear
+-- in the procedure's header input/output types.
+mutual
+private def stmtUsesDt (tyTest : Lambda.LMonoTy → Bool) (ops : List String) : Core.Statement → Bool
+    | .cmd (.cmd (.init _ ty (.det e) _))  => (match ty with | .forAll _ ty => tyTest ty) || lExprUsesDt tyTest ops e
+    | .cmd (.cmd (.init _ ty .nondet _))  => match ty with | .forAll _ ty => tyTest ty
+    | .cmd (.cmd (.assert _ b _))     => lExprUsesDt tyTest ops b
+    | .cmd (.cmd (.assume _ b _))     => lExprUsesDt tyTest ops b
+    | .cmd (.cmd (.cover _ b _))      => lExprUsesDt tyTest ops b
+    | .cmd (.cmd (.set _ (.det e) _)) => lExprUsesDt tyTest ops e
+    | .block _ inner _                => stmtUsesDtList tyTest ops inner
+    | .ite (.det c) thenb elseb _     =>
+        lExprUsesDt tyTest ops c || stmtUsesDtList tyTest ops thenb  || stmtUsesDtList tyTest ops elseb
+    | .ite .nondet thenb elseb _      =>
+      stmtUsesDtList tyTest ops thenb  || stmtUsesDtList tyTest ops elseb
+    | .loop (.det g) meas invs body _ =>
+        lExprUsesDt tyTest ops g
+        || meas.any (lExprUsesDt tyTest ops)
+        || invs.any (fun (_, e) => lExprUsesDt tyTest ops e)
+        || stmtUsesDtList tyTest ops body
+    | .loop .nondet _ invs body _     =>
+        invs.any (fun (_, e) => lExprUsesDt tyTest ops e) || stmtUsesDtList tyTest ops body
+    | _                               => false
+
+private def stmtUsesDtList (tyTest : Lambda.LMonoTy → Bool) (ops : List String) : List Core.Statement → Bool
+  | [] => false
+  | st :: sts => stmtUsesDt tyTest ops st || stmtUsesDtList tyTest ops sts
+
+end
+
+-- Returns true if any function, procedure, or datatype in `cp` references the datatype checked in `tyTest`.
+-- Scans: input/output types, local variable types (body), spec expressions
+-- (requires/ensures), and function body expressions — so `ensures nat.toInt(n) >= 0`
+-- on any procedure in `ops` correctly triggers natLibrary injection.
+private def coreProgUsesDt (cp : Core.Program) (tyTest : Lambda.LMonoTy → Bool) (ops : List String): Bool :=
+  cp.decls.any fun decl => match decl with
+  | .func f _ => f.inputs.values.any tyTest
+              || tyTest f.output
+              || f.body.any (lExprUsesDt tyTest ops)
+  | .recFuncBlock fs _ => fs.any fun f =>
+              f.inputs.values.any tyTest
+              || tyTest f.output
+              || f.body.any (lExprUsesDt tyTest ops)
+  | .proc p _ => p.header.inputs.values.any tyTest
+              || p.header.outputs.values.any tyTest
+              || (match p.body with
+                  | .structured ss _ => ss.any (stmtUsesDt tyTest ops)
+                  | .cfg _ _ | .abstract => false)
+              || p.spec.preconditions.values.any  (fun c => (lExprUsesDt tyTest ops) c.expr)
+              || p.spec.postconditions.values.any (fun c => (lExprUsesDt tyTest ops) c.expr)
+  | .type (.data block) _ => block.any fun dt => dt.constrs.any fun c => c.args.any fun(_, ty) => tyTest ty
+  | _ => false
+
+private def natOpNames : List String := [
+  "nat.toInt", "nat.fromInt",
+  "nat.add", "nat.sub", "nat.mul", "nat.div", "nat.mod",
+  "nat.lt", "nat.le", "nat.gt", "nat.ge",
+  "pos.toInt", "pos.fromInt"
+]
+-- Returns true if `ty` mentions the `nat` or `pos` sort anywhere (including nested).
+private def lMonoTyHasNatOrPos : Lambda.LMonoTy → Bool
+  | .tcons "nat" _ | .tcons "pos" _ => true
+  | .tcons _ args => args.attach.any fun ⟨a, _⟩ => lMonoTyHasNatOrPos a
+  | _ => false
+
+-- Returns true if any function, procedure, or datatype in `cp` references nat/pos.
+-- Scans: input/output types, local variable types (body), spec expressions
+-- (requires/ensures), and function body expressions — so `ensures nat.toInt(n) >= 0`
+-- on an int-typed procedure correctly triggers natLibrary injection.
+private def coreProgUsesNatOrPos (cp : Core.Program) : Bool :=
+  coreProgUsesDt cp lMonoTyHasNatOrPos natOpNames
+
+/-- Prepend the binary nat, pair and option libraries to a Core program that uses grammar-level `nat`/`pos`/`pair`/`option`.
+    Skipped when the user declared `nat`/`pos`/`pair`/`option` themselves (the global context takes
     precedence) and when the program does not mention them, so unrelated programs get no
     quantified axioms. `typeCheck`, `verify` and the `gen_smt_vcs_boole` path all go through
     this, so they see the same program. -/
-def withNatPreamble (gctx : StrataDDM.GlobalContext) (cp : Core.Program) : Core.Program :=
+def withDtPreambles (gctx : StrataDDM.GlobalContext) (cp : Core.Program) : Core.Program :=
   let hasUserNatDecl := (gctx.findIndex? "nat").isSome || (gctx.findIndex? "pos").isSome
-  if hasUserNatDecl || !coreProgUsesNatOrPos cp then cp
+  let cp := if hasUserNatDecl || !coreProgUsesNatOrPos cp then cp
   else { cp with decls := natCorePreamble ++ cp.decls }
+
+  let usesPair := coreProgUsesDt cp (lMonoTyHasDt "pair") pairOpNames
+  let hasUserPairDecl := (gctx.findIndex? "pair").isSome
+  let cp := if hasUserPairDecl || !usesPair then cp
+  else { cp with decls := pairCorePreamble ++ cp.decls }
+
+  let usesOption := coreProgUsesDt cp (lMonoTyHasDt "option") optionOpNames
+  let hasUserOptionDecl := (gctx.findIndex? "option").isSome
+  if hasUserOptionDecl || !usesOption then cp
+  else { cp with decls := optionCorePreamble ++ cp.decls }
 
 def typeCheck (p : StrataDDM.Program) (options : Core.VerifyOptions := .default) : Except Message Core.Program := do
   let prog ← getProgram p
   let coreProg ← toCoreProgram prog p.globalContext
-  Core.typeCheck options (withNatPreamble p.globalContext coreProg)
+  Core.typeCheck options (withDtPreambles p.globalContext coreProg)
 
 -- ── Validate-Candidate: pure-Lean nat arithmetic ─────────────────────────────
 -- When the incremental SMT solver returns `unknown (some m)` for a nat-using
@@ -1811,15 +2137,15 @@ def verify
     | .error e =>
       throw <| IO.Error.userError (toString (e.format (some ictx.fileMap)))
     | .ok cp =>
-      -- Auto-inject the binary nat library when grammar-level nat/pos types are used.
-      let usesNatOrPos := coreProgUsesNatOrPos cp
-      let cp := withNatPreamble env.globalContext cp
+      -- Auto-inject the binary nat, pair and option libraries when grammar-level nat/pos types are used.
+      let cp := withDtPreambles env.globalContext cp
+
       -- Wire the nat candidate-validation phase whenever nat/pos types are in use.
       -- Intentionally NOT conditioned on a user nat/pos declaration (unlike
-      -- `withNatPreamble`): `prepend`-based programs put nat/pos into globalContext
+      -- `withDtPreambles`): `prepend`-based programs put nat/pos into globalContext
       -- but still need candidate validation. natCandidatePhase is a no-op for
       -- opaque/non-algebraic nat since termToLeanPos/Nat won't parse those model entries.
-      let usesGrammarNat := usesNatOrPos
+      let usesGrammarNat := coreProgUsesNatOrPos cp
       let externalPhases : List Core.AbstractedPhase :=
         if usesGrammarNat then [natCandidatePhase] else []
       -- `Core.verify` takes the procedure filter through `VerifyOptions`; a
