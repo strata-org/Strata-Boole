@@ -85,12 +85,30 @@ build, on a stable target.
      facts their axioms give in every model, and that the factory of any procedure
      resolves the built-ins as `Core.Factory` does (strata-org/Strata#1506); `div` and
      `mod` at a non-zero divisor (strata-org/Strata#1507).
-   - To write: user functions (a function equals its body in every model), the use of a
-     quantified hypothesis, and the program's axioms as Lean facts. The `bv` operators and
-     conversions and `Map` follow when a program needs them.
+   - In `StrataBoole/HoareLift.lean`, until Strata has them: the Boolean of an integer
+     equality, reading a variable of the store inside a denotation, and a function as its
+     body from a factory lookup.
+   - The `bv` operators and conversions and `Map` follow when a program needs them.
 
-   `StrataBoole/HoareLift.lean` holds what Strata does not have yet, today the Boolean of
-   an equality between integers.
+   Lifting a clause takes five steps, done by hand once in
+   `StrataBooleTest/hoare_lift_forall.lean` for a quantified clause of the shape
+   `dalek_sum_of_slice` has:
+   1. evaluation to `true` is the denotation being `true`
+      (`LExpr.denoteEval_eq_ofBool_iff`);
+   2. the store types the variables as the clause does, so annotating changes nothing
+      (`LExpr.annotateFvars_eq_self`);
+   3. Strata's `denotes` tactic computes the denotation: a quantifier becomes a Lean `∀`,
+      the body a term in the model's operators;
+   4. a variable read from the store is the value the store holds
+      (`HoareLift.fvarVal_of_store`);
+   5. the built-in operators are their Lean operations (the `_opInterp_of_lookup` lemmas),
+      and a user function is its body where the proof needs it
+      (`HoareLift.opInterp_of_body`).
+
+   So the lemmas for the benchmark are there once the two pull requests merge, and what is
+   left of this step is the tactic that runs the five steps. Its code has to live in a
+   module that imports Strata's denotation modules with `import all`, since `denotes` and
+   its lemmas are internal to them.
 
    This is `core_lift` of the same experiment.
 3. **Boole entry.** `Strata.Boole.typeCheck` gives the type-checked Core program of a
